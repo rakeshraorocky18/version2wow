@@ -1,0 +1,75 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Poppins:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-gray-50 text-gray-900 antialiased;
+    font-family: 'Poppins', sans-serif;
+  }
+
+  h1,
+  h2,
+  h3,
+  .font-display {
+    font-family: 'Playfair Display', serif;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-primary-600 text-white px-6 py-3 rounded-lg font-medium
+           hover:bg-primary-700 transition-colors duration-200
+           focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2;
+  }
+
+  .btn-secondary {
+    @apply bg-white text-primary-600 border border-primary-600 px-6 py-3 rounded-lg font-medium
+           hover:bg-primary-50 transition-colors duration-200;
+  }
+
+  .btn-gold {
+    @apply bg-gold-500 text-white px-6 py-3 rounded-lg font-medium
+           hover:bg-gold-600 transition-colors duration-200;
+  }
+
+  .card {
+    @apply bg-white rounded-xl shadow-sm border border-gray-100 p-6;
+    transition: transform 220ms ease, box-shadow 220ms ease;
+  }
+
+  .input-field {
+    @apply w-full px-4 py-3 rounded-lg border border-gray-300
+           focus:border-primary-500 focus:ring-2 focus:ring-primary-200
+           outline-none transition-all duration-200;
+  }
+}
+
+@layer utilities {
+  .soft-fade-in {
+    animation: soft-fade-in 480ms ease-out both;
+  }
+
+  .hover-glow {
+    transition: box-shadow 220ms ease, transform 220ms ease;
+  }
+
+  .hover-glow:hover {
+    box-shadow: 0 12px 28px rgba(190, 120, 156, 0.25);
+    transform: translateY(-2px);
+  }
+}
+
+@keyframes soft-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
