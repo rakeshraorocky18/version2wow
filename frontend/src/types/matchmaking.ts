@@ -4,6 +4,11 @@ export interface MatchFilters {
   gender: string;
   religion: string;
   caste: string;
+  subCaste: string;
+  education: string;
+  occupation: string;
+  workingStatus: string;
+  country: string;
   city: string;
   state: string;
   diet: string;
@@ -29,11 +34,22 @@ export interface MatchProfile {
   firstName: string;
   lastName: string;
   gender?: string;
+  dateOfBirth?: string;
+  age?: number;
+  height?: number;
   city?: string;
   state?: string;
+  country?: string;
   religion?: string;
+  caste?: string;
+  subCaste?: string;
+  maritalStatus?: string;
   occupation?: string;
   education?: string;
+  bio?: string;
+  isVerified?: boolean;
+  isPremium?: boolean;
+  onlineStatus?: boolean;
   photos?: string[];
   wizardProfile?: { profilePhoto?: string };
   compatibilityScore?: number;
@@ -44,6 +60,11 @@ export const EMPTY_FILTERS: MatchFilters = {
   gender: '',
   religion: '',
   caste: '',
+  subCaste: '',
+  education: '',
+  occupation: '',
+  workingStatus: '',
+  country: '',
   city: '',
   state: '',
   diet: '',

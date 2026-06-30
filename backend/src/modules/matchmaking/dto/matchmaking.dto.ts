@@ -38,12 +38,22 @@ export class ProfileSearchQueryDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  subCaste?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   city?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   state?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  country?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -59,6 +69,16 @@ export class ProfileSearchQueryDto {
   @IsOptional()
   @IsString()
   education?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  occupation?: string;
+
+  @ApiPropertyOptional({ description: "working | not_working" })
+  @IsOptional()
+  @IsString()
+  workingStatus?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

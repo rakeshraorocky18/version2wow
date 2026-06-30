@@ -32,6 +32,9 @@ export class ProfileEntity {
   religion: string;
 
   @Column({ nullable: true })
+  religionOther: string;
+
+  @Column({ nullable: true })
   caste: string;
 
   @Column({ nullable: true })
@@ -41,7 +44,55 @@ export class ProfileEntity {
   education: string;
 
   @Column({ nullable: true })
+  highestQualification: string;
+
+  @Column({ nullable: true })
+  qualificationOther: string;
+
+  @Column({ nullable: true })
+  degreeName: string;
+
+  @Column({ nullable: true })
+  specialization: string;
+
+  @Column({ nullable: true })
+  collegeUniversity: string;
+
+  @Column({ nullable: true })
+  passingYear: string;
+
+  @Column({ nullable: true })
+  gradeCgpa: string;
+
+  @Column({ nullable: true })
   occupation: string;
+
+  @Column({ default: false })
+  currentlyWorking: boolean;
+
+  @Column({ nullable: true })
+  companyName: string;
+
+  @Column({ nullable: true })
+  jobTitle: string;
+
+  @Column({ nullable: true })
+  industry: string;
+
+  @Column({ nullable: true })
+  annualIncome: string;
+
+  @Column({ nullable: true })
+  yearsOfExperience: string;
+
+  @Column({ nullable: true })
+  workLocation: string;
+
+  @Column({ nullable: true })
+  currentStatus: string;
+
+  @Column({ nullable: true })
+  currentStatusOther: string;
 
   @Column({ nullable: true })
   income: string;
@@ -272,6 +323,12 @@ export class ProfileEntity {
 
   @Column({ default: false })
   isVerified: boolean;
+
+  @Column({ default: false })
+  isPremium: boolean;
+
+  @Column({ default: false })
+  onlineStatus: boolean;
 
   @CreateDateColumn()
   createdAt: Date;

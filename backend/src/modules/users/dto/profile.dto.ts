@@ -29,6 +29,11 @@ export class CreateProfileDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  religionOther?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   caste?: string;
 
   @ApiPropertyOptional()
@@ -44,7 +49,87 @@ export class CreateProfileDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  highestQualification?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  qualificationOther?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  degreeName?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  specialization?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  collegeUniversity?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  passingYear?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  gradeCgpa?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   occupation?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  currentlyWorking?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  companyName?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  jobTitle?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  industry?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  annualIncome?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  yearsOfExperience?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  workLocation?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  currentStatus?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  currentStatusOther?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

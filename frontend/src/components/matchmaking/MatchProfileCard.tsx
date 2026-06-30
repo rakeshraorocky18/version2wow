@@ -1,7 +1,7 @@
-import { Bookmark, Heart, MapPin, Briefcase, GraduationCap } from 'lucide-react';
+import { Bookmark, Heart, MapPin, Briefcase, GraduationCap, CheckCircle2, Crown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getPhotoUrl } from '../../lib/profileUtils';
-import type { MatchProfile } from '../types/matchmaking';
+import type { MatchProfile } from '../../types/matchmaking';
 
 type Props = {
   profile: MatchProfile;
@@ -22,6 +22,14 @@ export default function MatchProfileCard({
 }: Props) {
   const navigate = useNavigate();
   const photoUrl = getPhotoUrl(profile.photos?.[0] || profile.wizardProfile?.profilePhoto || '');
+  const age =
+    profile.age ??
+    (profile.dateOfBirth
+      ? Math.max(
+          0,
+          new Date().getFullYear() - new Date(profile.dateOfBirth).getFullYear(),
+        )
+      : null);
 
   return (
     <div
@@ -42,11 +50,23 @@ export default function MatchProfileCard({
         )}
       </div>
 
-      <h3 className="text-lg font-semibold text-gray-900">
-        {profile.firstName} {profile.lastName}
-      </h3>
+      <div className="flex items-center gap-2">
+        <h3 className="text-lg font-semibold text-gray-900">
+          {profile.firstName} {profile.lastName}
+        </h3>
+        {profile.isVerified && <CheckCircle2 size={16} className="text-green-600" />}
+        {profile.isPremium && <Crown size={16} className="text-amber-500" />}
+        {profile.onlineStatus && <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">Online</span>}
+      </div>
 
       <div className="mt-2 space-y-1 text-sm text-gray-600">
+        {(age || profile.height) && (
+          <p>{[age ? `${age} yrs` : null, profile.height ? `${profile.height} ft` : null].filter(Boolean).join(' · ')}</p>
+        )}
+        {(profile.religion || profile.caste) && (
+          <p>{[profile.religion, profile.caste].filter(Boolean).join(' · ')}</p>
+        )}
+        {profile.maritalStatus && <p>{profile.maritalStatus}</p>}
         {profile.city && (
           <p className="flex items-center gap-1">
             <MapPin size={14} /> {[profile.city, profile.state].filter(Boolean).join(', ')}
@@ -62,12 +82,22 @@ export default function MatchProfileCard({
             <GraduationCap size={14} /> {profile.education}
           </p>
         )}
+        {profile.bio && <p className="line-clamp-2 text-xs text-gray-500">{profile.bio}</p>}
         {profile.compatibility?.highlights?.length ? (
           <p className="text-xs text-primary-700 mt-1">{profile.compatibility.highlights.slice(0, 2).join(' · ')}</p>
         ) : null}
       </div>
 
       <div className="mt-4 flex gap-2">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            navigate(`/app/matches/${profile.id}`);
+          }}
+          className="px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
+        >
+          View Profile
+        </button>
         <button
           onClick={(e) => {
             e.stopPropagation();

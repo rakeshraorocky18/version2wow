@@ -5,6 +5,7 @@ import { Loader2, RotateCcw, Save, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../lib/api';
 import { getPhotoUrl } from '../lib/profileUtils';
+import { Country, State, City } from 'country-state-city';
 
 type ProfileForm = Record<string, any>;
 
@@ -35,6 +36,35 @@ const FAMILY_TYPES = ['Nuclear Family', 'Joint Family', 'Extended Family'];
 const FAMILY_STATUS = ['Middle Class', 'Upper Middle Class', 'Affluent', 'Rich'];
 const EATING = ['Vegetarian', 'Eggetarian', 'Non-Vegetarian', 'Vegan'];
 const HABIT = ['Never', 'Occasionally', 'Frequently'];
+const RELIGION_OPTIONS = [
+  'Hindu',
+  'Christian',
+  'Jain',
+  'Sikh',
+  'Muslim',
+  'Buddhist',
+  'Jewish',
+  'Parsi',
+  'Spiritual - not religious',
+  'No Religion',
+  'Other',
+];
+const EDUCATION_OPTIONS = [
+  'No Formal Education',
+  'Primary School',
+  'High School',
+  'Intermediate',
+  'Diploma',
+  "Bachelor's Degree",
+  "Master's Degree",
+  'MBA',
+  'M.Tech',
+  'MCA',
+  'MBBS',
+  'PhD',
+  'Other',
+];
+const WORK_STATUS_OPTIONS = ['Student', 'Homemaker', 'Looking for Job', 'Business', 'Freelancer', 'Retired', 'Not Working', 'Other'];
 
 function normalizeCompareValue(value: unknown) {
   if (value === '' || value === null || value === undefined) return null;
@@ -100,6 +130,7 @@ export default function EditProfile() {
     placeOfBirth: '',
     horoscopeFileUrl: '',
     religion: '',
+    religionOther: '',
     caste: '',
     subCaste: '',
     motherTongue: '',
@@ -137,6 +168,22 @@ export default function EditProfile() {
     diet: '',
     drinking: '',
     smoking: '',
+    highestQualification: '',
+    qualificationOther: '',
+    degreeName: '',
+    specialization: '',
+    collegeUniversity: '',
+    passingYear: '',
+    gradeCgpa: '',
+    currentlyWorking: false,
+    companyName: '',
+    jobTitle: '',
+    industry: '',
+    annualIncome: '',
+    yearsOfExperience: '',
+    workLocation: '',
+    currentStatus: '',
+    currentStatusOther: '',
     photos: [],
   });
   const initialRef = useRef<ProfileForm>({});
@@ -175,6 +222,26 @@ export default function EditProfile() {
   }, [existing]);
 
   const sectionTitle = useMemo(() => SECTIONS[step], [step]);
+  const countries = useMemo(() => Country.getAllCountries(), []);
+  const selectedCountry = useMemo(
+    () => countries.find((c) => c.name === form.country),
+    [countries, form.country],
+  );
+  const states = useMemo(
+    () => (selectedCountry ? State.getStatesOfCountry(selectedCountry.isoCode) : []),
+    [selectedCountry],
+  );
+  const selectedState = useMemo(
+    () => states.find((s) => s.name === form.state),
+    [states, form.state],
+  );
+  const cities = useMemo(
+    () =>
+      selectedCountry && selectedState
+        ? City.getCitiesOfState(selectedCountry.isoCode, selectedState.isoCode)
+        : [],
+    [selectedCountry, selectedState],
+  );
 
   const update = (key: string, value: any) => {
     setForm((prev) => {
@@ -189,6 +256,36 @@ export default function EditProfile() {
           while (current.length < count) current.push({ relation: 'Brother', married: false });
           next.siblingDetails = current;
         }
+      }
+      if (key === 'country') {
+        next.state = '';
+        next.city = '';
+      }
+      if (key === 'state') {
+        next.city = '';
+      }
+      if (key === 'religion' && value !== 'Other') {
+        next.religionOther = '';
+      }
+      if (key === 'highestQualification' && value !== 'Other') {
+        next.qualificationOther = '';
+      }
+      if (key === 'currentlyWorking') {
+        if (value) {
+          next.currentStatus = '';
+          next.currentStatusOther = '';
+        } else {
+          next.occupation = '';
+          next.companyName = '';
+          next.jobTitle = '';
+          next.industry = '';
+          next.annualIncome = '';
+          next.yearsOfExperience = '';
+          next.workLocation = '';
+        }
+      }
+      if (key === 'currentStatus' && value !== 'Other') {
+        next.currentStatusOther = '';
       }
       return next;
     });
@@ -218,6 +315,18 @@ export default function EditProfile() {
     ['firstName', 'lastName', 'dateOfBirth', 'height', 'religion', 'maritalStatus', 'country', 'state', 'city'].forEach((k) => {
       if (!String(form[k] ?? '').trim()) next[k] = 'Required';
     });
+    if (form.religion === 'Other' && !String(form.religionOther || '').trim()) {
+      next.religionOther = 'Please specify religion';
+    }
+    if (form.currentlyWorking && !String(form.occupation || '').trim()) {
+      next.occupation = 'Occupation is required when currently working';
+    }
+    if (!form.currentlyWorking && !String(form.currentStatus || '').trim()) {
+      next.currentStatus = 'Current status is required';
+    }
+    if (!form.currentlyWorking && form.currentStatus === 'Other' && !String(form.currentStatusOther || '').trim()) {
+      next.currentStatusOther = 'Please specify current status';
+    }
     if (form.physicalStatus === 'Differently Abled' && !String(form.disabilityDetails || '').trim()) {
       next.disabilityDetails = 'Please describe the disability';
     }
@@ -237,15 +346,18 @@ export default function EditProfile() {
     const payload: ProfileForm = {};
     const copyKeys = [
       'firstName', 'middleName', 'lastName', 'displayName', 'gender', 'dateOfBirth',
+      'education', 'occupation', 'income',
       'height', 'weight', 'bodyType', 'complexion', 'bloodGroup', 'physicalStatus', 'disabilityDetails',
       'horoscopeAvailable', 'rashi', 'nakshatra', 'gothram', 'manglik', 'horoscope',
       'timeOfBirth', 'placeOfBirth', 'horoscopeFileUrl',
-      'religion', 'caste', 'subCaste', 'motherTongue', 'community',
+      'religion', 'religionOther', 'caste', 'subCaste', 'motherTongue', 'community',
       'maritalStatus', 'yearsMarried', 'haveChildren', 'childrenLivingWith', 'readyForRemarriage',
       'address', 'pincode', 'familyType', 'familyStatus', 'fatherName', 'fatherAlive', 'fatherOccupation',
       'motherName', 'motherAlive', 'motherOccupation', 'siblings', 'siblingDetails',
       'bio', 'prefAgeMin', 'prefAgeMax', 'prefHeightMin', 'prefHeightMax',
       'prefMaritalStatuses', 'prefReligions', 'prefCastes', 'prefCities', 'prefFamilyType',
+      'highestQualification', 'qualificationOther', 'degreeName', 'specialization', 'collegeUniversity', 'passingYear', 'gradeCgpa',
+      'currentlyWorking', 'companyName', 'jobTitle', 'industry', 'annualIncome', 'yearsOfExperience', 'workLocation', 'currentStatus', 'currentStatusOther',
       'diet', 'drinking', 'smoking', 'photos',
     ];
 
@@ -308,7 +420,7 @@ export default function EditProfile() {
       const changed: ProfileForm = {};
       const ignoreKeys = new Set([
         'age', 'wizardProfile', 'id', 'userId', 'createdAt', 'updatedAt',
-        'isComplete', 'isVisible', 'isVerified', 'education', 'occupation', 'income',
+        'isComplete', 'isVisible', 'isVerified',
         'educationList', 'experience', 'expressYourself', 'languagesKnown', 'resumeUrl',
         'preferences', 'location', 'prefLocations', 'prefEducation', 'prefDiet',
         'brothers', 'marriedBrothers', 'sisters', 'marriedSisters', 'familyValues', 'zodiacSign',
@@ -424,6 +536,57 @@ export default function EditProfile() {
             {form.physicalStatus === 'Differently Abled' && (
               <textarea className="input-field md:col-span-2 min-h-[90px]" placeholder="Describe disability" value={form.disabilityDetails || ''} onChange={(e) => update('disabilityDetails', e.target.value)} />
             )}
+            <div className="md:col-span-2 mt-2 border border-gray-100 rounded-xl p-4 space-y-3">
+              <h3 className="text-sm font-semibold text-gray-800">Education Details (Optional)</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <select className="input-field" value={form.highestQualification || ''} onChange={(e) => update('highestQualification', e.target.value)} aria-label="Highest Qualification">
+                  <option value="">Highest Qualification</option>
+                  {EDUCATION_OPTIONS.map((v) => <option key={v} value={v}>{v}</option>)}
+                </select>
+                {form.highestQualification === 'Other' && (
+                  <input className="input-field" placeholder="Specify qualification" value={form.qualificationOther || ''} onChange={(e) => update('qualificationOther', e.target.value)} />
+                )}
+                <input className="input-field" placeholder="Degree Name" value={form.degreeName || ''} onChange={(e) => update('degreeName', e.target.value)} />
+                <input className="input-field" placeholder="Specialization" value={form.specialization || ''} onChange={(e) => update('specialization', e.target.value)} />
+                <input className="input-field" placeholder="College / University" value={form.collegeUniversity || ''} onChange={(e) => update('collegeUniversity', e.target.value)} />
+                <input className="input-field" placeholder="Passing Year" value={form.passingYear || ''} onChange={(e) => update('passingYear', e.target.value)} />
+                <input className="input-field" placeholder="Grade / CGPA (Optional)" value={form.gradeCgpa || ''} onChange={(e) => update('gradeCgpa', e.target.value)} />
+              </div>
+            </div>
+            <div className="md:col-span-2 mt-2 border border-gray-100 rounded-xl p-4 space-y-3">
+              <h3 className="text-sm font-semibold text-gray-800">Work History</h3>
+              <div className="flex flex-wrap gap-4 text-sm">
+                <label className="inline-flex items-center gap-2">
+                  <input type="radio" name="currentlyWorking" checked={form.currentlyWorking === true} onChange={() => update('currentlyWorking', true)} />
+                  Yes, currently working
+                </label>
+                <label className="inline-flex items-center gap-2">
+                  <input type="radio" name="currentlyWorking" checked={form.currentlyWorking === false} onChange={() => update('currentlyWorking', false)} />
+                  No
+                </label>
+              </div>
+              {form.currentlyWorking ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <input className="input-field" placeholder="Occupation *" value={form.occupation || ''} onChange={(e) => update('occupation', e.target.value)} />
+                  <input className="input-field" placeholder="Company Name" value={form.companyName || ''} onChange={(e) => update('companyName', e.target.value)} />
+                  <input className="input-field" placeholder="Job Title" value={form.jobTitle || ''} onChange={(e) => update('jobTitle', e.target.value)} />
+                  <input className="input-field" placeholder="Industry" value={form.industry || ''} onChange={(e) => update('industry', e.target.value)} />
+                  <input className="input-field" placeholder="Annual Income" value={form.annualIncome || ''} onChange={(e) => update('annualIncome', e.target.value)} />
+                  <input className="input-field" placeholder="Years of Experience" value={form.yearsOfExperience || ''} onChange={(e) => update('yearsOfExperience', e.target.value)} />
+                  <input className="input-field md:col-span-2" placeholder="Work Location" value={form.workLocation || ''} onChange={(e) => update('workLocation', e.target.value)} />
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <select className="input-field" value={form.currentStatus || ''} onChange={(e) => update('currentStatus', e.target.value)} aria-label="Current Status">
+                    <option value="">Current Status *</option>
+                    {WORK_STATUS_OPTIONS.map((v) => <option key={v} value={v}>{v}</option>)}
+                  </select>
+                  {form.currentStatus === 'Other' && (
+                    <input className="input-field" placeholder="Specify current status" value={form.currentStatusOther || ''} onChange={(e) => update('currentStatusOther', e.target.value)} />
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -455,11 +618,17 @@ export default function EditProfile() {
 
         {step === 2 && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <textarea className="input-field min-h-[90px]" placeholder="Religion" value={form.religion || ''} onChange={(e) => update('religion', e.target.value)} />
-            <textarea className="input-field min-h-[90px]" placeholder="Caste" value={form.caste || ''} onChange={(e) => update('caste', e.target.value)} />
-            <textarea className="input-field min-h-[90px]" placeholder="Sub Caste" value={form.subCaste || ''} onChange={(e) => update('subCaste', e.target.value)} />
-            <textarea className="input-field min-h-[90px]" placeholder="Mother Tongue" value={form.motherTongue || ''} onChange={(e) => update('motherTongue', e.target.value)} />
-            <textarea className="input-field min-h-[90px] md:col-span-2" placeholder="Community" value={form.community || ''} onChange={(e) => update('community', e.target.value)} />
+            <select className="input-field" value={form.religion || ''} onChange={(e) => update('religion', e.target.value)} aria-label="Religion">
+              <option value="">Select Religion</option>
+              {RELIGION_OPTIONS.map((v) => <option key={v} value={v}>{v}</option>)}
+            </select>
+            {form.religion === 'Other' && (
+              <input className="input-field" placeholder="Please specify your religion" value={form.religionOther || ''} onChange={(e) => update('religionOther', e.target.value)} />
+            )}
+            <input className="input-field" placeholder="Caste" value={form.caste || ''} onChange={(e) => update('caste', e.target.value)} />
+            <input className="input-field" placeholder="Sub Caste" value={form.subCaste || ''} onChange={(e) => update('subCaste', e.target.value)} />
+            <input className="input-field" placeholder="Mother Tongue" value={form.motherTongue || ''} onChange={(e) => update('motherTongue', e.target.value)} />
+            <input className="input-field md:col-span-2" placeholder="Community" value={form.community || ''} onChange={(e) => update('community', e.target.value)} />
           </div>
         )}
 
@@ -485,9 +654,18 @@ export default function EditProfile() {
 
         {step === 4 && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <textarea className="input-field min-h-[90px]" placeholder="Country" value={form.country || ''} onChange={(e) => update('country', e.target.value)} />
-            <textarea className="input-field min-h-[90px]" placeholder="State" value={form.state || ''} onChange={(e) => update('state', e.target.value)} />
-            <textarea className="input-field min-h-[90px]" placeholder="City" value={form.city || ''} onChange={(e) => update('city', e.target.value)} />
+            <input list="countries-list" className="input-field" placeholder="Country" value={form.country || ''} onChange={(e) => update('country', e.target.value)} />
+            <datalist id="countries-list">
+              {countries.map((c) => <option key={c.isoCode} value={c.name} />)}
+            </datalist>
+            <input list="states-list" className="input-field" placeholder="State" value={form.state || ''} onChange={(e) => update('state', e.target.value)} disabled={!form.country} />
+            <datalist id="states-list">
+              {states.map((s) => <option key={s.isoCode} value={s.name} />)}
+            </datalist>
+            <input list="cities-list" className="input-field" placeholder="City" value={form.city || ''} onChange={(e) => update('city', e.target.value)} disabled={!form.state} />
+            <datalist id="cities-list">
+              {cities.map((c) => <option key={`${c.name}-${c.latitude}-${c.longitude}`} value={c.name} />)}
+            </datalist>
             <input className="input-field" placeholder="Pincode" value={form.pincode || ''} onChange={(e) => update('pincode', e.target.value)} />
             <textarea className="input-field min-h-[120px] md:col-span-2" placeholder="Current Address" value={form.address || ''} onChange={(e) => update('address', e.target.value)} />
           </div>

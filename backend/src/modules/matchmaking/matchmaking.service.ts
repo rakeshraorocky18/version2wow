@@ -56,11 +56,14 @@ export class MatchmakingService {
   }
 
   private scoreProfiles(
-    viewer: object,
+    viewer: object | null,
     profiles: object[],
     includeHoroscope = true,
     graphBoostIds: string[] = [],
   ) {
+    if (!viewer) {
+      return profiles as Record<string, unknown>[];
+    }
     const viewerRecord = viewer as Record<string, unknown>;
     return profiles
       .map((candidate) => {
@@ -194,7 +197,7 @@ export class MatchmakingService {
   }
 
   async searchMatches(userId: string, query: ProfileSearchQueryDto) {
-    const viewer = await this.getViewerProfile(userId);
+    const viewer = await this.usersService.getProfileOrNull(userId);
     const excludeUserIds = await this.excludeUserIds(userId);
     const page = query.page || 1;
     const limit = query.limit || 20;
@@ -212,7 +215,11 @@ export class MatchmakingService {
   }
 
   async getSuggestedMatches(userId: string, query: ProfileSearchQueryDto = {}) {
-    const viewer = await this.getViewerProfile(userId);
+    const viewer = await this.usersService.getProfileOrNull(userId);
+    if (!viewer) {
+      // If user hasn't created a profile yet, show searchable profiles instead of empty suggestions.
+      return this.searchMatches(userId, query);
+    }
     const excludeUserIds = await this.excludeUserIds(userId);
     const page = query.page || 1;
     const limit = query.limit || 20;

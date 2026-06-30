@@ -53,12 +53,29 @@ export class UsersService implements OnModuleInit {
       phone: dto.phone,
       email: dto.email,
       religion: dto.religion,
+      religionOther: dto.religionOther,
       caste: dto.caste,
       subCaste: dto.subCaste,
       motherTongue: dto.motherTongue,
       community: dto.community,
       education: dto.education,
+      highestQualification: dto.highestQualification,
+      qualificationOther: dto.qualificationOther,
+      degreeName: dto.degreeName,
+      specialization: dto.specialization,
+      collegeUniversity: dto.collegeUniversity,
+      passingYear: dto.passingYear,
+      gradeCgpa: dto.gradeCgpa,
       occupation: dto.occupation,
+      currentlyWorking: dto.currentlyWorking || false,
+      companyName: dto.companyName,
+      jobTitle: dto.jobTitle,
+      industry: dto.industry,
+      annualIncome: dto.annualIncome,
+      yearsOfExperience: dto.yearsOfExperience,
+      workLocation: dto.workLocation,
+      currentStatus: dto.currentStatus,
+      currentStatusOther: dto.currentStatusOther,
       income: dto.income,
       height: dto.height,
       weight: dto.weight,
@@ -178,10 +195,27 @@ export class UsersService implements OnModuleInit {
     if (dto.dateOfBirth !== undefined) profile.dateOfBirth = dto.dateOfBirth;
     if (dto.gender !== undefined) profile.gender = dto.gender;
     if (dto.religion !== undefined) profile.religion = dto.religion;
+    if (dto.religionOther !== undefined) profile.religionOther = dto.religionOther;
     if (dto.caste !== undefined) profile.caste = dto.caste;
     if (dto.motherTongue !== undefined) profile.motherTongue = dto.motherTongue;
     if (dto.education !== undefined) profile.education = dto.education;
+    if (dto.highestQualification !== undefined) profile.highestQualification = dto.highestQualification;
+    if (dto.qualificationOther !== undefined) profile.qualificationOther = dto.qualificationOther;
+    if (dto.degreeName !== undefined) profile.degreeName = dto.degreeName;
+    if (dto.specialization !== undefined) profile.specialization = dto.specialization;
+    if (dto.collegeUniversity !== undefined) profile.collegeUniversity = dto.collegeUniversity;
+    if (dto.passingYear !== undefined) profile.passingYear = dto.passingYear;
+    if (dto.gradeCgpa !== undefined) profile.gradeCgpa = dto.gradeCgpa;
     if (dto.occupation !== undefined) profile.occupation = dto.occupation;
+    if (dto.currentlyWorking !== undefined) profile.currentlyWorking = dto.currentlyWorking;
+    if (dto.companyName !== undefined) profile.companyName = dto.companyName;
+    if (dto.jobTitle !== undefined) profile.jobTitle = dto.jobTitle;
+    if (dto.industry !== undefined) profile.industry = dto.industry;
+    if (dto.annualIncome !== undefined) profile.annualIncome = dto.annualIncome;
+    if (dto.yearsOfExperience !== undefined) profile.yearsOfExperience = dto.yearsOfExperience;
+    if (dto.workLocation !== undefined) profile.workLocation = dto.workLocation;
+    if (dto.currentStatus !== undefined) profile.currentStatus = dto.currentStatus;
+    if (dto.currentStatusOther !== undefined) profile.currentStatusOther = dto.currentStatusOther;
     if (dto.income !== undefined) profile.income = dto.income;
     if (dto.height !== undefined) profile.height = dto.height;
     if (dto.bio !== undefined) profile.bio = dto.bio;
@@ -387,6 +421,22 @@ export class UsersService implements OnModuleInit {
         bloodGroup: profile.bloodGroup,
         physicalStatus: profile.physicalStatus,
         disabilityDetails: profile.disabilityDetails,
+        highestQualification: profile.highestQualification,
+        qualificationOther: profile.qualificationOther,
+        degreeName: profile.degreeName,
+        specialization: profile.specialization,
+        collegeUniversity: profile.collegeUniversity,
+        passingYear: profile.passingYear,
+        gradeCgpa: profile.gradeCgpa,
+        currentlyWorking: profile.currentlyWorking,
+        companyName: profile.companyName,
+        jobTitle: profile.jobTitle,
+        industry: profile.industry,
+        annualIncome: profile.annualIncome,
+        yearsOfExperience: profile.yearsOfExperience,
+        workLocation: profile.workLocation,
+        currentStatus: profile.currentStatus,
+        currentStatusOther: profile.currentStatusOther,
         languagesKnown: profile.languagesKnown || [],
       },
       horoscope: {
@@ -403,6 +453,7 @@ export class UsersService implements OnModuleInit {
       },
       religion: {
         religion: profile.religion,
+        religionOther: profile.religionOther,
         caste: profile.caste,
         subCaste: profile.subCaste,
         motherTongue: profile.motherTongue,
@@ -473,14 +524,25 @@ export class UsersService implements OnModuleInit {
     if (filters.gender) qb.andWhere('p.gender = :gender', { gender: filters.gender });
     if (filters.religion) qb.andWhere('p.religion LIKE :religion', { religion: `%${filters.religion}%` });
     if (filters.caste) qb.andWhere('p.caste LIKE :caste', { caste: `%${filters.caste}%` });
+    if (filters.subCaste) qb.andWhere('p.subCaste LIKE :subCaste', { subCaste: `%${filters.subCaste}%` });
     if (filters.city) qb.andWhere('p.city LIKE :city', { city: `%${filters.city}%` });
     if (filters.state) qb.andWhere('p.state LIKE :state', { state: `%${filters.state}%` });
+    if (filters.country) qb.andWhere('p.country LIKE :country', { country: `%${filters.country}%` });
     if (filters.diet) qb.andWhere('p.diet = :diet', { diet: filters.diet });
     if (filters.maritalStatus) {
       qb.andWhere('p.maritalStatus = :maritalStatus', { maritalStatus: filters.maritalStatus });
     }
     if (filters.education) {
       qb.andWhere('p.education LIKE :education', { education: `%${filters.education}%` });
+    }
+    if (filters.occupation) {
+      qb.andWhere('p.occupation LIKE :occupation', { occupation: `%${filters.occupation}%` });
+    }
+    if (filters.workingStatus === 'working') {
+      qb.andWhere('(p.occupation IS NOT NULL AND p.occupation <> \'\')');
+    }
+    if (filters.workingStatus === 'not_working') {
+      qb.andWhere('(p.currentStatus IS NOT NULL AND p.currentStatus <> \'\')');
     }
     if (filters.familyType) qb.andWhere('p.familyType = :familyType', { familyType: filters.familyType });
     if (filters.horoscopeAvailable === true || filters.horoscopeAvailable === 'true') {
