@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '../lib/api';
+import { useAuthStore } from '../store/authStore';
 import type { MatchFilters } from '../types/matchmaking';
 
 function filtersToParams(filters: MatchFilters) {
@@ -49,9 +50,10 @@ export function useShortlist() {
 export function useReceivedInterests() {
   return useQuery({
     queryKey: ['matches-received'],
+    refetchInterval: 30_000,
     queryFn: async () => {
       const { data } = await api.get('/matches/received');
-      return data;
+      return data as import('../types/matchmaking').MatchInterest[];
     },
   });
 }
@@ -59,9 +61,21 @@ export function useReceivedInterests() {
 export function useSentInterests() {
   return useQuery({
     queryKey: ['matches-sent'],
+    refetchInterval: 30_000,
     queryFn: async () => {
       const { data } = await api.get('/matches/sent');
-      return data;
+      return data as import('../types/matchmaking').MatchInterest[];
+    },
+  });
+}
+
+export function useAcceptedInterests() {
+  return useQuery({
+    queryKey: ['matches-accepted'],
+    refetchInterval: 30_000,
+    queryFn: async () => {
+      const { data } = await api.get('/matches/accepted');
+      return data as import('../types/matchmaking').MatchInterest[];
     },
   });
 }
@@ -111,12 +125,20 @@ export function useMatchActions() {
 }
 
 export function useProfileCompatibility(profileId?: string) {
+  const role = useAuthStore((s) => s.user?.role);
+  const isMatrimonialUser = role === 'bride' || role === 'groom';
+
   return useQuery({
     queryKey: ['match-compatibility', profileId],
-    enabled: !!profileId,
+    enabled: !!profileId && isMatrimonialUser,
+    retry: false,
     queryFn: async () => {
-      const { data } = await api.get(`/matches/compatibility/${profileId}`);
-      return data;
+      try {
+        const { data } = await api.get(`/matches/compatibility/${profileId}`);
+        return data;
+      } catch {
+        return null;
+      }
     },
   });
 }

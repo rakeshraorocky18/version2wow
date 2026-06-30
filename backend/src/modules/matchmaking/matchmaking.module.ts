@@ -6,9 +6,10 @@ import { Match } from './entities/match.entity';
 import { Shortlist } from './entities/shortlist.entity';
 import { UsersModule } from '../users/users.module';
 import { Neo4jMatchService } from './services/neo4j-match.service';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Match, Shortlist]), UsersModule],
+  imports: [TypeOrmModule.forFeature([Match, Shortlist]), UsersModule, NotificationsModule],
   controllers: [MatchmakingController],
   providers: [MatchmakingService, Neo4jMatchService],
   exports: [MatchmakingService],

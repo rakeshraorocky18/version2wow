@@ -45,6 +45,26 @@
            focus:border-primary-500 focus:ring-2 focus:ring-primary-200
            outline-none transition-all duration-200;
   }
+
+  .profile-field-label {
+    @apply mb-1.5 block text-xs font-semibold uppercase tracking-wider text-[#9A5776];
+  }
+
+  .profile-input {
+    @apply w-full rounded-xl border border-[#E5C8D5] bg-[#FFFBFC] px-4 py-2.5 text-sm text-[#5D2B44]
+           placeholder:text-[#C4A0B0]
+           focus:border-[#B66A8A] focus:bg-white focus:ring-2 focus:ring-[#F4D8E4]
+           outline-none transition-all duration-200
+           disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .profile-input-error {
+    @apply border-red-300 focus:border-red-400 focus:ring-red-100;
+  }
+
+  .profile-section-card {
+    @apply rounded-2xl border border-[#F2DFE8] bg-gradient-to-br from-[#FFFBFC] to-[#FFF8FB] p-5;
+  }
 }
 
 @layer utilities {

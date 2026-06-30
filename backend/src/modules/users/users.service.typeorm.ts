@@ -180,6 +180,15 @@ export class UsersService implements OnModuleInit {
     return this.formatProfileResponse(profile);
   }
 
+  /** Resolve profile by entity id or auth user id (for match links). */
+  async getProfileByIdOrUserId(idOrUserId: string): Promise<ProfileEntity> {
+    const byId = await this.profileRepository.findOne({ where: { id: idOrUserId } });
+    if (byId) return this.formatProfileResponse(byId);
+    const byUser = await this.profileRepository.findOne({ where: { userId: idOrUserId } });
+    if (byUser) return this.formatProfileResponse(byUser);
+    throw new NotFoundException('Profile not found');
+  }
+
   async updateProfile(userId: string, dto: UpdateProfileDto): Promise<ProfileEntity> {
     const profile = await this.profileRepository.findOne({ where: { userId } });
     if (!profile) {
@@ -294,6 +303,7 @@ export class UsersService implements OnModuleInit {
     if (dto.location?.pincode !== undefined) profile.pincode = dto.location.pincode;
 
     profile.isComplete = this.isProfileComplete(profile);
+    this.syncDerivedProfileFields(profile);
     const saved = await this.profileRepository.save(profile);
     return this.formatProfileResponse(saved);
   }
@@ -392,12 +402,70 @@ export class UsersService implements OnModuleInit {
       .join('; ');
   }
 
+  private buildEducationList(profile: ProfileEntity): Record<string, unknown>[] {
+    if (profile.educationList?.length) return profile.educationList;
+    const degree = profile.degreeName || profile.highestQualification || profile.qualificationOther;
+    if (!degree && !profile.collegeUniversity && !profile.specialization) return [];
+    return [
+      {
+        degree,
+        qualification: profile.highestQualification || profile.qualificationOther,
+        specialization: profile.specialization,
+        institutionName: profile.collegeUniversity,
+        endYear: profile.passingYear,
+      },
+    ];
+  }
+
+  private buildExperience(profile: ProfileEntity): Record<string, unknown> {
+    const existing = (profile.experience || {}) as Record<string, unknown>;
+    const hasFlat =
+      profile.jobTitle ||
+      profile.companyName ||
+      profile.occupation ||
+      profile.industry ||
+      profile.annualIncome ||
+      profile.currentlyWorking;
+
+    if (!hasFlat && Object.keys(existing).length > 0) return existing;
+
+    return {
+      ...existing,
+      currentlyWorking: profile.currentlyWorking,
+      jobTitle: profile.jobTitle || profile.occupation || existing.jobTitle,
+      companyName: profile.companyName || existing.companyName,
+      industry: profile.industry || existing.industry,
+      currentSalary: profile.annualIncome || profile.income || existing.currentSalary,
+    };
+  }
+
+  private summarizeEducationFromFlat(profile: ProfileEntity): string | undefined {
+    if (profile.education?.trim()) return profile.education;
+    const parts = [profile.degreeName || profile.highestQualification, profile.collegeUniversity].filter(Boolean);
+    return parts.length ? parts.join(' - ') : undefined;
+  }
+
+  private syncDerivedProfileFields(profile: ProfileEntity): void {
+    profile.educationList = this.buildEducationList(profile);
+    profile.experience = this.buildExperience(profile);
+    const educationSummary = this.summarizeEducationFromFlat(profile);
+    if (educationSummary) profile.education = educationSummary;
+    if (!profile.occupation?.trim() && profile.jobTitle?.trim()) {
+      profile.occupation = profile.jobTitle;
+    }
+    if (!profile.isVisible) profile.isVisible = true;
+  }
+
   private formatProfileResponse(profile: ProfileEntity): ProfileEntity & { wizardProfile: Record<string, unknown> } {
     const normalizedPhotos = Array.isArray(profile.photos)
       ? profile.photos
       : profile.photos
         ? [String(profile.photos)]
         : [];
+
+    const educationList = this.buildEducationList(profile);
+    const experience = this.buildExperience(profile);
+    const educationSummary = this.summarizeEducationFromFlat(profile);
 
     const wizardProfile = {
       personalDetails: {
@@ -494,8 +562,8 @@ export class UsersService implements OnModuleInit {
         drinking: profile.drinking,
         smoking: profile.smoking,
       },
-      education: profile.educationList || [],
-      experience: profile.experience || {},
+      education: educationList,
+      experience,
       hobbies: profile.interests || [],
       expressYourself: {
         ...(profile.expressYourself || {}),
@@ -504,7 +572,12 @@ export class UsersService implements OnModuleInit {
       profilePhoto: normalizedPhotos[0] || null,
     };
 
-    return Object.assign(profile, { photos: normalizedPhotos, wizardProfile });
+    return Object.assign(profile, {
+      photos: normalizedPhotos,
+      education: educationSummary || profile.education,
+      occupation: profile.occupation || profile.jobTitle,
+      wizardProfile,
+    });
   }
 
   async searchProfiles(

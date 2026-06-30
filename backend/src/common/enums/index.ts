@@ -2,8 +2,71 @@ export enum UserRole {
   BRIDE = 'bride',
   GROOM = 'groom',
   FAMILY = 'family',
+  REPRESENTATIVE = 'representative',
   VENDOR = 'vendor',
   ADMIN = 'admin',
+}
+
+export enum RepresentativeRelationship {
+  FATHER = 'Father',
+  MOTHER = 'Mother',
+  BROTHER = 'Brother',
+  SISTER = 'Sister',
+  GRANDFATHER = 'Grandfather',
+  GRANDMOTHER = 'Grandmother',
+  UNCLE = 'Uncle',
+  AUNT = 'Aunt',
+  GUARDIAN = 'Guardian',
+  COUSIN = 'Cousin',
+  BROTHER_IN_LAW = 'Brother-in-law',
+  SISTER_IN_LAW = 'Sister-in-law',
+  SON = 'Son',
+  DAUGHTER = 'Daughter',
+  BEST_FRIEND = 'Best Friend',
+  SCHOOL_FRIEND = 'School Friend',
+  COLLEGE_FRIEND = 'College Friend',
+  OFFICE_COLLEAGUE = 'Office Colleague',
+  NEIGHBOUR = 'Neighbour',
+  FAMILY_FRIEND = 'Family Friend',
+  RELATIVE = 'Relative',
+  OTHER = 'Other',
+}
+
+export enum ManagingProfileFor {
+  BRIDE = 'Bride',
+  GROOM = 'Groom',
+}
+
+export enum VendorProfileCategory {
+  WEDDING_PLANNER = 'Wedding Planner',
+  PHOTOGRAPHY = 'Photography',
+  VIDEOGRAPHY = 'Videography',
+  DECORATION = 'Decoration',
+  CATERING = 'Catering',
+  WEDDING_VENUE = 'Wedding Venue',
+  MAKEUP_ARTIST = 'Makeup Artist',
+  MEHENDI_ARTIST = 'Mehendi Artist',
+  DJ = 'DJ',
+  LIVE_BAND = 'Live Band',
+  INVITATION_CARDS = 'Invitation Cards',
+  WEDDING_CARS = 'Wedding Cars',
+  JEWELLERY = 'Jewellery',
+  BRIDAL_WEAR = 'Bridal Wear',
+  GROOM_WEAR = 'Groom Wear',
+  FLOWER_DECORATION = 'Flower Decoration',
+  TRAVEL_SERVICES = 'Travel Services',
+  PANDIT_PRIEST = 'Pandit / Priest',
+  CAKE_DESIGNER = 'Cake Designer',
+  RETURN_GIFTS = 'Return Gifts',
+  EVENT_MANAGEMENT = 'Event Management',
+  OTHER = 'Other',
+}
+
+export enum PricingRange {
+  BUDGET = 'Budget',
+  MID_RANGE = 'Mid Range',
+  PREMIUM = 'Premium',
+  LUXURY = 'Luxury',
 }
 
 export enum Gender {

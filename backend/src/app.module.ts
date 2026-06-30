@@ -12,6 +12,8 @@ import { BookingsModule } from './modules/bookings/bookings.module';
 import { EventsModule } from './modules/events/events.module';
 import { HoneymoonModule } from './modules/honeymoon/honeymoon.module';
 import { FinanceModule } from './modules/finance/finance.module';
+import { RepresentativeProfilesModule } from './modules/representative-profiles/representative-profiles.module';
+import { VendorProfilesModule } from './modules/vendor-profiles/vendor-profiles.module';
 
 @Module({
   imports: [
@@ -40,6 +42,8 @@ import { FinanceModule } from './modules/finance/finance.module';
     EventsModule,
     HoneymoonModule,
     FinanceModule,
+    RepresentativeProfilesModule,
+    VendorProfilesModule,
   ],
 })
 export class AppModule {}

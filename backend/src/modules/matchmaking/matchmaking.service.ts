@@ -14,6 +14,7 @@ import { UsersService } from '../users/users.service.typeorm';
 import { calculateCompatibility } from './engines/compatibility.engine';
 import { buildSuggestionFilters, mergeFilters } from './engines/filter.engine';
 import { Neo4jMatchService } from './services/neo4j-match.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class MatchmakingService {
@@ -24,15 +25,115 @@ export class MatchmakingService {
     private shortlistRepository: Repository<Shortlist>,
     private usersService: UsersService,
     private neo4jMatchService: Neo4jMatchService,
+    private notificationsService: NotificationsService,
   ) {}
 
   private async resolveReceiverUserId(receiverId: string): Promise<string> {
     try {
-      const byProfile = await this.usersService.getProfileById(receiverId);
-      return byProfile.userId;
+      const profile = await this.usersService.getProfileByIdOrUserId(receiverId);
+      return profile.userId;
     } catch {
       return receiverId;
     }
+  }
+
+  /** Normalize stored sender/receiver ids that may be profile ids instead of user ids. */
+  private async resolveUserId(idOrUserId: string): Promise<string> {
+    try {
+      const profile = await this.usersService.getProfileByIdOrUserId(idOrUserId);
+      return profile.userId;
+    } catch {
+      return idOrUserId;
+    }
+  }
+
+  private pairKey(userA: string, userB: string): string {
+    return [userA, userB].sort().join(':');
+  }
+
+  /** Fix legacy rows and drop stale pending duplicates when a settled match already exists. */
+  private async cleanupStaleInterestRecords(userId: string): Promise<void> {
+    const seen = new Map<string, Match>();
+    const rawMatches = await this.matchRepository.find({
+      where: [{ senderId: userId }, { receiverId: userId }],
+    });
+    rawMatches.forEach((m) => seen.set(m.id, m));
+
+    const profile = await this.usersService.getProfileOrNull(userId);
+    if (profile?.id) {
+      const byProfileId = await this.matchRepository.find({
+        where: [{ senderId: profile.id }, { receiverId: profile.id }],
+      });
+      byProfileId.forEach((m) => seen.set(m.id, m));
+    }
+
+    const matches = Array.from(seen.values());
+    if (!matches.length) return;
+
+    type Normalized = { match: Match; senderId: string; receiverId: string };
+    const normalized: Normalized[] = await Promise.all(
+      matches.map(async (match) => {
+        const senderId = await this.resolveUserId(match.senderId);
+        const receiverId = await this.resolveUserId(match.receiverId);
+        if (senderId !== match.senderId || receiverId !== match.receiverId) {
+          match.senderId = senderId;
+          match.receiverId = receiverId;
+          await this.matchRepository.save(match);
+        }
+        return { match, senderId, receiverId };
+      }),
+    );
+
+    const settledPairs = new Set<string>();
+    const pendingByPair = new Map<string, Normalized[]>();
+
+    for (const entry of normalized) {
+      const key = this.pairKey(entry.senderId, entry.receiverId);
+      if (entry.match.status === MatchStatus.PENDING) {
+        const list = pendingByPair.get(key) || [];
+        list.push(entry);
+        pendingByPair.set(key, list);
+      } else if (
+        entry.match.status === MatchStatus.ACCEPTED ||
+        entry.match.status === MatchStatus.REJECTED
+      ) {
+        settledPairs.add(key);
+      }
+    }
+
+    for (const [key, pendingList] of pendingByPair) {
+      if (settledPairs.has(key)) {
+        for (const { match } of pendingList) {
+          await this.matchRepository.remove(match);
+        }
+        continue;
+      }
+      if (pendingList.length > 1) {
+        const sorted = [...pendingList].sort(
+          (a, b) => new Date(b.match.createdAt).getTime() - new Date(a.match.createdAt).getTime(),
+        );
+        for (const { match } of sorted.slice(1)) {
+          await this.matchRepository.remove(match);
+        }
+      }
+    }
+  }
+
+  private async hasExistingInterest(senderId: string, receiverUserId: string): Promise<boolean> {
+    const related = await this.matchRepository.find({
+      where: [{ senderId }, { receiverId: senderId }],
+    });
+    for (const match of related) {
+      const s = await this.resolveUserId(match.senderId);
+      const r = await this.resolveUserId(match.receiverId);
+      if (
+        (s === senderId && r === receiverUserId) ||
+        (s === receiverUserId && r === senderId)
+      ) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private async getViewerProfile(userId: string) {
@@ -86,14 +187,9 @@ export class MatchmakingService {
       throw new BadRequestException('You cannot send interest to yourself');
     }
 
-    const existingMatch = await this.matchRepository.findOne({
-      where: [
-        { senderId, receiverId: receiverUserId },
-        { senderId: receiverUserId, receiverId: senderId },
-      ],
-    });
+    await this.cleanupStaleInterestRecords(senderId);
 
-    if (existingMatch) {
+    if (await this.hasExistingInterest(senderId, receiverUserId)) {
       throw new ConflictException('Interest already exists between these users');
     }
 
@@ -116,7 +212,14 @@ export class MatchmakingService {
       compatibilityScore: compatibility.score,
     });
 
-    return this.matchRepository.save(match);
+    const saved = await this.matchRepository.save(match);
+
+    const senderName = [(viewer as { firstName?: string }).firstName, (viewer as { lastName?: string }).lastName]
+      .filter(Boolean)
+      .join(' ') || 'Someone';
+    await this.notificationsService.sendMatchNotification(receiverUserId, senderName);
+
+    return saved;
   }
 
   async acceptInterest(userId: string, matchId: string): Promise<Match> {
@@ -142,22 +245,25 @@ export class MatchmakingService {
   }
 
   async getReceivedInterests(userId: string) {
+    await this.cleanupStaleInterestRecords(userId);
     const matches = await this.matchRepository.find({
       where: { receiverId: userId, status: MatchStatus.PENDING },
       order: { createdAt: 'DESC' },
     });
-    return this.attachProfilesToMatches(matches);
+    return this.attachProfilesToMatches(matches, userId);
   }
 
   async getSentInterests(userId: string) {
+    await this.cleanupStaleInterestRecords(userId);
     const matches = await this.matchRepository.find({
       where: { senderId: userId },
       order: { createdAt: 'DESC' },
     });
-    return this.attachProfilesToMatches(matches);
+    return this.attachProfilesToMatches(matches, userId);
   }
 
   async getAcceptedMatches(userId: string) {
+    await this.cleanupStaleInterestRecords(userId);
     const matches = await this.matchRepository.find({
       where: [
         { senderId: userId, status: MatchStatus.ACCEPTED },
@@ -165,35 +271,53 @@ export class MatchmakingService {
       ],
       order: { updatedAt: 'DESC' },
     });
-    return this.attachProfilesToMatches(matches);
+    return this.attachProfilesToMatches(matches, userId);
   }
 
-  private async attachProfilesToMatches(matches: Match[]) {
+  private async attachProfilesToMatches(matches: Match[], forUserId?: string) {
     if (!matches.length) return [];
 
+    const normalizedMatches = await Promise.all(
+      matches.map(async (match) => {
+        const senderId = await this.resolveUserId(match.senderId);
+        const receiverId = await this.resolveUserId(match.receiverId);
+        if (senderId !== match.senderId || receiverId !== match.receiverId) {
+          match.senderId = senderId;
+          match.receiverId = receiverId;
+          await this.matchRepository.save(match);
+        }
+        return match;
+      }),
+    );
+
     const userIds = Array.from(
-      new Set(matches.flatMap((m) => [m.senderId, m.receiverId])),
+      new Set(normalizedMatches.flatMap((m) => [m.senderId, m.receiverId])),
     );
 
     const profileRows = await Promise.all(
-      userIds.map(async (uid) => {
-        try {
-          return await this.usersService.getProfile(uid);
-        } catch {
-          return null;
-        }
-      }),
+      userIds.map(async (uid) => this.usersService.getProfileOrNull(uid)),
     );
 
     const byUserId = new Map(
       profileRows.filter(Boolean).map((p) => [p!.userId, p]),
     );
 
-    return matches.map((match) => ({
-      ...match,
-      senderProfile: byUserId.get(match.senderId) || null,
-      receiverProfile: byUserId.get(match.receiverId) || null,
-    }));
+    return normalizedMatches.map((match) => {
+      const senderProfile = byUserId.get(match.senderId) || null;
+      const receiverProfile = byUserId.get(match.receiverId) || null;
+      const partnerUserId =
+        forUserId && match.senderId === forUserId ? match.receiverId : match.senderId;
+      const partnerProfile =
+        forUserId && match.senderId === forUserId ? receiverProfile : senderProfile;
+
+      return {
+        ...match,
+        senderProfile,
+        receiverProfile,
+        partnerProfile: forUserId ? partnerProfile : null,
+        partnerUserId: forUserId ? partnerUserId : null,
+      };
+    });
   }
 
   async searchMatches(userId: string, query: ProfileSearchQueryDto) {

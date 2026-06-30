@@ -129,7 +129,7 @@ export class UsersController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get profile by ID' })
   async getProfileById(@Param('id') id: string) {
-    return this.usersService.getProfileById(id);
+    return this.usersService.getProfileByIdOrUserId(id);
   }
 
   @Put('profile')

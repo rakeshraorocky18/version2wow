@@ -1,5 +1,22 @@
 export type MatchTab = 'suggestions' | 'search' | 'shortlist' | 'interests';
 
+export interface MatchInterest {
+  id: string;
+  senderId: string;
+  receiverId: string;
+  status: 'pending' | 'accepted' | 'rejected' | 'blocked';
+  compatibilityScore?: number;
+  message?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  senderProfile?: MatchProfile | null;
+  receiverProfile?: MatchProfile | null;
+  partnerProfile?: MatchProfile | null;
+  partnerUserId?: string | null;
+}
+
+export type InterestSubTab = 'received' | 'sent' | 'accepted';
+
 export interface MatchFilters {
   gender: string;
   religion: string;

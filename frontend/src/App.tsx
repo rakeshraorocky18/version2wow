@@ -11,8 +11,14 @@ import MatchProfile from './pages/MatchProfile';
 import Chat from './pages/Chat';
 import Vendors from './pages/Vendors';
 import Planner from './pages/Planner';
-import Profile from './pages/Profile';
-import EditProfile from './pages/EditProfile';
+import ProfileRouter from './pages/ProfileRouter';
+import EditProfileRouter from './pages/EditProfileRouter';
+import EditRepresentativeProfile from './pages/representative/EditRepresentativeProfile';
+import ManagedProfileEdit from './pages/representative/ManagedProfileEdit';
+import ManagedProfileView from './pages/representative/ManagedProfileView';
+import RepresentativeProfileView from './pages/representative/RepresentativeProfileView';
+import EditVendorProfile from './pages/vendor/EditVendorProfile';
+import VendorProfileView from './pages/vendor/VendorProfileView';
 import Events from './pages/Events';
 import Honeymoon from './pages/Honeymoon';
 import Finance from './pages/Finance';
@@ -46,8 +52,14 @@ function App() {
         <Route path="events" element={<Events />} />
         <Route path="honeymoon" element={<Honeymoon />} />
         <Route path="finance" element={<Finance />} />
-        <Route path="profile" element={<Profile />} />
-        <Route path="profile/edit" element={<EditProfile />} />
+        <Route path="profile/edit/representative" element={<EditRepresentativeProfile />} />
+        <Route path="profile/edit/managed" element={<ManagedProfileEdit />} />
+        <Route path="profile/managed" element={<ManagedProfileView />} />
+        <Route path="profile/edit/vendor" element={<EditVendorProfile />} />
+        <Route path="profile/representative/:id" element={<RepresentativeProfileView />} />
+        <Route path="profile/vendor/:id" element={<VendorProfileView />} />
+        <Route path="profile/edit" element={<EditProfileRouter />} />
+        <Route path="profile" element={<ProfileRouter />} />
       </Route>
     </Routes>
   );

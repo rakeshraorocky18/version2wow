@@ -1,6 +1,9 @@
 import { Heart, MessageCircle, Store, Calendar, CheckCircle2, Sparkles, Gift, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { useAuthStore } from '../store/authStore';
+import { useMatchActions, useReceivedInterests, useSentInterests, useAcceptedInterests } from '../hooks/useMatchmaking';
+import InterestRequestCard from '../components/matchmaking/InterestRequestCard';
 
 const quickActions = [
   {
@@ -56,10 +59,25 @@ const checklistItems = [
 
 export default function Dashboard() {
   const user = useAuthStore((state) => state.user);
+  const { acceptInterest, rejectInterest } = useMatchActions();
+  const { data: receivedInterests = [] } = useReceivedInterests();
+  const { data: sentInterests = [] } = useSentInterests();
+  const { data: acceptedInterests = [] } = useAcceptedInterests();
+  const pendingRequests = receivedInterests.length;
+  const sentPending = sentInterests.filter((m) => m.status === 'pending').length;
+  const acceptedCount = acceptedInterests.length;
   const completedCount = checklistItems.filter((item) => item.done).length;
   const checklistProgress = Math.round((completedCount / checklistItems.length) * 100);
   const planningProgress = 24;
   const userName = user?.email ? user.email.split('@')[0] : 'Couple';
+  const showMatchSection =
+    user?.role === 'bride' ||
+    user?.role === 'groom' ||
+    user?.role === 'representative' ||
+    user?.role === 'family' ||
+    pendingRequests > 0 ||
+    sentInterests.length > 0 ||
+    acceptedCount > 0;
 
   return (
     <div className="space-y-8">
@@ -140,12 +158,12 @@ export default function Dashboard() {
 
           <div className="mt-5 grid gap-4 sm:grid-cols-3">
             <div className="rounded-xl border border-[#F4E8EE] bg-[#FFF9FC] p-4">
-              <p className="text-sm text-[#8B6A79]">New Matches</p>
-              <p className="mt-2 text-3xl font-display font-bold text-[#C0698F]">0</p>
+              <p className="text-sm text-[#8B6A79]">New Requests</p>
+              <p className="mt-2 text-3xl font-display font-bold text-[#C0698F]">{pendingRequests}</p>
             </div>
             <div className="rounded-xl border border-[#F4E8EE] bg-[#FFFAF5] p-4">
-              <p className="text-sm text-[#8B6A79]">Unread Messages</p>
-              <p className="mt-2 text-3xl font-display font-bold text-[#B27954]">0</p>
+              <p className="text-sm text-[#8B6A79]">Sent (Pending)</p>
+              <p className="mt-2 text-3xl font-display font-bold text-[#B27954]">{sentPending}</p>
             </div>
             <div className="rounded-xl border border-[#F4E8EE] bg-[#F8F6FF] p-4">
               <p className="text-sm text-[#8B6A79]">Planning Progress</p>
@@ -214,6 +232,79 @@ export default function Dashboard() {
           </div>
         </div>
       </section>
+
+      {showMatchSection && (
+        <section className="rounded-2xl border border-[#F0DFE7] bg-white p-6 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="font-display text-xl font-semibold text-[#523045]">Interest Requests</h2>
+              <p className="mt-1 text-sm text-[#7C6673]">
+                {pendingRequests > 0
+                  ? `You have ${pendingRequests} new interest request${pendingRequests > 1 ? 's' : ''}`
+                  : 'Manage interests you received or sent'}
+              </p>
+            </div>
+            <Link
+              to="/app/matches?tab=interests&interest=received"
+              className="text-sm font-semibold text-[#A86584] hover:text-[#8F4F6D]"
+            >
+              View all interests →
+            </Link>
+          </div>
+
+          {pendingRequests > 0 ? (
+            <div className="mt-5 space-y-3">
+              {receivedInterests.slice(0, 5).map((match) => (
+                <InterestRequestCard
+                  key={match.id}
+                  match={match}
+                  variant="received"
+                  compact
+                  onAccept={async () => {
+                    await acceptInterest.mutateAsync(match.id);
+                    toast.success('Interest accepted — you can chat now');
+                  }}
+                  onReject={async () => {
+                    await rejectInterest.mutateAsync(match.id);
+                    toast.success('Interest declined');
+                  }}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="mt-5 rounded-xl border border-dashed border-[#E6CDD8] bg-[#FFFBFC] p-6 text-center">
+              <p className="text-sm text-[#7C6673]">No pending requests right now.</p>
+              <Link to="/app/matches" className="mt-2 inline-block text-sm font-medium text-[#B66A8A] hover:underline">
+                Browse matches and send interest
+              </Link>
+            </div>
+          )}
+        </section>
+      )}
+
+      {acceptedCount > 0 && (
+        <section className="rounded-2xl border border-[#D4EDDA] bg-white p-6 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="font-display text-xl font-semibold text-[#523045]">Mutual Matches</h2>
+              <p className="mt-1 text-sm text-[#7C6673]">
+                {acceptedCount} mutual match{acceptedCount > 1 ? 'es' : ''} — view profiles and start chatting
+              </p>
+            </div>
+            <Link
+              to="/app/matches?tab=interests&interest=accepted"
+              className="text-sm font-semibold text-[#A86584] hover:text-[#8F4F6D]"
+            >
+              View all →
+            </Link>
+          </div>
+          <div className="mt-5 space-y-3">
+            {acceptedInterests.slice(0, 5).map((match) => (
+              <InterestRequestCard key={match.id} match={match} variant="received" compact />
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="rounded-2xl border border-[#F0DFE7] bg-white p-6 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
