@@ -22,9 +22,9 @@ import { FinanceModule } from './modules/finance/finance.module';
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: () => ({
+      useFactory: (configService: ConfigService) => ({
         type: 'better-sqlite3',
-        database: 'wow_dev.db',
+        database: configService.get<string>('SQLITE_DATABASE', 'wow_dev.db'),
         autoLoadEntities: true,
         synchronize: true,
       }),

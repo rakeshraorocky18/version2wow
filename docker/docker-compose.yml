@@ -68,6 +68,7 @@ services:
       REDIS_PORT: 6379
       JWT_SECRET: wow-jwt-secret-change-in-production
       JWT_REFRESH_SECRET: wow-refresh-secret-change-in-production
+      SQLITE_DATABASE: /app/data/wow_dev.db
     depends_on:
       postgres:
         condition: service_healthy
@@ -78,6 +79,7 @@ services:
     command: npm run start:dev
     volumes:
       - ../backend/src:/app/src
+      - ../backend/data:/app/data
       - backend_uploads:/app/uploads
 
   # Frontend
