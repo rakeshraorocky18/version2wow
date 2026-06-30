@@ -1,7 +1,9 @@
 import { Link, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, Briefcase, GraduationCap, MapPin, UserRound } from 'lucide-react';
+import { ArrowLeft, MapPin, MessageCircle, UserRound } from 'lucide-react';
 import api from '../lib/api';
+import { getPhotoUrl } from '../lib/profileUtils';
+import ProfileDetailsView from '../components/profile/ProfileDetailsView';
 
 export default function MatchProfile() {
   const { id } = useParams<{ id: string }>();
@@ -32,7 +34,11 @@ export default function MatchProfile() {
     );
   }
 
-  const fullName = `${profile.firstName || ''} ${profile.lastName || ''}`.trim() || 'Profile';
+  const wizard = profile.wizardProfile || {};
+  const pd = { ...profile, ...(wizard.personalDetails || {}) };
+  const express = wizard.expressYourself || profile.expressYourself || {};
+  const fullName = `${pd.firstName || ''} ${pd.lastName || ''}`.trim() || 'Profile';
+  const photoUrl = getPhotoUrl(wizard.profilePhoto || profile.photos?.[0] || '');
 
   return (
     <div className="max-w-3xl mx-auto space-y-4">
@@ -42,44 +48,37 @@ export default function MatchProfile() {
 
       <div className="card">
         <div className="flex items-start gap-4 pb-6 border-b border-gray-100">
-          <div className="w-20 h-20 rounded-full bg-primary-100 flex items-center justify-center shrink-0">
-            <UserRound size={32} className="text-primary-600" />
+          <div className="w-20 h-20 rounded-full bg-primary-100 flex items-center justify-center shrink-0 overflow-hidden">
+            {photoUrl ? (
+              <img src={photoUrl} alt={fullName} className="w-full h-full object-cover" />
+            ) : (
+              <UserRound size={32} className="text-primary-600" />
+            )}
           </div>
           <div>
             <h1 className="text-2xl font-display font-bold text-gray-900">{fullName}</h1>
-            {profile.bio && <p className="mt-2 text-gray-600">{profile.bio}</p>}
+            {(pd.city || profile.city) && (
+              <p className="mt-1 text-sm text-gray-500 flex items-center gap-1">
+                <MapPin size={14} />
+                {[pd.city || profile.city, pd.state || profile.state, pd.country || profile.country]
+                  .filter(Boolean)
+                  .join(', ')}
+              </p>
+            )}
+            {(express.aboutMe || profile.bio) && (
+              <p className="mt-2 text-gray-600">{express.aboutMe || profile.bio}</p>
+            )}
           </div>
         </div>
 
         <div className="mt-4">
-          <Link
-            to={`/app/chat?userId=${id}`}
-            className="inline-flex items-center gap-2 btn-primary"
-          >
-            Start Chat
+          <Link to={`/app/chat?userId=${id}`} className="inline-flex items-center gap-2 btn-primary">
+            <MessageCircle size={16} /> Start Chat
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6 text-sm text-gray-700">
-          {(profile.city || profile.state) && (
-            <p className="flex items-center gap-2">
-              <MapPin size={16} /> {profile.city || 'N/A'}{profile.state ? `, ${profile.state}` : ''}
-            </p>
-          )}
-          {profile.occupation && (
-            <p className="flex items-center gap-2">
-              <Briefcase size={16} /> {profile.occupation}
-            </p>
-          )}
-          {profile.education && (
-            <p className="flex items-center gap-2">
-              <GraduationCap size={16} /> {profile.education}
-            </p>
-          )}
-          {profile.religion && <p>Religion: {profile.religion}</p>}
-          {profile.motherTongue && <p>Mother tongue: {profile.motherTongue}</p>}
-          {profile.height && <p>Height: {profile.height}</p>}
-          {profile.income && <p>Income: {profile.income}</p>}
+        <div className="mt-6">
+          <ProfileDetailsView profile={profile} />
         </div>
       </div>
     </div>

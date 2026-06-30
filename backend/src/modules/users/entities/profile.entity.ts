@@ -6,6 +6,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { Gender } from '../../../common/enums';
+import { photosColumnTransformer } from '../photos-column.transformer';
 
 @Entity('profiles')
 export class ProfileEntity {
@@ -63,8 +64,143 @@ export class ProfileEntity {
   @Column({ type: 'simple-array', nullable: true })
   interests: string[];
 
-  @Column({ type: 'simple-array', nullable: true })
+  @Column({ type: 'text', nullable: true, transformer: photosColumnTransformer })
   photos: string[];
+
+  @Column({ nullable: true })
+  displayName: string;
+
+  @Column({ nullable: true })
+  phone: string;
+
+  @Column({ nullable: true })
+  email: string;
+
+  @Column({ nullable: true })
+  address: string;
+
+  @Column({ type: 'simple-json', nullable: true })
+  languagesKnown: string[];
+
+  @Column({ type: 'simple-json', nullable: true })
+  educationList: Record<string, unknown>[];
+
+  @Column({ type: 'simple-json', nullable: true })
+  experience: Record<string, unknown>;
+
+  @Column({ type: 'simple-json', nullable: true })
+  expressYourself: Record<string, unknown>;
+
+  @Column({ nullable: true })
+  resumeUrl: string;
+
+  @Column({ nullable: true })
+  middleName: string;
+
+  @Column({ nullable: true })
+  weight: string;
+
+  @Column({ nullable: true })
+  bodyType: string;
+
+  @Column({ nullable: true })
+  complexion: string;
+
+  @Column({ nullable: true })
+  bloodGroup: string;
+
+  @Column({ nullable: true })
+  physicalStatus: string;
+
+  @Column({ nullable: true })
+  disabilityDetails: string;
+
+  @Column({ default: false })
+  horoscopeAvailable: boolean;
+
+  @Column({ nullable: true })
+  rashi: string;
+
+  @Column({ nullable: true })
+  nakshatra: string;
+
+  @Column({ nullable: true })
+  gothram: string;
+
+  @Column({ nullable: true })
+  zodiacSign: string;
+
+  @Column({ nullable: true })
+  timeOfBirth: string;
+
+  @Column({ nullable: true })
+  placeOfBirth: string;
+
+  @Column({ nullable: true })
+  horoscopeFileUrl: string;
+
+  @Column({ nullable: true })
+  subCaste: string;
+
+  @Column({ nullable: true })
+  community: string;
+
+  @Column({ nullable: true })
+  yearsMarried: string;
+
+  @Column({ default: false })
+  haveChildren: boolean;
+
+  @Column({ nullable: true })
+  childrenLivingWith: string;
+
+  @Column({ default: false })
+  readyForRemarriage: boolean;
+
+  @Column({ nullable: true })
+  pincode: string;
+
+  @Column({ nullable: true })
+  familyValues: string;
+
+  @Column({ nullable: true })
+  fatherName: string;
+
+  @Column({ default: true })
+  fatherAlive: boolean;
+
+  @Column({ nullable: true })
+  motherName: string;
+
+  @Column({ default: true })
+  motherAlive: boolean;
+
+  @Column({ type: 'int', nullable: true })
+  brothers: number;
+
+  @Column({ type: 'int', nullable: true })
+  marriedBrothers: number;
+
+  @Column({ type: 'int', nullable: true })
+  sisters: number;
+
+  @Column({ type: 'int', nullable: true })
+  marriedSisters: number;
+
+  @Column({ type: 'simple-array', nullable: true })
+  prefMaritalStatuses: string[];
+
+  @Column({ type: 'simple-array', nullable: true })
+  prefCastes: string[];
+
+  @Column({ nullable: true })
+  prefFamilyType: string;
+
+  @Column({ nullable: true })
+  prefFamilyStatus: string;
+
+  @Column({ type: 'simple-array', nullable: true })
+  prefCities: string[];
 
   // Compatibility fields
   @Column({ nullable: true })
@@ -99,6 +235,9 @@ export class ProfileEntity {
 
   @Column({ type: 'int', nullable: true })
   siblings: number;
+
+  @Column({ type: 'simple-json', nullable: true })
+  siblingDetails: Record<string, unknown>[];
 
   // Partner preferences
   @Column({ type: 'int', nullable: true })

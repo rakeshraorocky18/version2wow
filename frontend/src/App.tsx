@@ -12,6 +12,7 @@ import Chat from './pages/Chat';
 import Vendors from './pages/Vendors';
 import Planner from './pages/Planner';
 import Profile from './pages/Profile';
+import EditProfile from './pages/EditProfile';
 import Events from './pages/Events';
 import Honeymoon from './pages/Honeymoon';
 import Finance from './pages/Finance';
@@ -46,6 +47,7 @@ function App() {
         <Route path="honeymoon" element={<Honeymoon />} />
         <Route path="finance" element={<Finance />} />
         <Route path="profile" element={<Profile />} />
+        <Route path="profile/edit" element={<EditProfile />} />
       </Route>
     </Routes>
   );

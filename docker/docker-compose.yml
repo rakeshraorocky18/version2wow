@@ -75,8 +75,10 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    command: npm run start:dev
     volumes:
       - ../backend/src:/app/src
+      - backend_uploads:/app/uploads
 
   # Frontend
   frontend:
@@ -97,3 +99,4 @@ volumes:
   postgres_data:
   mongo_data:
   redis_data:
+  backend_uploads:

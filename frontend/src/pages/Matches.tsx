@@ -4,6 +4,7 @@ import { Heart, X, MapPin, Briefcase, GraduationCap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import api from '../lib/api';
+import { getPhotoUrl } from '../lib/profileUtils';
 import { useAuthStore } from '../store/authStore';
 
 export default function Matches() {
@@ -126,10 +127,18 @@ export default function Matches() {
               }}
               className="card hover:shadow-md transition-shadow cursor-pointer"
             >
-              <div className="w-full h-48 bg-gradient-to-br from-primary-100 to-primary-200 rounded-lg mb-4 flex items-center justify-center">
-                <span className="text-4xl">
-                  {profile.gender === 'female' ? '👩' : '👨'}
-                </span>
+              <div className="w-full h-48 bg-gradient-to-br from-primary-100 to-primary-200 rounded-lg mb-4 flex items-center justify-center overflow-hidden">
+                {getPhotoUrl(profile.photos?.[0] || profile.wizardProfile?.profilePhoto || '') ? (
+                  <img
+                    src={getPhotoUrl(profile.photos?.[0] || profile.wizardProfile?.profilePhoto || '')}
+                    alt={`${profile.firstName} ${profile.lastName}`}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <span className="text-4xl">
+                    {profile.gender === 'female' ? '👩' : '👨'}
+                  </span>
+                )}
               </div>
               <h3 className="text-lg font-semibold text-gray-900">
                 {profile.firstName} {profile.lastName}
