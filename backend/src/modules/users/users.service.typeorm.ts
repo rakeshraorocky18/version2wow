@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like } from 'typeorm';
+import { Repository } from 'typeorm';
 import { ProfileEntity } from './entities/profile.entity';
 import { CreateProfileDto, UpdateProfileDto } from './dto/profile.dto';
 import { WizardProfileDto } from './dto/wizard-profile.dto';
@@ -456,18 +456,57 @@ export class UsersService implements OnModuleInit {
     return Object.assign(profile, { photos: normalizedPhotos, wizardProfile });
   }
 
-  async searchProfiles(filters: Record<string, unknown>, page = 1, limit = 20) {
-    const where: Record<string, unknown> = { isVisible: true };
-    if (filters.gender) where.gender = filters.gender;
-    if (filters.religion) where.religion = filters.religion;
-    if (filters.city) where.city = Like(`%${filters.city}%`);
+  async searchProfiles(
+    filters: Record<string, unknown>,
+    page = 1,
+    limit = 20,
+    options?: { excludeUserIds?: string[] },
+  ) {
+    const qb = this.profileRepository
+      .createQueryBuilder('p')
+      .where('p.isVisible = :visible', { visible: true });
+
+    if (options?.excludeUserIds?.length) {
+      qb.andWhere('p.userId NOT IN (:...excludeUserIds)', { excludeUserIds: options.excludeUserIds });
+    }
+
+    if (filters.gender) qb.andWhere('p.gender = :gender', { gender: filters.gender });
+    if (filters.religion) qb.andWhere('p.religion LIKE :religion', { religion: `%${filters.religion}%` });
+    if (filters.caste) qb.andWhere('p.caste LIKE :caste', { caste: `%${filters.caste}%` });
+    if (filters.city) qb.andWhere('p.city LIKE :city', { city: `%${filters.city}%` });
+    if (filters.state) qb.andWhere('p.state LIKE :state', { state: `%${filters.state}%` });
+    if (filters.diet) qb.andWhere('p.diet = :diet', { diet: filters.diet });
+    if (filters.maritalStatus) {
+      qb.andWhere('p.maritalStatus = :maritalStatus', { maritalStatus: filters.maritalStatus });
+    }
+    if (filters.education) {
+      qb.andWhere('p.education LIKE :education', { education: `%${filters.education}%` });
+    }
+    if (filters.familyType) qb.andWhere('p.familyType = :familyType', { familyType: filters.familyType });
+    if (filters.horoscopeAvailable === true || filters.horoscopeAvailable === 'true') {
+      qb.andWhere('p.horoscopeAvailable = :horoscopeAvailable', { horoscopeAvailable: true });
+    }
+    if (filters.minHeight) qb.andWhere('p.height >= :minHeight', { minHeight: filters.minHeight });
+    if (filters.maxHeight) qb.andWhere('p.height <= :maxHeight', { maxHeight: filters.maxHeight });
+
+    if (filters.minAge || filters.maxAge) {
+      qb.andWhere('p.dateOfBirth IS NOT NULL');
+      if (filters.minAge) {
+        qb.andWhere(
+          `(CAST(strftime('%Y', 'now') AS INTEGER) - CAST(strftime('%Y', p.dateOfBirth) AS INTEGER)) >= :minAge`,
+          { minAge: filters.minAge },
+        );
+      }
+      if (filters.maxAge) {
+        qb.andWhere(
+          `(CAST(strftime('%Y', 'now') AS INTEGER) - CAST(strftime('%Y', p.dateOfBirth) AS INTEGER)) <= :maxAge`,
+          { maxAge: filters.maxAge },
+        );
+      }
+    }
 
     const skip = (page - 1) * limit;
-    const [profiles, total] = await this.profileRepository.findAndCount({
-      where,
-      skip,
-      take: limit,
-    });
+    const [profiles, total] = await qb.skip(skip).take(limit).getManyAndCount();
 
     return {
       profiles: profiles.map((p) => this.formatProfileResponse(p)),

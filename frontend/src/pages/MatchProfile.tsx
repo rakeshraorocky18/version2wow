@@ -4,6 +4,7 @@ import { ArrowLeft, MapPin, MessageCircle, UserRound } from 'lucide-react';
 import api from '../lib/api';
 import { getPhotoUrl } from '../lib/profileUtils';
 import ProfileDetailsView from '../components/profile/ProfileDetailsView';
+import { useProfileCompatibility } from '../hooks/useMatchmaking';
 
 export default function MatchProfile() {
   const { id } = useParams<{ id: string }>();
@@ -16,6 +17,8 @@ export default function MatchProfile() {
       return data;
     },
   });
+
+  const { data: compatibility } = useProfileCompatibility(id);
 
   if (isLoading) {
     return <div className="text-center py-12 text-gray-500">Loading profile...</div>;
@@ -39,6 +42,7 @@ export default function MatchProfile() {
   const express = wizard.expressYourself || profile.expressYourself || {};
   const fullName = `${pd.firstName || ''} ${pd.lastName || ''}`.trim() || 'Profile';
   const photoUrl = getPhotoUrl(wizard.profilePhoto || profile.photos?.[0] || '');
+  const chatUserId = profile.userId;
 
   return (
     <div className="max-w-3xl mx-auto space-y-4">
@@ -68,11 +72,20 @@ export default function MatchProfile() {
             {(express.aboutMe || profile.bio) && (
               <p className="mt-2 text-gray-600">{express.aboutMe || profile.bio}</p>
             )}
+            {compatibility?.score !== undefined && (
+              <div className="mt-3 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-50 text-primary-700 text-sm font-medium">
+                {compatibility.score}% compatibility
+                {compatibility.highlights?.length ? ` · ${compatibility.highlights[0]}` : ''}
+              </div>
+            )}
           </div>
         </div>
 
         <div className="mt-4">
-          <Link to={`/app/chat?userId=${id}`} className="inline-flex items-center gap-2 btn-primary">
+          <Link
+            to={chatUserId ? `/app/chat?userId=${chatUserId}` : '/app/chat'}
+            className="inline-flex items-center gap-2 btn-primary"
+          >
             <MessageCircle size={16} /> Start Chat
           </Link>
         </div>

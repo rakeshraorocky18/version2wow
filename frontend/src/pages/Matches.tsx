@@ -1,207 +1,200 @@
-import { useState } from 'react';
-import { useMutation, useQuery } from '@tanstack/react-query';
-import { Heart, X, MapPin, Briefcase, GraduationCap } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
-import api from '../lib/api';
-import { getPhotoUrl } from '../lib/profileUtils';
-import { useAuthStore } from '../store/authStore';
+import {
+  useMatchActions,
+  useMatchSearch,
+  useMatchSuggestions,
+  useReceivedInterests,
+  useShortlist,
+} from '../hooks/useMatchmaking';
+import MatchProfileCard from '../components/matchmaking/MatchProfileCard';
+import { EMPTY_FILTERS, type MatchFilters, type MatchTab } from '../types/matchmaking';
+
+const TABS: { id: MatchTab; label: string }[] = [
+  { id: 'suggestions', label: 'Suggested' },
+  { id: 'search', label: 'Search' },
+  { id: 'shortlist', label: 'Shortlist' },
+  { id: 'interests', label: 'Interests' },
+];
 
 export default function Matches() {
-  const [filters, setFilters] = useState({ gender: '', religion: '', city: '' });
+  const [tab, setTab] = useState<MatchTab>('suggestions');
+  const [filters, setFilters] = useState<MatchFilters>(EMPTY_FILTERS);
   const [sentInterestIds, setSentInterestIds] = useState<string[]>([]);
-  const navigate = useNavigate();
-  const currentUserId = useAuthStore((state) => state.user?.id);
+  const [shortlistedIds, setShortlistedIds] = useState<string[]>([]);
 
-  const { data: myProfile } = useQuery({
-    queryKey: ['my-profile-for-match-filter'],
-    queryFn: async () => {
-      try {
-        const { data } = await api.get('/users/profile');
-        return data;
-      } catch {
-        return null;
-      }
-    },
-  });
+  const { sendInterest, toggleShortlist, acceptInterest, rejectInterest } = useMatchActions();
 
-  const sendInterestMutation = useMutation({
-    mutationFn: async (receiverId: string) => {
-      await api.post('/matches/interest', { receiverId });
-    },
-    onSuccess: (_, receiverId) => {
+  const suggestions = useMatchSuggestions(filters);
+  const search = useMatchSearch(filters, tab === 'search');
+  const shortlist = useShortlist();
+  const received = useReceivedInterests();
+
+  const activeData = useMemo(() => {
+    if (tab === 'suggestions') return suggestions.data;
+    if (tab === 'search') return search.data;
+    if (tab === 'shortlist') return shortlist.data;
+    return null;
+  }, [tab, suggestions.data, search.data, shortlist.data]);
+
+  const isLoading =
+    (tab === 'suggestions' && suggestions.isLoading) ||
+    (tab === 'search' && search.isLoading) ||
+    (tab === 'shortlist' && shortlist.isLoading) ||
+    (tab === 'interests' && received.isLoading);
+
+  const profiles = activeData?.profiles || [];
+
+  const handleInterest = async (profile: { id: string; userId: string }) => {
+    const receiverId = profile.userId || profile.id;
+    try {
+      await sendInterest.mutateAsync(receiverId);
       setSentInterestIds((prev) => (prev.includes(receiverId) ? prev : [...prev, receiverId]));
-      toast.success('Interest sent successfully');
-    },
-    onError: (error: any) => {
-      const message = error?.response?.data?.message;
-      if (typeof message === 'string' && message.length > 0) {
-        toast.error(message);
-        return;
-      }
-      toast.error('Could not send interest. Please try again.');
-    },
-  });
+      toast.success('Interest sent');
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Could not send interest');
+    }
+  };
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['matches-suggestions', filters, myProfile?.id, currentUserId],
-    queryFn: async () => {
-      const params = new URLSearchParams();
-      if (filters.gender) params.set('gender', filters.gender);
-      if (filters.religion) params.set('religion', filters.religion);
-      if (filters.city) params.set('city', filters.city);
-      const { data } = await api.get(`/users/search?${params.toString()}`);
-
-      return {
-        ...data,
-        profiles: (data?.profiles || []).filter((profile: any) => {
-          const profileId = profile._id || profile.id;
-          const profileUserId = profile.userId;
-
-          if (myProfile?.id && profileId === myProfile.id) {
-            return false;
-          }
-          if (currentUserId && profileUserId === currentUserId) {
-            return false;
-          }
-          if (currentUserId && profileId === currentUserId) {
-            return false;
-          }
-          return true;
-        }),
-      };
-    },
-  });
+  const handleShortlist = async (profileId: string) => {
+    const shortlisted = shortlistedIds.includes(profileId);
+    try {
+      await toggleShortlist.mutateAsync({ profileId, shortlisted });
+      setShortlistedIds((prev) =>
+        shortlisted ? prev.filter((id) => id !== profileId) : [...prev, profileId],
+      );
+      toast.success(shortlisted ? 'Removed from shortlist' : 'Added to shortlist');
+    } catch {
+      toast.error('Could not update shortlist');
+    }
+  };
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-display font-bold text-gray-900">Find Your Match</h1>
-      </div>
-
-      {/* Filters */}
-      <div className="card">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <select
-            value={filters.gender}
-            onChange={(e) => setFilters({ ...filters, gender: e.target.value })}
-            className="input-field"
-          >
-            <option value="">All Genders</option>
-            <option value="male">Male</option>
-            <option value="female">Female</option>
-          </select>
-          <input
-            type="text"
-            value={filters.religion}
-            onChange={(e) => setFilters({ ...filters, religion: e.target.value })}
-            className="input-field"
-            placeholder="Religion"
-          />
-          <input
-            type="text"
-            value={filters.city}
-            onChange={(e) => setFilters({ ...filters, city: e.target.value })}
-            className="input-field"
-            placeholder="City"
-          />
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-display font-bold text-gray-900">Find Your Match</h1>
+          <p className="text-sm text-gray-500">AI-weighted compatibility · filters · shortlist · interest</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium ${
+                tab === t.id ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Results */}
-      {isLoading ? (
+      {(tab === 'suggestions' || tab === 'search') && (
+        <div className="card">
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <select className="input-field" value={filters.gender} onChange={(e) => setFilters({ ...filters, gender: e.target.value })}>
+              <option value="">All Genders</option>
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+            </select>
+            <input className="input-field" placeholder="Religion" value={filters.religion} onChange={(e) => setFilters({ ...filters, religion: e.target.value })} />
+            <input className="input-field" placeholder="Caste" value={filters.caste} onChange={(e) => setFilters({ ...filters, caste: e.target.value })} />
+            <input className="input-field" placeholder="City" value={filters.city} onChange={(e) => setFilters({ ...filters, city: e.target.value })} />
+            <input className="input-field" placeholder="State" value={filters.state} onChange={(e) => setFilters({ ...filters, state: e.target.value })} />
+            <select className="input-field" value={filters.diet} onChange={(e) => setFilters({ ...filters, diet: e.target.value })}>
+              <option value="">Any Diet</option>
+              <option value="Vegetarian">Vegetarian</option>
+              <option value="Non-Vegetarian">Non-Vegetarian</option>
+              <option value="Eggetarian">Eggetarian</option>
+              <option value="Vegan">Vegan</option>
+            </select>
+            <input className="input-field" placeholder="Min age" type="number" value={filters.minAge} onChange={(e) => setFilters({ ...filters, minAge: e.target.value })} />
+            <input className="input-field" placeholder="Max age" type="number" value={filters.maxAge} onChange={(e) => setFilters({ ...filters, maxAge: e.target.value })} />
+            <label className="flex items-center gap-2 text-sm text-gray-700 px-2">
+              <input
+                type="checkbox"
+                checked={filters.horoscopeAvailable}
+                onChange={(e) => setFilters({ ...filters, horoscopeAvailable: e.target.checked })}
+              />
+              Horoscope available
+            </label>
+            <label className="flex items-center gap-2 text-sm text-gray-700 px-2">
+              <input
+                type="checkbox"
+                checked={filters.includeHoroscope}
+                onChange={(e) => setFilters({ ...filters, includeHoroscope: e.target.checked })}
+              />
+              Include horoscope in score
+            </label>
+          </div>
+        </div>
+      )}
+
+      {tab === 'interests' ? (
+        <div className="space-y-4">
+          <div className="card">
+            <h2 className="font-semibold text-gray-900 mb-4">Received Interests</h2>
+            {received.data?.length ? (
+              <div className="space-y-3">
+                {received.data.map((match: any) => (
+                  <div key={match.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border border-gray-100 rounded-lg p-3">
+                    <div>
+                      <p className="font-medium text-gray-900">
+                        {match.senderProfile?.firstName} {match.senderProfile?.lastName}
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        {match.compatibilityScore ? `${Math.round(match.compatibilityScore)}% compatibility` : 'New interest'}
+                      </p>
+                      {match.message && <p className="text-sm text-gray-600 mt-1">{match.message}</p>}
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        className="btn-primary text-sm py-2 px-4"
+                        onClick={async () => {
+                          await acceptInterest.mutateAsync(match.id);
+                          toast.success('Interest accepted — you can chat now');
+                        }}
+                      >
+                        Accept
+                      </button>
+                      <button
+                        className="btn-secondary text-sm py-2 px-4"
+                        onClick={async () => {
+                          await rejectInterest.mutateAsync(match.id);
+                          toast.success('Interest declined');
+                        }}
+                      >
+                        Decline
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-500 text-sm">No pending interests yet.</p>
+            )}
+          </div>
+        </div>
+      ) : isLoading ? (
         <div className="text-center py-12 text-gray-500">Loading profiles...</div>
-      ) : data?.profiles?.length > 0 ? (
+      ) : profiles.length > 0 ? (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {data.profiles.map((profile: any, index: number) => {
-            const profileId = profile._id || profile.id;
-            return (
-            <div
-              key={profileId || `profile-${index}`}
-              onClick={() => {
-                if (!profileId) {
-                  toast.error('Unable to open this profile right now');
-                  return;
-                }
-                navigate(`/app/matches/${profileId}`);
-              }}
-              className="card hover:shadow-md transition-shadow cursor-pointer"
-            >
-              <div className="w-full h-48 bg-gradient-to-br from-primary-100 to-primary-200 rounded-lg mb-4 flex items-center justify-center overflow-hidden">
-                {getPhotoUrl(profile.photos?.[0] || profile.wizardProfile?.profilePhoto || '') ? (
-                  <img
-                    src={getPhotoUrl(profile.photos?.[0] || profile.wizardProfile?.profilePhoto || '')}
-                    alt={`${profile.firstName} ${profile.lastName}`}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <span className="text-4xl">
-                    {profile.gender === 'female' ? '👩' : '👨'}
-                  </span>
-                )}
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900">
-                {profile.firstName} {profile.lastName}
-              </h3>
-              <div className="mt-2 space-y-1 text-sm text-gray-600">
-                {(profile.location?.city || profile.city) && (
-                  <p className="flex items-center gap-1">
-                    <MapPin size={14} /> {profile.location?.city || profile.city}, {profile.location?.state || profile.state}
-                  </p>
-                )}
-                {profile.occupation && (
-                  <p className="flex items-center gap-1">
-                    <Briefcase size={14} /> {profile.occupation}
-                  </p>
-                )}
-                {profile.education && (
-                  <p className="flex items-center gap-1">
-                    <GraduationCap size={14} /> {profile.education}
-                  </p>
-                )}
-              </div>
-              <div className="mt-4 flex gap-2">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    const receiverId = profileId;
-                    if (!receiverId) {
-                      toast.error('Profile ID is missing for this user');
-                      return;
-                    }
-                    sendInterestMutation.mutate(receiverId);
-                  }}
-                  disabled={
-                    sendInterestMutation.isPending || sentInterestIds.includes(profileId)
-                  }
-                  className="flex-1 btn-primary text-sm py-2 flex items-center justify-center gap-1 disabled:opacity-60"
-                >
-                  <Heart size={16} />
-                  {sentInterestIds.includes(profileId)
-                    ? 'Sent'
-                    : sendInterestMutation.isPending
-                      ? 'Sending...'
-                      : 'Interest'}
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toast('Skipped profile');
-                  }}
-                  className="px-3 py-2 border border-gray-200 rounded-lg text-gray-500 hover:bg-gray-50"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-            </div>
-            );
-          })}
+          {profiles.map((profile: any) => (
+            <MatchProfileCard
+              key={profile.id}
+              profile={profile}
+              showScore
+              interestSent={sentInterestIds.includes(profile.userId) || sentInterestIds.includes(profile.id)}
+              shortlisted={shortlistedIds.includes(profile.id) || tab === 'shortlist'}
+              onInterest={() => handleInterest(profile)}
+              onShortlist={() => handleShortlist(profile.id)}
+            />
+          ))}
         </div>
       ) : (
-        <div className="text-center py-12">
-          <Heart size={48} className="text-gray-300 mx-auto" />
-          <p className="mt-4 text-gray-500">No profiles found. Try adjusting your filters.</p>
-        </div>
+        <div className="text-center py-12 text-gray-500">No profiles found. Try adjusting filters or complete your profile.</div>
       )}
     </div>
   );
