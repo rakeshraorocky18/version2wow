@@ -28,6 +28,9 @@ export default function CallModal({
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
+  const remoteStreamRef = useRef<MediaStream | null>(null);
+  const mountedRef = useRef(true);
+  const setupSeqRef = useRef(0);
 
   const { emit } = useChatSocket({
     onCallAccepted: async () => {
@@ -58,6 +61,12 @@ export default function CallModal({
 
   const setupPeerConnection = useCallback(
     async (isCaller: boolean) => {
+      if (pcRef.current) {
+        if (isCaller) {
+          emit('call:initiate', { receiverId: peerId, callType, callId });
+        }
+        return;
+      }
       const pc = new RTCPeerConnection(ICE_SERVERS);
       pcRef.current = pc;
 
@@ -68,6 +77,7 @@ export default function CallModal({
       };
 
       pc.ontrack = (e) => {
+        remoteStreamRef.current = e.streams[0];
         if (remoteVideoRef.current) {
           remoteVideoRef.current.srcObject = e.streams[0];
         }
@@ -78,10 +88,22 @@ export default function CallModal({
           ? { audio: true, video: true }
           : { audio: true, video: false };
 
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      const mySetupSeq = ++setupSeqRef.current;
+      const stream =
+        localStreamRef.current ||
+        (await navigator.mediaDevices.getUserMedia(constraints));
+      if (!mountedRef.current || mySetupSeq !== setupSeqRef.current) {
+        stream.getTracks().forEach((t) => t.stop());
+        return;
+      }
       localStreamRef.current = stream;
       if (localVideoRef.current) localVideoRef.current.srcObject = stream;
-      stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+      stream.getTracks().forEach((track) => {
+        const alreadyAdded = pc
+          .getSenders()
+          .some((sender) => sender.track?.id === track.id);
+        if (!alreadyAdded) pc.addTrack(track, stream);
+      });
 
       if (isCaller) {
         emit('call:initiate', { receiverId: peerId, callType, callId });
@@ -101,31 +123,36 @@ export default function CallModal({
     setStatus('connecting');
     emit('call:accept', { callId, callerId: peerId });
     await setupPeerConnection(false);
-    await startMediaForCallee();
-  };
-
-  const startMediaForCallee = async () => {
-    const constraints: MediaStreamConstraints =
-      callType === 'video' ? { audio: true, video: true } : { audio: true, video: false };
-    const stream = await navigator.mediaDevices.getUserMedia(constraints);
-    localStreamRef.current = stream;
-    if (localVideoRef.current) localVideoRef.current.srcObject = stream;
-    stream.getTracks().forEach((track) => pcRef.current?.addTrack(track, stream));
   };
 
   const rejectCall = () => {
+    forceStopMedia();
     emit('call:reject', { callId, callerId: peerId });
     onClose();
   };
 
   const endCall = () => {
+    forceStopMedia();
     emit('call:end', { callId, peerId });
-    cleanup();
+    onClose();
+  };
+
+  const forceStopMedia = () => {
+    setupSeqRef.current += 1;
+    localStreamRef.current?.getTracks().forEach((t) => t.stop());
+    localStreamRef.current = null;
+    remoteStreamRef.current?.getTracks().forEach((t) => t.stop());
+    remoteStreamRef.current = null;
+    pcRef.current?.getSenders().forEach((sender) => sender.track?.stop());
+    pcRef.current?.getReceivers().forEach((receiver) => receiver.track?.stop());
+    pcRef.current?.close();
+    pcRef.current = null;
+    if (localVideoRef.current) localVideoRef.current.srcObject = null;
+    if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
   };
 
   const cleanup = () => {
-    localStreamRef.current?.getTracks().forEach((t) => t.stop());
-    pcRef.current?.close();
+    forceStopMedia();
     onClose();
   };
 
@@ -144,12 +171,13 @@ export default function CallModal({
   };
 
   useEffect(() => {
+    mountedRef.current = true;
     if (!isIncoming) {
       setupPeerConnection(true);
     }
     return () => {
-      localStreamRef.current?.getTracks().forEach((t) => t.stop());
-      pcRef.current?.close();
+      mountedRef.current = false;
+      forceStopMedia();
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
