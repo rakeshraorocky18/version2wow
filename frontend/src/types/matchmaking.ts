@@ -21,21 +21,9 @@ export interface MatchFilters {
   gender: string;
   religion: string;
   caste: string;
-  subCaste: string;
-  education: string;
-  occupation: string;
-  workingStatus: string;
-  country: string;
-  city: string;
-  state: string;
-  diet: string;
-  maritalStatus: string;
   minAge: string;
   maxAge: string;
-  minHeight: string;
-  maxHeight: string;
   horoscopeAvailable: boolean;
-  includeHoroscope: boolean;
 }
 
 export interface CompatibilityInfo {
@@ -77,19 +65,7 @@ export const EMPTY_FILTERS: MatchFilters = {
   gender: '',
   religion: '',
   caste: '',
-  subCaste: '',
-  education: '',
-  occupation: '',
-  workingStatus: '',
-  country: '',
-  city: '',
-  state: '',
-  diet: '',
-  maritalStatus: '',
   minAge: '',
   maxAge: '',
-  minHeight: '',
-  maxHeight: '',
   horoscopeAvailable: false,
-  includeHoroscope: true,
 };

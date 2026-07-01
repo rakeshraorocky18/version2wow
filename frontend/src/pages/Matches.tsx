@@ -12,6 +12,7 @@ import {
 } from '../hooks/useMatchmaking';
 import MatchProfileCard from '../components/matchmaking/MatchProfileCard';
 import InterestRequestCard from '../components/matchmaking/InterestRequestCard';
+import { getCastesForReligion, RELIGION_OPTIONS } from '../lib/religionCasteOptions';
 import { EMPTY_FILTERS, type InterestSubTab, type MatchFilters, type MatchInterest, type MatchTab } from '../types/matchmaking';
 import { useAuthStore } from '../store/authStore';
 
@@ -181,38 +182,31 @@ export default function Matches() {
               <option value="male">Male</option>
               <option value="female">Female</option>
             </select>
-            <input list="religion-options" className="input-field" placeholder="Religion" value={filters.religion} onChange={(e) => setFilters({ ...filters, religion: e.target.value })} />
-            <input className="input-field" placeholder="Caste" value={filters.caste} onChange={(e) => setFilters({ ...filters, caste: e.target.value })} />
-            <input className="input-field" placeholder="Sub Caste" value={filters.subCaste} onChange={(e) => setFilters({ ...filters, subCaste: e.target.value })} />
-            <input className="input-field" placeholder="Education" value={filters.education} onChange={(e) => setFilters({ ...filters, education: e.target.value })} />
-            <input className="input-field" placeholder="Occupation" value={filters.occupation} onChange={(e) => setFilters({ ...filters, occupation: e.target.value })} />
-            <select className="input-field" value={filters.workingStatus} onChange={(e) => setFilters({ ...filters, workingStatus: e.target.value })} aria-label="Working status filter">
-              <option value="">Working Status</option>
-              <option value="working">Currently Working</option>
-              <option value="not_working">Not Working</option>
+            <select
+              className="input-field"
+              value={filters.religion}
+              onChange={(e) => setFilters({ ...filters, religion: e.target.value, caste: '' })}
+              aria-label="Religion filter"
+            >
+              <option value="">All Religions</option>
+              {RELIGION_OPTIONS.map((r) => (
+                <option key={r} value={r}>{r}</option>
+              ))}
             </select>
-            <input className="input-field" placeholder="Country" value={filters.country} onChange={(e) => setFilters({ ...filters, country: e.target.value })} />
-            <input className="input-field" placeholder="City" value={filters.city} onChange={(e) => setFilters({ ...filters, city: e.target.value })} />
-            <input className="input-field" placeholder="State" value={filters.state} onChange={(e) => setFilters({ ...filters, state: e.target.value })} />
-            <select className="input-field" value={filters.maritalStatus} onChange={(e) => setFilters({ ...filters, maritalStatus: e.target.value })} aria-label="Marital status filter">
-              <option value="">Marital Status</option>
-              <option>Never Married</option>
-              <option>Divorced</option>
-              <option>Widowed</option>
-              <option>Awaiting Divorce</option>
-              <option>Annulled</option>
+            <select
+              className="input-field"
+              value={filters.caste}
+              onChange={(e) => setFilters({ ...filters, caste: e.target.value })}
+              disabled={!filters.religion || getCastesForReligion(filters.religion).length === 0}
+              aria-label="Caste filter"
+            >
+              <option value="">All Castes</option>
+              {getCastesForReligion(filters.religion).map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
             </select>
-            <select className="input-field" value={filters.diet} onChange={(e) => setFilters({ ...filters, diet: e.target.value })} aria-label="Diet filter">
-              <option value="">Any Diet</option>
-              <option value="Vegetarian">Vegetarian</option>
-              <option value="Non-Vegetarian">Non-Vegetarian</option>
-              <option value="Eggetarian">Eggetarian</option>
-              <option value="Vegan">Vegan</option>
-            </select>
-            <input className="input-field" placeholder="Min age" type="number" value={filters.minAge} onChange={(e) => setFilters({ ...filters, minAge: e.target.value })} />
-            <input className="input-field" placeholder="Max age" type="number" value={filters.maxAge} onChange={(e) => setFilters({ ...filters, maxAge: e.target.value })} />
-            <input className="input-field" placeholder="Min height (ft)" type="number" value={filters.minHeight} onChange={(e) => setFilters({ ...filters, minHeight: e.target.value })} />
-            <input className="input-field" placeholder="Max height (ft)" type="number" value={filters.maxHeight} onChange={(e) => setFilters({ ...filters, maxHeight: e.target.value })} />
+            <input className="input-field" placeholder="Min age" type="number" min={18} value={filters.minAge} onChange={(e) => setFilters({ ...filters, minAge: e.target.value })} aria-label="Minimum age" />
+            <input className="input-field" placeholder="Max age" type="number" min={18} value={filters.maxAge} onChange={(e) => setFilters({ ...filters, maxAge: e.target.value })} aria-label="Maximum age" />
             <label className="flex items-center gap-2 text-sm text-gray-700 px-2">
               <input
                 type="checkbox"
@@ -221,29 +215,8 @@ export default function Matches() {
               />
               Horoscope available
             </label>
-            <label className="flex items-center gap-2 text-sm text-gray-700 px-2">
-              <input
-                type="checkbox"
-                checked={filters.includeHoroscope}
-                onChange={(e) => setFilters({ ...filters, includeHoroscope: e.target.checked })}
-              />
-              Include horoscope in score
-            </label>
-            <button className="btn-secondary" onClick={() => setFilters(EMPTY_FILTERS)}>Reset All Filters</button>
+            <button className="btn-secondary" onClick={() => setFilters(EMPTY_FILTERS)}>Reset Filters</button>
           </div>
-          <datalist id="religion-options">
-            <option value="Hindu" />
-            <option value="Christian" />
-            <option value="Jain" />
-            <option value="Sikh" />
-            <option value="Muslim" />
-            <option value="Buddhist" />
-            <option value="Jewish" />
-            <option value="Parsi" />
-            <option value="Spiritual - not religious" />
-            <option value="No Religion" />
-            <option value="Other" />
-          </datalist>
         </div>
       )}
 
