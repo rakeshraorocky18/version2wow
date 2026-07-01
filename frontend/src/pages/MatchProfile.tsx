@@ -11,11 +11,12 @@ import {
   Users,
   HeartHandshake,
   LayoutGrid,
+  Lock,
 } from 'lucide-react';
 import api from '../lib/api';
 import { getPhotoUrl } from '../lib/profileUtils';
 import ProfileDetailsView, { type ProfileTab } from '../components/profile/ProfileDetailsView';
-import { useProfileCompatibility } from '../hooks/useMatchmaking';
+import { useProfileCompatibility, useAcceptedInterests } from '../hooks/useMatchmaking';
 
 const TABS: { id: ProfileTab; label: string; icon: typeof LayoutGrid }[] = [
   { id: 'about', label: 'About', icon: Sparkles },
@@ -38,6 +39,11 @@ export default function MatchProfile() {
   });
 
   const { data: compatibility } = useProfileCompatibility(id);
+  const { data: acceptedMatches = [] } = useAcceptedInterests();
+
+  const isAcceptedMatch = acceptedMatches.some(
+    (m: { partnerUserId?: string }) => m.partnerUserId === profile?.userId,
+  );
 
   if (isLoading) {
     return <div className="text-center py-12 text-gray-500">Loading profile...</div>;
@@ -103,12 +109,21 @@ export default function MatchProfile() {
                 )}
               </div>
             </div>
-            <Link
-              to={chatUserId ? `/app/chat?userId=${chatUserId}` : '/app/chat'}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#B66A8A] px-5 py-2.5 text-sm font-medium text-white transition hover:bg-[#A75878]"
-            >
-              <MessageCircle size={16} /> Start Chat
-            </Link>
+            {isAcceptedMatch ? (
+              <Link
+                to={chatUserId ? `/app/chat?userId=${chatUserId}` : '/app/chat'}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#B66A8A] px-5 py-2.5 text-sm font-medium text-white transition hover:bg-[#A75878]"
+              >
+                <MessageCircle size={16} /> Start Chat
+              </Link>
+            ) : (
+              <span
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-5 py-2.5 text-sm font-medium text-gray-500"
+                title="Chat unlocks after you both accept an interest"
+              >
+                <Lock size={16} /> Chat after match
+              </span>
+            )}
           </div>
 
           {(express.aboutMe || profile.bio) && (
