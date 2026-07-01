@@ -249,10 +249,29 @@ export default function ProfileDetailsView({
         title="Marital Information"
         items={[
           { label: 'Marital Status', value: marital.maritalStatus },
-          { label: 'Years Married', value: marital.yearsMarried },
-          { label: 'Have Children', value: marital.haveChildren },
-          { label: 'Children Living With', value: marital.childrenLivingWith },
-          { label: 'Ready for Remarriage', value: marital.readyForRemarriage },
+          { label: 'Years Married', value: marital.maritalStatus === 'Divorced' ? marital.yearsMarried : null },
+          {
+            label: 'Do you have children?',
+            value: ['Divorced', 'Widowed'].includes(marital.maritalStatus)
+              ? marital.haveChildren === true
+                ? 'Yes'
+                : marital.haveChildren === false
+                  ? 'No'
+                  : null
+              : null,
+          },
+          {
+            label: 'Number of Boys',
+            value: ['Divorced', 'Widowed'].includes(marital.maritalStatus) && marital.haveChildren ? marital.childrenBoys : null,
+          },
+          {
+            label: 'Number of Girls',
+            value: ['Divorced', 'Widowed'].includes(marital.maritalStatus) && marital.haveChildren ? marital.childrenGirls : null,
+          },
+          {
+            label: 'Children Living With',
+            value: ['Divorced', 'Widowed'].includes(marital.maritalStatus) && marital.haveChildren ? marital.childrenLivingWith : null,
+          },
         ]}
       />
     ),
@@ -281,10 +300,10 @@ export default function ProfileDetailsView({
           { label: 'Family Status', value: family.familyStatus },
           { label: 'Father Name', value: family.fatherName },
           { label: 'Father Alive', value: family.fatherAlive },
-          { label: 'Father Occupation', value: family.fatherOccupation },
+          { label: 'Father Occupation', value: family.fatherAlive ? family.fatherOccupation : null },
           { label: 'Mother Name', value: family.motherName },
           { label: 'Mother Alive', value: family.motherAlive },
-          { label: 'Mother Occupation', value: family.motherOccupation },
+          { label: 'Mother Occupation', value: family.motherAlive ? family.motherOccupation : null },
           { label: 'Siblings', value: family.siblings ?? profile.siblings },
         ]}
       />

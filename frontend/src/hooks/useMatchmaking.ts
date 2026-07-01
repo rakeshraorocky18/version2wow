@@ -15,7 +15,8 @@ function filtersToParams(filters: MatchFilters) {
 export function useMatchSuggestions(filters: MatchFilters) {
   return useQuery({
     queryKey: ['matches-suggestions', filters],
-    staleTime: 30_000,
+    staleTime: 0,
+    refetchOnMount: 'always',
     queryFn: async () => {
       const params = filtersToParams(filters);
       const { data } = await api.get(`/matches/suggestions?${params.toString()}`);
@@ -28,7 +29,8 @@ export function useMatchSearch(filters: MatchFilters, enabled: boolean) {
   return useQuery({
     queryKey: ['matches-search', filters],
     enabled,
-    staleTime: 30_000,
+    staleTime: 0,
+    refetchOnMount: 'always',
     queryFn: async () => {
       const params = filtersToParams(filters);
       const { data } = await api.get(`/matches/search?${params.toString()}`);

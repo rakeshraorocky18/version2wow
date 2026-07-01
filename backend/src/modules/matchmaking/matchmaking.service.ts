@@ -12,7 +12,8 @@ import { MatchStatus } from '../../common/enums';
 import { ProfileSearchQueryDto, SendInterestDto } from './dto/matchmaking.dto';
 import { UsersService } from '../users/users.service.typeorm';
 import { calculateCompatibility } from './engines/compatibility.engine';
-import { buildSuggestionFilters, mergeFilters } from './engines/filter.engine';
+import { buildSuggestionFilters, mergeFilters, resolveOppositeGenderFilter } from './engines/filter.engine';
+import { isHoroscopeCompatible } from './engines/horoscope.engine';
 import { Neo4jMatchService } from './services/neo4j-match.service';
 import { NotificationsService } from '../notifications/notifications.service';
 
@@ -320,36 +321,62 @@ export class MatchmakingService {
     });
   }
 
-  async searchMatches(userId: string, query: ProfileSearchQueryDto) {
+  private applyHoroscopeMatchFilter(
+    viewer: object | null,
+    profiles: Record<string, unknown>[],
+    query: ProfileSearchQueryDto,
+  ) {
+    const enabled = query.horoscopeMatch === true || query.horoscopeAvailable === true;
+    if (!enabled || !viewer) return profiles;
+    const viewerRecord = viewer as Record<string, unknown>;
+    return profiles.filter((p) => isHoroscopeCompatible(viewerRecord, p));
+  }
+
+  private stripMatchQueryFilters(query: ProfileSearchQueryDto) {
+    const { gender: _gender, horoscopeMatch: _hm, horoscopeAvailable: _ha, ...rest } = query;
+    return rest;
+  }
+
+  async searchMatches(userId: string, query: ProfileSearchQueryDto, userRole?: string) {
     const viewer = await this.usersService.getProfileOrNull(userId);
     const excludeUserIds = await this.excludeUserIds(userId);
     const page = query.page || 1;
     const limit = query.limit || 20;
 
+    const userFilters = this.stripMatchQueryFilters(query);
+    const oppositeGender = resolveOppositeGenderFilter(viewer, userRole);
+    const filters = {
+      ...userFilters,
+      ...(oppositeGender ? { gender: oppositeGender } : {}),
+    };
+
     const result = await this.usersService.searchProfiles(
-      { ...query },
+      { ...filters },
       page,
       limit,
       { excludeUserIds },
     );
 
-    const scored = this.scoreProfiles(viewer, result.profiles, query.includeHoroscope !== false);
+    let scored = this.scoreProfiles(viewer, result.profiles, query.includeHoroscope !== false);
+    scored = this.applyHoroscopeMatchFilter(viewer, scored as Record<string, unknown>[], query);
 
-    return { profiles: scored, total: result.total, page, limit };
+    return { profiles: scored, total: scored.length, page, limit };
   }
 
-  async getSuggestedMatches(userId: string, query: ProfileSearchQueryDto = {}) {
+  async getSuggestedMatches(userId: string, query: ProfileSearchQueryDto = {}, userRole?: string) {
     const viewer = await this.usersService.getProfileOrNull(userId);
     if (!viewer) {
-      // If user hasn't created a profile yet, show searchable profiles instead of empty suggestions.
-      return this.searchMatches(userId, query);
+      return this.searchMatches(userId, query, userRole);
     }
     const excludeUserIds = await this.excludeUserIds(userId);
     const page = query.page || 1;
     const limit = query.limit || 20;
 
-    const autoFilters = buildSuggestionFilters(viewer);
-    const filters = mergeFilters(autoFilters, query);
+    const userFilters = this.stripMatchQueryFilters(query);
+    const autoFilters = buildSuggestionFilters(viewer, userRole);
+    const filters = mergeFilters(autoFilters, userFilters);
+    const oppositeGender = resolveOppositeGenderFilter(viewer, userRole);
+    if (oppositeGender) filters.gender = oppositeGender;
 
     const result = await this.usersService.searchProfiles(
       { ...filters } as Record<string, unknown>,
@@ -359,16 +386,17 @@ export class MatchmakingService {
     );
 
     const graphBoostIds = await this.neo4jMatchService.getGraphBoostProfileIds(userId, limit);
-    const scored = this.scoreProfiles(
+    let scored = this.scoreProfiles(
       viewer,
       result.profiles,
       query.includeHoroscope !== false,
       graphBoostIds,
-    ).slice(0, limit);
+    );
+    scored = this.applyHoroscopeMatchFilter(viewer, scored as Record<string, unknown>[], query).slice(0, limit);
 
     return {
       profiles: scored,
-      total: result.total,
+      total: scored.length,
       page,
       limit,
       recommendationEngine: this.neo4jMatchService.isEnabled() ? 'graph+rules' : 'rules',
@@ -401,7 +429,7 @@ export class MatchmakingService {
     return { removed: true };
   }
 
-  async getShortlist(userId: string) {
+  async getShortlist(userId: string, userRole?: string) {
     const entries = await this.shortlistRepository.find({
       where: { userId },
       order: { createdAt: 'DESC' },
@@ -409,6 +437,7 @@ export class MatchmakingService {
     if (!entries.length) return { profiles: [], total: 0 };
 
     const viewer = await this.getViewerProfile(userId);
+    const oppositeGender = resolveOppositeGenderFilter(viewer, userRole);
     const profiles = await Promise.all(
       entries.map(async (e) => {
         try {
@@ -419,11 +448,11 @@ export class MatchmakingService {
       }),
     );
 
-    const scored = this.scoreProfiles(
-      viewer,
-      profiles.filter(Boolean) as object[],
-      true,
-    );
+    const eligible = profiles.filter(Boolean).filter(
+      (p) => !oppositeGender || (p as { gender?: string }).gender === oppositeGender,
+    ) as object[];
+
+    const scored = this.scoreProfiles(viewer, eligible, true);
 
     return { profiles: scored, total: scored.length };
   }

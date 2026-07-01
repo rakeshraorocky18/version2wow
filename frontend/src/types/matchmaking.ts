@@ -18,12 +18,11 @@ export interface MatchInterest {
 export type InterestSubTab = 'received' | 'sent' | 'accepted';
 
 export interface MatchFilters {
-  gender: string;
   religion: string;
   caste: string;
   minAge: string;
   maxAge: string;
-  horoscopeAvailable: boolean;
+  horoscopeMatch: boolean;
 }
 
 export interface CompatibilityInfo {
@@ -62,10 +61,9 @@ export interface MatchProfile {
 }
 
 export const EMPTY_FILTERS: MatchFilters = {
-  gender: '',
   religion: '',
   caste: '',
   minAge: '',
   maxAge: '',
-  horoscopeAvailable: false,
+  horoscopeMatch: false,
 };

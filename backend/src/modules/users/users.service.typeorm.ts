@@ -103,6 +103,9 @@ export class UsersService implements OnModuleInit {
       yearsMarried: dto.yearsMarried,
       haveChildren: dto.haveChildren || false,
       childrenLivingWith: dto.childrenLivingWith,
+      numberOfChildren: dto.numberOfChildren,
+      childrenBoys: dto.childrenBoys,
+      childrenGirls: dto.childrenGirls,
       readyForRemarriage: dto.readyForRemarriage || false,
       familyType: dto.familyType || dto.familyDetails?.familyType,
       familyValues: dto.familyValues,
@@ -265,6 +268,9 @@ export class UsersService implements OnModuleInit {
     if (dto.yearsMarried !== undefined) profile.yearsMarried = dto.yearsMarried;
     if (dto.haveChildren !== undefined) profile.haveChildren = dto.haveChildren;
     if (dto.childrenLivingWith !== undefined) profile.childrenLivingWith = dto.childrenLivingWith;
+    if (dto.numberOfChildren !== undefined) profile.numberOfChildren = dto.numberOfChildren;
+    if (dto.childrenBoys !== undefined) profile.childrenBoys = dto.childrenBoys;
+    if (dto.childrenGirls !== undefined) profile.childrenGirls = dto.childrenGirls;
     if (dto.readyForRemarriage !== undefined) profile.readyForRemarriage = dto.readyForRemarriage;
     if (dto.familyType !== undefined) profile.familyType = dto.familyType;
     if (dto.familyValues !== undefined) profile.familyValues = dto.familyValues;
@@ -531,6 +537,9 @@ export class UsersService implements OnModuleInit {
         maritalStatus: profile.maritalStatus,
         yearsMarried: profile.yearsMarried,
         haveChildren: profile.haveChildren,
+        numberOfChildren: profile.numberOfChildren,
+        childrenBoys: profile.childrenBoys,
+        childrenGirls: profile.childrenGirls,
         childrenLivingWith: profile.childrenLivingWith,
         readyForRemarriage: profile.readyForRemarriage,
       },

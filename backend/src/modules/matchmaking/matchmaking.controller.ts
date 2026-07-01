@@ -24,20 +24,20 @@ export class MatchmakingController {
 
   @Get('search')
   @ApiOperation({ summary: 'Search profiles with filters and compatibility score' })
-  async searchMatches(@Req() req: { user: { id: string } }, @Query() query: ProfileSearchQueryDto) {
-    return this.matchmakingService.searchMatches(req.user.id, query);
+  async searchMatches(@Req() req: { user: { id: string; role?: string } }, @Query() query: ProfileSearchQueryDto) {
+    return this.matchmakingService.searchMatches(req.user.id, query, req.user.role);
   }
 
   @Get('suggestions')
   @ApiOperation({ summary: 'Get AI-weighted suggested matches' })
-  async getSuggestions(@Req() req: { user: { id: string } }, @Query() query: ProfileSearchQueryDto) {
-    return this.matchmakingService.getSuggestedMatches(req.user.id, query);
+  async getSuggestions(@Req() req: { user: { id: string; role?: string } }, @Query() query: ProfileSearchQueryDto) {
+    return this.matchmakingService.getSuggestedMatches(req.user.id, query, req.user.role);
   }
 
   @Get('shortlist')
   @ApiOperation({ summary: 'Get shortlisted profiles' })
-  async getShortlist(@Req() req: { user: { id: string } }) {
-    return this.matchmakingService.getShortlist(req.user.id);
+  async getShortlist(@Req() req: { user: { id: string; role?: string } }) {
+    return this.matchmakingService.getShortlist(req.user.id, req.user.role);
   }
 
   @Post('shortlist')

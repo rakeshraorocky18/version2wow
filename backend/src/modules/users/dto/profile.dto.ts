@@ -1,5 +1,6 @@
-import { IsString, IsOptional, IsEnum, IsNumber, IsArray, IsObject, IsDateString, IsBoolean, IsInt } from 'class-validator';
+import { IsString, IsOptional, IsEnum, IsNumber, IsArray, IsObject, IsDateString, IsBoolean, IsInt, Min } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import { Gender } from '../../../common/enums';
 
 export class CreateProfileDto {
@@ -327,6 +328,27 @@ export class CreateProfileDto {
   @IsOptional()
   @IsString()
   childrenLivingWith?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  numberOfChildren?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  childrenBoys?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  childrenGirls?: number;
 
   @ApiPropertyOptional()
   @IsOptional()

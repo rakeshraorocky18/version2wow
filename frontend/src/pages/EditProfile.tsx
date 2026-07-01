@@ -132,6 +132,18 @@ const HEIGHT_OPTIONS = Array.from({ length: 31 }).map((_, i) => {
 const COMPLEXIONS = ['Very Fair', 'Fair', 'Wheatish', 'Wheatish Brown', 'Brown', 'Dark'];
 const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 const MARITAL_OPTIONS = ['Never Married', 'Divorced', 'Widowed', 'Awaiting Divorce', 'Annulled'];
+const YEARS_MARRIED_OPTIONS = [
+  'Less than 1 year',
+  '1-2 years',
+  '3-5 years',
+  '6-10 years',
+  '11-15 years',
+  '16-20 years',
+  'More than 20 years',
+];
+const CHILD_COUNT_OPTIONS = ['0', '1', '2', '3', '4', '5', '6+'];
+const CHILDREN_LIVING_WITH_OPTIONS = ['Mother', 'Father', 'Shared Custody', 'Relatives', 'Others'];
+const CHILDREN_MARITAL_STATUSES = ['Divorced', 'Widowed'];
 const FAMILY_TYPES = ['Nuclear Family', 'Joint Family', 'Extended Family'];
 const FAMILY_STATUS = ['Middle Class', 'Upper Middle Class', 'Affluent', 'Rich'];
 const EATING = ['Vegetarian', 'Eggetarian', 'Non-Vegetarian', 'Vegan'];
@@ -222,8 +234,9 @@ export default function EditProfile({ managedMode = false }: { managedMode?: boo
     maritalStatus: '',
     yearsMarried: '',
     haveChildren: false,
+    childrenBoys: '',
+    childrenGirls: '',
     childrenLivingWith: '',
-    readyForRemarriage: false,
     country: '',
     state: '',
     city: '',
@@ -298,6 +311,12 @@ export default function EditProfile({ managedMode = false }: { managedMode?: boo
     Object.keys(form).forEach((key) => {
       next[key] = normalizeFormValue(merged[key], form[key]);
     });
+    if (next.childrenBoys !== '' && next.childrenBoys !== null && next.childrenBoys !== undefined) {
+      next.childrenBoys = String(next.childrenBoys);
+    }
+    if (next.childrenGirls !== '' && next.childrenGirls !== null && next.childrenGirls !== undefined) {
+      next.childrenGirls = String(next.childrenGirls);
+    }
     setForm(next);
     initialRef.current = next;
     setPhotoPreview(getPhotoUrl(existing.photos?.[0] || ''));
@@ -392,6 +411,28 @@ export default function EditProfile({ managedMode = false }: { managedMode?: boo
       if (key === 'currentStatus' && value !== 'Other') {
         next.currentStatusOther = '';
       }
+      if (key === 'fatherAlive' && value === false) {
+        next.fatherOccupation = '';
+      }
+      if (key === 'motherAlive' && value === false) {
+        next.motherOccupation = '';
+      }
+      if (key === 'maritalStatus') {
+        if (value !== 'Divorced') {
+          next.yearsMarried = '';
+        }
+        if (!CHILDREN_MARITAL_STATUSES.includes(value)) {
+          next.haveChildren = false;
+          next.childrenBoys = '';
+          next.childrenGirls = '';
+          next.childrenLivingWith = '';
+        }
+      }
+      if (key === 'haveChildren' && value === false) {
+        next.childrenBoys = '';
+        next.childrenGirls = '';
+        next.childrenLivingWith = '';
+      }
       return next;
     });
     setErrors((e) => ({ ...e, [key]: '' }));
@@ -437,7 +478,14 @@ export default function EditProfile({ managedMode = false }: { managedMode?: boo
         if (!String(form[k] ?? '').trim()) next[k] = 'Required';
       });
     }
-    if (form.maritalStatus === 'Divorced' && !form.yearsMarried) next.yearsMarried = 'Required';
+    if (form.maritalStatus === 'Divorced' && !form.yearsMarried) {
+      next.yearsMarried = 'Required';
+    }
+    if (CHILDREN_MARITAL_STATUSES.includes(form.maritalStatus) && form.haveChildren) {
+      if (form.childrenBoys === '') next.childrenBoys = 'Required';
+      if (form.childrenGirls === '') next.childrenGirls = 'Required';
+      if (!form.childrenLivingWith) next.childrenLivingWith = 'Required';
+    }
     if (form.bio?.length > 1000) next.bio = 'Max 1000 characters';
     if (form.prefAgeMin > form.prefAgeMax) next.prefAgeMax = 'Max age must be greater than min age';
     setErrors(next);
@@ -453,7 +501,7 @@ export default function EditProfile({ managedMode = false }: { managedMode?: boo
       'horoscopeAvailable', 'rashi', 'nakshatra', 'gothram', 'manglik', 'horoscope',
       'timeOfBirth', 'placeOfBirth', 'horoscopeFileUrl',
       'religion', 'religionOther', 'caste', 'subCaste', 'motherTongue', 'community',
-      'maritalStatus', 'yearsMarried', 'haveChildren', 'childrenLivingWith', 'readyForRemarriage',
+      'maritalStatus', 'yearsMarried', 'haveChildren', 'childrenBoys', 'childrenGirls', 'childrenLivingWith',
       'address', 'pincode', 'familyType', 'familyStatus', 'fatherName', 'fatherAlive', 'fatherOccupation',
       'motherName', 'motherAlive', 'motherOccupation', 'siblings', 'siblingDetails',
       'bio', 'prefAgeMin', 'prefAgeMax', 'prefHeightMin', 'prefHeightMax',
@@ -481,6 +529,36 @@ export default function EditProfile({ managedMode = false }: { managedMode?: boo
       if (Number.isNaN(num)) delete payload[key];
       else payload[key] = num;
     });
+
+    if (
+      changed.haveChildren !== undefined ||
+      changed.childrenBoys !== undefined ||
+      changed.childrenGirls !== undefined ||
+      changed.childrenLivingWith !== undefined ||
+      changed.maritalStatus !== undefined
+    ) {
+      if (!CHILDREN_MARITAL_STATUSES.includes(form.maritalStatus) || !form.haveChildren) {
+        payload.haveChildren = false;
+        payload.numberOfChildren = 0;
+        payload.childrenBoys = 0;
+        payload.childrenGirls = 0;
+        payload.childrenLivingWith = '';
+      } else {
+        const boys = form.childrenBoys === '6+' ? 6 : Number(form.childrenBoys || 0);
+        const girls = form.childrenGirls === '6+' ? 6 : Number(form.childrenGirls || 0);
+        payload.haveChildren = true;
+        payload.childrenBoys = boys;
+        payload.childrenGirls = girls;
+        payload.numberOfChildren = boys + girls;
+      }
+    }
+
+    if (changed.fatherAlive !== undefined || changed.fatherOccupation !== undefined) {
+      if (form.fatherAlive === false) payload.fatherOccupation = '';
+    }
+    if (changed.motherAlive !== undefined || changed.motherOccupation !== undefined) {
+      if (form.motherAlive === false) payload.motherOccupation = '';
+    }
 
     if (
       changed.city !== undefined ||
@@ -978,23 +1056,51 @@ export default function EditProfile({ managedMode = false }: { managedMode?: boo
                     </select>
                   </FormField>
                   {form.maritalStatus === 'Divorced' && (
+                    <FormField label="Years Married" htmlFor="yearsMarried" required error={errors.yearsMarried}>
+                      <select id="yearsMarried" className={inputClass(errors.yearsMarried)} value={form.yearsMarried || ''} onChange={(e) => update('yearsMarried', e.target.value)}>
+                        <option value="">Select years</option>
+                        {YEARS_MARRIED_OPTIONS.map((v) => (
+                          <option key={v} value={v}>{v}</option>
+                        ))}
+                      </select>
+                    </FormField>
+                  )}
+                  {CHILDREN_MARITAL_STATUSES.includes(form.maritalStatus) && (
                     <>
-                      <FormField label="Years Married" htmlFor="yearsMarried" required error={errors.yearsMarried}>
-                        <input id="yearsMarried" className={inputClass(errors.yearsMarried)} value={form.yearsMarried || ''} onChange={(e) => update('yearsMarried', e.target.value)} />
-                      </FormField>
-                      <FormField label="Have Children" htmlFor="haveChildren">
+                      <FormField label="Do you have children?" htmlFor="haveChildren">
                         <select id="haveChildren" className={inputClass()} value={String(form.haveChildren)} onChange={(e) => update('haveChildren', e.target.value === 'true')}>
-                          <option value="false">No</option><option value="true">Yes</option>
+                          <option value="false">No</option>
+                          <option value="true">Yes</option>
                         </select>
                       </FormField>
-                      <FormField label="Children Living With" htmlFor="childrenLivingWith">
-                        <input id="childrenLivingWith" className={inputClass()} value={form.childrenLivingWith || ''} onChange={(e) => update('childrenLivingWith', e.target.value)} />
-                      </FormField>
-                      <FormField label="Ready for Remarriage" htmlFor="readyForRemarriage">
-                        <select id="readyForRemarriage" className={inputClass()} value={String(form.readyForRemarriage)} onChange={(e) => update('readyForRemarriage', e.target.value === 'true')}>
-                          <option value="true">Yes</option><option value="false">No</option>
-                        </select>
-                      </FormField>
+                      {form.haveChildren && (
+                        <>
+                          <FormField label="Number of Boys" htmlFor="childrenBoys" required error={errors.childrenBoys}>
+                            <select id="childrenBoys" className={inputClass(errors.childrenBoys)} value={form.childrenBoys ?? ''} onChange={(e) => update('childrenBoys', e.target.value)}>
+                              <option value="">Select</option>
+                              {CHILD_COUNT_OPTIONS.map((v) => (
+                                <option key={v} value={v}>{v}</option>
+                              ))}
+                            </select>
+                          </FormField>
+                          <FormField label="Number of Girls" htmlFor="childrenGirls" required error={errors.childrenGirls}>
+                            <select id="childrenGirls" className={inputClass(errors.childrenGirls)} value={form.childrenGirls ?? ''} onChange={(e) => update('childrenGirls', e.target.value)}>
+                              <option value="">Select</option>
+                              {CHILD_COUNT_OPTIONS.map((v) => (
+                                <option key={v} value={v}>{v}</option>
+                              ))}
+                            </select>
+                          </FormField>
+                          <FormField label="Children Living With" htmlFor="childrenLivingWith" required error={errors.childrenLivingWith}>
+                            <select id="childrenLivingWith" className={inputClass(errors.childrenLivingWith)} value={form.childrenLivingWith || ''} onChange={(e) => update('childrenLivingWith', e.target.value)}>
+                              <option value="">Select</option>
+                              {CHILDREN_LIVING_WITH_OPTIONS.map((v) => (
+                                <option key={v} value={v}>{v}</option>
+                              ))}
+                            </select>
+                          </FormField>
+                        </>
+                      )}
                     </>
                   )}
                 </>
@@ -1043,9 +1149,11 @@ export default function EditProfile({ managedMode = false }: { managedMode?: boo
                       <option value="true">Yes</option><option value="false">No</option>
                     </select>
                   </FormField>
-                  <FormField label="Father's Profession" htmlFor="fatherOccupation" colSpan={2}>
-                    <textarea id="fatherOccupation" className={`${inputClass()} min-h-[90px] resize-y`} value={form.fatherOccupation || ''} onChange={(e) => update('fatherOccupation', e.target.value)} />
-                  </FormField>
+                  {form.fatherAlive && (
+                    <FormField label="Father's Profession" htmlFor="fatherOccupation" colSpan={2}>
+                      <textarea id="fatherOccupation" className={`${inputClass()} min-h-[90px] resize-y`} value={form.fatherOccupation || ''} onChange={(e) => update('fatherOccupation', e.target.value)} />
+                    </FormField>
+                  )}
                   <FormField label="Mother's Name" htmlFor="motherName">
                     <input id="motherName" className={inputClass()} value={form.motherName || ''} onChange={(e) => update('motherName', e.target.value)} />
                   </FormField>
@@ -1054,9 +1162,11 @@ export default function EditProfile({ managedMode = false }: { managedMode?: boo
                       <option value="true">Yes</option><option value="false">No</option>
                     </select>
                   </FormField>
-                  <FormField label="Mother's Profession" htmlFor="motherOccupation" colSpan={2}>
-                    <textarea id="motherOccupation" className={`${inputClass()} min-h-[90px] resize-y`} value={form.motherOccupation || ''} onChange={(e) => update('motherOccupation', e.target.value)} />
-                  </FormField>
+                  {form.motherAlive && (
+                    <FormField label="Mother's Profession" htmlFor="motherOccupation" colSpan={2}>
+                      <textarea id="motherOccupation" className={`${inputClass()} min-h-[90px] resize-y`} value={form.motherOccupation || ''} onChange={(e) => update('motherOccupation', e.target.value)} />
+                    </FormField>
+                  )}
                   <FormField label="Number of Siblings" htmlFor="siblings">
                     <input id="siblings" type="number" min="0" className={inputClass()} value={form.siblings ?? 0} onChange={(e) => update('siblings', Number(e.target.value))} />
                   </FormField>

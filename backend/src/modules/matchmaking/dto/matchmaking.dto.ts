@@ -110,6 +110,12 @@ export class ProfileSearchQueryDto {
   @IsNumber()
   maxHeight?: number;
 
+  @ApiPropertyOptional({ description: 'Only show profiles with compatible horoscope match' })
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  horoscopeMatch?: boolean;
+
   @ApiPropertyOptional()
   @IsOptional()
   @Type(() => Boolean)
