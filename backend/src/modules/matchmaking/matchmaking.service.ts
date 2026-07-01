@@ -223,13 +223,23 @@ export class MatchmakingService {
   }
 
   async acceptInterest(userId: string, matchId: string): Promise<Match> {
-    const match = await this.matchRepository.findOne({
-      where: { id: matchId, receiverId: userId },
-    });
-
+    const match = await this.matchRepository.findOne({ where: { id: matchId } });
     if (!match) throw new NotFoundException('Match request not found');
 
+    const normalizedUser = await this.resolveUserId(userId);
+    const receiverUserId = await this.resolveUserId(match.receiverId);
+    const userProfile = await this.usersService.getProfileOrNull(normalizedUser);
+    const isReceiver =
+      receiverUserId === normalizedUser ||
+      match.receiverId === userId ||
+      match.receiverId === normalizedUser ||
+      (userProfile?.id != null && match.receiverId === userProfile.id);
+
+    if (!isReceiver) throw new NotFoundException('Match request not found');
+
     match.status = MatchStatus.ACCEPTED;
+    match.senderId = await this.resolveUserId(match.senderId);
+    match.receiverId = receiverUserId;
     return this.matchRepository.save(match);
   }
 
@@ -434,5 +444,94 @@ export class MatchmakingService {
       where: { userId, profileId: In(profileIds) },
     });
     return Object.fromEntries(profileIds.map((id) => [id, rows.some((r) => r.profileId === id)]));
+  }
+
+  async hasAcceptedMatch(viewerUserId: string, targetUserId: string): Promise<boolean> {
+    const viewer = await this.resolveUserId(viewerUserId);
+    const target = await this.resolveUserId(targetUserId);
+    if (viewer === target) return true;
+
+    const expectedPair = this.pairKey(viewer, target);
+    const viewerProfile = await this.usersService.getProfileOrNull(viewer);
+    const targetProfile = await this.usersService.getProfileOrNull(target);
+    const lookupIds = [...new Set([viewer, target, viewerProfile?.id, targetProfile?.id].filter(Boolean))] as string[];
+
+    const related = await this.matchRepository.find({
+      where: lookupIds.flatMap((uid) => [
+        { senderId: uid, status: MatchStatus.ACCEPTED },
+        { receiverId: uid, status: MatchStatus.ACCEPTED },
+      ]),
+    });
+
+    const seen = new Set<string>();
+    for (const match of related) {
+      if (seen.has(match.id)) continue;
+      seen.add(match.id);
+      const senderId = await this.resolveUserId(match.senderId);
+      const receiverId = await this.resolveUserId(match.receiverId);
+      if (this.pairKey(senderId, receiverId) === expectedPair) return true;
+    }
+    return false;
+  }
+
+  private toLimitedProfileView(profile: Record<string, unknown>): Record<string, unknown> {
+    const wizard = (profile.wizardProfile || {}) as Record<string, unknown>;
+    const pd = { ...((wizard.personalDetails || {}) as Record<string, unknown>) };
+    delete pd.email;
+    delete pd.phone;
+    delete pd.address;
+    delete pd.pincode;
+
+    return {
+      ...profile,
+      email: undefined,
+      phone: undefined,
+      address: undefined,
+      pincode: undefined,
+      income: undefined,
+      annualIncome: undefined,
+      occupation: undefined,
+      jobTitle: undefined,
+      companyName: undefined,
+      industry: undefined,
+      experience: undefined,
+      interests: undefined,
+      prefAgeMin: undefined,
+      prefAgeMax: undefined,
+      prefHeightMin: undefined,
+      prefHeightMax: undefined,
+      prefMaritalStatuses: undefined,
+      prefReligions: undefined,
+      prefCastes: undefined,
+      prefFamilyType: undefined,
+      wizardProfile: {
+        profilePhoto: wizard.profilePhoto,
+        personalDetails: pd,
+        religion: wizard.religion,
+        education: wizard.education,
+        expressYourself: wizard.expressYourself,
+      },
+    };
+  }
+
+  async getMatchProfile(viewerUserId: string, profileIdOrUserId: string) {
+    const profile = await this.usersService.getProfileByIdOrUserId(profileIdOrUserId);
+    const profileRecord = profile as unknown as Record<string, unknown>;
+    const targetUserId = String(profileRecord.userId || '');
+    const viewerId = await this.resolveUserId(viewerUserId);
+
+    if (targetUserId === viewerId || profileIdOrUserId === viewerId) {
+      return { profile: profileRecord, visibility: 'full' as const };
+    }
+
+    const accepted = await this.hasAcceptedMatch(viewerId, targetUserId);
+    if (accepted) {
+      return { profile: profileRecord, visibility: 'full' as const };
+    }
+
+    return {
+      profile: this.toLimitedProfileView(profileRecord),
+      visibility: 'limited' as const,
+    };
   }
 }

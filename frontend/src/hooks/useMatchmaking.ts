@@ -12,10 +12,12 @@ function filtersToParams(filters: MatchFilters) {
   return params;
 }
 
-export function useMatchSuggestions(filters: MatchFilters) {
+export function useMatchSuggestions(filters: MatchFilters, enabled = true) {
   return useQuery({
     queryKey: ['matches-suggestions', filters],
-    staleTime: 30_000,
+    enabled,
+    staleTime: 0,
+    refetchOnMount: 'always',
     queryFn: async () => {
       const params = filtersToParams(filters);
       const { data } = await api.get(`/matches/suggestions?${params.toString()}`);
@@ -28,7 +30,8 @@ export function useMatchSearch(filters: MatchFilters, enabled: boolean) {
   return useQuery({
     queryKey: ['matches-search', filters],
     enabled,
-    staleTime: 30_000,
+    staleTime: 0,
+    refetchOnMount: 'always',
     queryFn: async () => {
       const params = filtersToParams(filters);
       const { data } = await api.get(`/matches/search?${params.toString()}`);
@@ -90,6 +93,7 @@ export function useMatchActions() {
     queryClient.invalidateQueries({ queryKey: ['matches-received'] });
     queryClient.invalidateQueries({ queryKey: ['matches-sent'] });
     queryClient.invalidateQueries({ queryKey: ['matches-accepted'] });
+    queryClient.invalidateQueries({ queryKey: ['match-profile'] });
   };
 
   const sendInterest = useMutation({
@@ -122,6 +126,19 @@ export function useMatchActions() {
   });
 
   return { sendInterest, toggleShortlist, acceptInterest, rejectInterest };
+}
+
+export function useMatchProfile(profileId?: string) {
+  return useQuery({
+    queryKey: ['match-profile', profileId],
+    enabled: !!profileId,
+    staleTime: 0,
+    refetchOnMount: 'always',
+    queryFn: async () => {
+      const { data } = await api.get(`/matches/profile/${profileId}`);
+      return data as { profile: Record<string, unknown>; visibility: 'limited' | 'full' };
+    },
+  });
 }
 
 export function useProfileCompatibility(profileId?: string) {

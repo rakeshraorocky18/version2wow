@@ -17,6 +17,7 @@ import {
 
 type ProfileRecord = Record<string, any>;
 export type ProfileTab = 'about' | 'personal' | 'family' | 'preferences';
+export type ProfileVisibility = 'limited' | 'full';
 
 const SECTION_STYLES = {
   personal: { icon: User, color: 'text-[#A4426A]', bg: 'bg-[#FFF5F8]' },
@@ -35,11 +36,20 @@ const SECTION_STYLES = {
 
 type SectionKey = keyof typeof SECTION_STYLES;
 
+const LIMITED_SECTIONS: SectionKey[] = ['express', 'education', 'personal', 'religion'];
+
 const TAB_SECTIONS: Record<ProfileTab, SectionKey[]> = {
   about: ['express', 'education', 'experience', 'hobbies'],
   personal: ['personal', 'horoscope', 'religion', 'marital', 'location', 'lifestyle'],
   family: ['family'],
   preferences: ['preferences'],
+};
+
+const LIMITED_TAB_SECTIONS: Record<ProfileTab, SectionKey[]> = {
+  about: ['express', 'education'],
+  personal: ['personal', 'religion'],
+  family: [],
+  preferences: [],
 };
 
 function hasValue(value: unknown) {
@@ -141,9 +151,13 @@ function Section({
 export default function ProfileDetailsView({
   profile,
   tab,
+  omitExpress,
+  visibility = 'full',
 }: {
   profile: ProfileRecord;
   tab?: ProfileTab;
+  omitExpress?: boolean;
+  visibility?: ProfileVisibility;
 }) {
   const wizard = profile.wizardProfile || {};
   const pd = { ...profile, ...(wizard.personalDetails || {}) };
@@ -184,8 +198,13 @@ export default function ProfileDetailsView({
   const express = wizard.expressYourself || profile.expressYourself || {};
   const siblingDetails = family.siblingDetails || profile.siblingDetails || [];
 
-  const allowed = tab ? TAB_SECTIONS[tab] : null;
-  const show = (key: SectionKey) => !allowed || allowed.includes(key);
+  const sectionMap = visibility === 'limited' ? LIMITED_TAB_SECTIONS : TAB_SECTIONS;
+  const allowed = tab ? sectionMap[tab] : null;
+  const show = (key: SectionKey) => {
+    if (visibility === 'limited' && !LIMITED_SECTIONS.includes(key)) return false;
+    return !allowed || allowed.includes(key);
+  };
+  const isLimited = visibility === 'limited';
 
   const sections = [
     show('personal') && (
@@ -205,8 +224,8 @@ export default function ProfileDetailsView({
           { label: 'Weight', value: pd.weight },
           { label: 'Complexion', value: pd.complexion },
           { label: 'Blood Group', value: pd.bloodGroup },
-          { label: 'Email', value: pd.email },
-          { label: 'Phone', value: pd.phone },
+          { label: 'Email', value: isLimited ? null : pd.email },
+          { label: 'Phone', value: isLimited ? null : pd.phone },
           { label: 'Languages', value: pd.languagesKnown?.join?.(', ') },
         ]}
       />
@@ -305,7 +324,7 @@ export default function ProfileDetailsView({
         </div>
       </Section>
     ),
-    show('express') && (profile.bio || express.aboutMe) && (
+    show('express') && !omitExpress && (profile.bio || express.aboutMe) && (
       <Section key="express" title="About Me" sectionKey="express" defaultOpen>
         <p className="text-sm leading-relaxed text-[#6B4A5A] whitespace-pre-wrap">
           {express.aboutMe || profile.bio}
@@ -409,8 +428,14 @@ export default function ProfileDetailsView({
     return (
       <div className="rounded-2xl border border-dashed border-[#E5C8D5] bg-[#FFFBFC] px-6 py-12 text-center">
         <Sparkles size={28} className="mx-auto text-[#D4899F]" />
-        <p className="mt-3 font-medium text-[#5D2B44]">No details in this section yet</p>
-        <p className="mt-1 text-sm text-[#9A5776]">Add more information to your profile to see it here.</p>
+        <p className="mt-3 font-medium text-[#5D2B44]">
+          {isLimited ? 'Full profile available after match is accepted' : 'No details in this section yet'}
+        </p>
+        <p className="mt-1 text-sm text-[#9A5776]">
+          {isLimited
+            ? 'Accept the interest request to view family, preferences, horoscope, and more.'
+            : 'Add more information to your profile to see it here.'}
+        </p>
       </div>
     );
   }

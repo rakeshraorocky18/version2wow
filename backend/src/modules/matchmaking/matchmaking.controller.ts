@@ -55,6 +55,15 @@ export class MatchmakingController {
     return this.matchmakingService.removeFromShortlist(req.user.id, profileId);
   }
 
+  @Get('profile/:profileId')
+  @ApiOperation({ summary: 'Get match profile with visibility based on accepted status' })
+  async getMatchProfile(
+    @Req() req: { user: { id: string } },
+    @Param('profileId') profileId: string,
+  ) {
+    return this.matchmakingService.getMatchProfile(req.user.id, profileId);
+  }
+
   @Get('compatibility/:profileId')
   @ApiOperation({ summary: 'Get compatibility score with a profile' })
   async getCompatibility(
