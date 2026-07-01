@@ -90,6 +90,19 @@ export enum MatchStatus {
   BLOCKED = 'blocked',
 }
 
+/** Chat is only allowed after mutual match acceptance (post_match). pre_match is reserved for future use. */
+export enum ChatRestrictionMode {
+  POST_MATCH = 'post_match',
+  PRE_MATCH = 'pre_match',
+}
+
+export enum ChatMeetingStatus {
+  PENDING = 'pending',
+  CONFIRMED = 'confirmed',
+  CANCELLED = 'cancelled',
+  COMPLETED = 'completed',
+}
+
 export enum VendorCategory {
   VENUE = 'venue',
   CATERING = 'catering',

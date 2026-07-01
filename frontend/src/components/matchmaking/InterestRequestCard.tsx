@@ -27,7 +27,7 @@ export default function InterestRequestCard({ match, variant, onAccept, onReject
     profile?.userId ||
     match.partnerUserId ||
     (variant === 'received' ? match.senderId : match.receiverId);
-  const chatUserId = match.partnerUserId || profile?.userId || viewProfileId;
+  const chatUserId = match.partnerUserId || profile?.userId;
   const name = profile ? `${profile.firstName || ''} ${profile.lastName || ''}`.trim() : 'Profile';
   const photoUrl = getPhotoUrl(profile?.photos?.[0] || profile?.wizardProfile?.profilePhoto || '');
   const status = match.status || 'pending';
