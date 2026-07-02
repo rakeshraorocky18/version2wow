@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuthStore } from '../store/authStore';
 import AppFooter from './AppFooter';
 import { FooterPaginationProvider, useFooterPagination } from '../context/FooterPaginationContext';
@@ -17,7 +17,6 @@ import {
   Palmtree,
   Wallet,
 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
 
 const navItems = [
   { path: '/app', icon: Home, label: 'Dashboard' },
