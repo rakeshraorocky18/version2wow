@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import {
   User,
   Star,
@@ -6,48 +6,44 @@ import {
   Heart,
   MapPin,
   Users,
-  Quote,
   HeartHandshake,
   Leaf,
   GraduationCap,
   Briefcase,
   Sparkles,
-  ChevronDown,
 } from 'lucide-react';
 
 type ProfileRecord = Record<string, any>;
-export type ProfileTab = 'about' | 'personal' | 'family' | 'preferences';
+export type ProfileTab = 'personal' | 'education' | 'experience' | 'family' | 'preferences';
 export type ProfileVisibility = 'limited' | 'full';
 
-const SECTION_STYLES = {
-  personal: { icon: User, color: 'text-[#A4426A]', bg: 'bg-[#FFF5F8]' },
-  horoscope: { icon: Star, color: 'text-[#B45309]', bg: 'bg-[#FFFBF0]' },
-  religion: { icon: BookOpen, color: 'text-[#6E4A9C]', bg: 'bg-[#F8F5FF]' },
-  marital: { icon: Heart, color: 'text-[#A35C3E]', bg: 'bg-[#FFF8F5]' },
-  location: { icon: MapPin, color: 'text-[#2F6D97]', bg: 'bg-[#F5FAFF]' },
-  family: { icon: Users, color: 'text-[#A4426A]', bg: 'bg-[#FFF5F8]' },
-  express: { icon: Quote, color: 'text-[#A6672A]', bg: 'bg-[#FFFBF5]' },
-  preferences: { icon: HeartHandshake, color: 'text-[#A4426A]', bg: 'bg-[#FFF5F8]' },
-  lifestyle: { icon: Leaf, color: 'text-[#3D8B5F]', bg: 'bg-[#F5FFF8]' },
-  education: { icon: GraduationCap, color: 'text-[#6E4A9C]', bg: 'bg-[#F8F5FF]' },
-  experience: { icon: Briefcase, color: 'text-[#A35C3E]', bg: 'bg-[#FFF8F5]' },
-  hobbies: { icon: Sparkles, color: 'text-[#B45309]', bg: 'bg-[#FFFBF0]' },
+const SECTION_META = {
+  personal: { icon: User, title: 'Personal Details', accent: 'border-l-[#B66A8A]' },
+  horoscope: { icon: Star, title: 'Horoscope', accent: 'border-l-amber-400' },
+  religion: { icon: BookOpen, title: 'Religion', accent: 'border-l-violet-400' },
+  marital: { icon: Heart, title: 'Marital', accent: 'border-l-orange-400' },
+  location: { icon: MapPin, title: 'Location', accent: 'border-l-sky-400' },
+  family: { icon: Users, title: 'Family', accent: 'border-l-[#B66A8A]' },
+  preferences: { icon: HeartHandshake, title: 'Preferences', accent: 'border-l-[#B66A8A]' },
+  lifestyle: { icon: Leaf, title: 'Lifestyle', accent: 'border-l-emerald-400' },
+  education: { icon: GraduationCap, title: 'Education', accent: 'border-l-violet-400' },
+  experience: { icon: Briefcase, title: 'Work Experience', accent: 'border-l-orange-400' },
 } as const;
 
-type SectionKey = keyof typeof SECTION_STYLES;
-
-const LIMITED_SECTIONS: SectionKey[] = ['express', 'education', 'personal', 'religion'];
+type SectionKey = keyof typeof SECTION_META;
 
 const TAB_SECTIONS: Record<ProfileTab, SectionKey[]> = {
-  about: ['express', 'education', 'experience', 'hobbies'],
   personal: ['personal', 'horoscope', 'religion', 'marital', 'location', 'lifestyle'],
+  education: ['education'],
+  experience: ['experience'],
   family: ['family'],
   preferences: ['preferences'],
 };
 
 const LIMITED_TAB_SECTIONS: Record<ProfileTab, SectionKey[]> = {
-  about: ['express', 'education'],
   personal: ['personal', 'religion'],
+  education: ['education'],
+  experience: [],
   family: [],
   preferences: [],
 };
@@ -59,99 +55,70 @@ function hasValue(value: unknown) {
   return String(value).trim().length > 0;
 }
 
-function AccordionSection({
-  title,
+function InfoCard({
   sectionKey,
-  defaultOpen = false,
   children,
 }: {
-  title: string;
   sectionKey: SectionKey;
-  defaultOpen?: boolean;
   children: ReactNode;
 }) {
-  const [open, setOpen] = useState(defaultOpen);
-  const { icon: Icon, color, bg } = SECTION_STYLES[sectionKey];
+  const { icon: Icon, title, accent } = SECTION_META[sectionKey];
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-[#F2DFE8] bg-white shadow-sm">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center gap-3 px-5 py-4 text-left transition hover:bg-[#FFFBFC]"
-      >
-        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${bg} ${color}`}>
-          <Icon size={17} />
-        </div>
-        <span className="flex-1 font-display text-base font-semibold text-[#523045]">{title}</span>
-        <ChevronDown
-          size={18}
-          className={`shrink-0 text-[#9A5776] transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
-        />
-      </button>
-      {open && <div className="border-t border-[#F2DFE8] px-5 pb-5 pt-4">{children}</div>}
-    </div>
+    <section className={`overflow-hidden rounded-2xl border border-[#F0DFE7] bg-white shadow-sm ${accent} border-l-4`}>
+      <div className="flex items-center gap-2.5 border-b border-[#FAF0F4] px-4 py-3 sm:px-5">
+        <Icon size={16} className="text-[#9A5776]" />
+        <h3 className="font-display text-sm font-semibold text-[#5D2B44]">{title}</h3>
+      </div>
+      <div className="p-4 sm:p-5">{children}</div>
+    </section>
   );
 }
 
-function DetailRow({ label, value }: { label: string; value: unknown }) {
-  const display = typeof value === 'boolean' ? (value ? 'Yes' : 'No') : String(value);
+function DetailGrid({ items }: { items: { label: string; value?: unknown }[] }) {
+  const visible = items.filter((item) => hasValue(item.value));
+  if (!visible.length) return null;
+
   return (
-    <div className="flex items-start justify-between gap-4 border-b border-[#FAF0F4] py-3 last:border-0">
-      <dt className="shrink-0 text-sm text-[#9A5776]">{label}</dt>
-      <dd className="text-right text-sm font-medium text-[#5D2B44] whitespace-pre-wrap">{display}</dd>
-    </div>
+    <dl className="grid gap-3 sm:grid-cols-2">
+      {visible.map(({ label, value }) => {
+        const display = typeof value === 'boolean' ? (value ? 'Yes' : 'No') : String(value);
+        return (
+          <div key={label} className="rounded-xl bg-[#FFFBFC] px-3.5 py-3 ring-1 ring-[#FAF0F4]">
+            <dt className="text-[11px] font-semibold uppercase tracking-wide text-[#9A5776]">{label}</dt>
+            <dd className="mt-1 text-sm font-medium capitalize text-[#5D2B44] whitespace-pre-wrap">{display}</dd>
+          </div>
+        );
+      })}
+    </dl>
   );
 }
 
 function ItemsSection({
-  title,
   sectionKey,
   items,
-  defaultOpen,
 }: {
-  title: string;
   sectionKey: SectionKey;
   items: { label: string; value?: unknown }[];
-  defaultOpen?: boolean;
 }) {
   const visible = items.filter((item) => hasValue(item.value));
   if (!visible.length) return null;
 
   return (
-    <AccordionSection title={title} sectionKey={sectionKey} defaultOpen={defaultOpen}>
-      <dl>
-        {visible.map(({ label, value }) => (
-          <DetailRow key={label} label={label} value={value} />
-        ))}
-      </dl>
-    </AccordionSection>
+    <InfoCard sectionKey={sectionKey}>
+      <DetailGrid items={visible} />
+    </InfoCard>
   );
 }
 
-function Section({
-  title,
-  sectionKey,
-  defaultOpen,
-  children,
-}: {
-  title: string;
-  sectionKey: SectionKey;
-  defaultOpen?: boolean;
-  children: ReactNode;
-}) {
+function Section({ sectionKey, children }: { sectionKey: SectionKey; children: ReactNode }) {
   if (!children) return null;
-  return (
-    <AccordionSection title={title} sectionKey={sectionKey} defaultOpen={defaultOpen}>
-      {children}
-    </AccordionSection>
-  );
+  return <InfoCard sectionKey={sectionKey}>{children}</InfoCard>;
 }
 
 export default function ProfileDetailsView({
   profile,
   tab,
-  omitExpress,
   visibility = 'full',
 }: {
   profile: ProfileRecord;
@@ -194,16 +161,11 @@ export default function ProfileDetailsView({
           currentSalary: experienceRaw.currentSalary || profile.annualIncome || profile.income,
         }
       : experienceRaw;
-  const hobbies = wizard.hobbies || profile.interests || [];
-  const express = wizard.expressYourself || profile.expressYourself || {};
   const siblingDetails = family.siblingDetails || profile.siblingDetails || [];
 
   const sectionMap = visibility === 'limited' ? LIMITED_TAB_SECTIONS : TAB_SECTIONS;
   const allowed = tab ? sectionMap[tab] : null;
-  const show = (key: SectionKey) => {
-    if (visibility === 'limited' && !LIMITED_SECTIONS.includes(key)) return false;
-    return !allowed || allowed.includes(key);
-  };
+  const show = (key: SectionKey) => !allowed || allowed.includes(key);
   const isLimited = visibility === 'limited';
 
   const sections = [
@@ -211,8 +173,6 @@ export default function ProfileDetailsView({
       <ItemsSection
         key="personal"
         sectionKey="personal"
-        title="Personal Details"
-        defaultOpen
         items={[
           { label: 'First Name', value: pd.firstName },
           { label: 'Middle Name', value: pd.middleName },
@@ -224,8 +184,8 @@ export default function ProfileDetailsView({
           { label: 'Weight', value: pd.weight },
           { label: 'Complexion', value: pd.complexion },
           { label: 'Blood Group', value: pd.bloodGroup },
-          { label: 'Email', value: isLimited ? null : pd.email },
-          { label: 'Phone', value: isLimited ? null : pd.phone },
+          { label: 'Email', value: isLimited ? null : pd.email || profile.email },
+          { label: 'Phone', value: isLimited ? null : pd.phone || profile.phone },
           { label: 'Languages', value: pd.languagesKnown?.join?.(', ') },
         ]}
       />
@@ -234,7 +194,6 @@ export default function ProfileDetailsView({
       <ItemsSection
         key="horoscope"
         sectionKey="horoscope"
-        title="Horoscope Details"
         items={[
           { label: 'Horoscope Available', value: horoscope.horoscopeAvailable },
           { label: 'Rashi', value: horoscope.rashi },
@@ -251,12 +210,11 @@ export default function ProfileDetailsView({
       <ItemsSection
         key="religion"
         sectionKey="religion"
-        title="Religion Details"
         items={[
-          { label: 'Religion', value: religion.religion },
-          { label: 'Caste', value: religion.caste },
-          { label: 'Sub Caste', value: religion.subCaste },
-          { label: 'Mother Tongue', value: religion.motherTongue },
+          { label: 'Religion', value: religion.religion || profile.religion },
+          { label: 'Caste', value: religion.caste || profile.caste },
+          { label: 'Sub Caste', value: religion.subCaste || profile.subCaste },
+          { label: 'Mother Tongue', value: religion.motherTongue || profile.motherTongue },
           { label: 'Community', value: religion.community },
         ]}
       />
@@ -265,9 +223,8 @@ export default function ProfileDetailsView({
       <ItemsSection
         key="marital"
         sectionKey="marital"
-        title="Marital Information"
         items={[
-          { label: 'Marital Status', value: marital.maritalStatus },
+          { label: 'Marital Status', value: marital.maritalStatus || profile.maritalStatus },
           { label: 'Years Married', value: marital.yearsMarried },
           { label: 'Have Children', value: marital.haveChildren },
           { label: 'Children Living With', value: marital.childrenLivingWith },
@@ -279,7 +236,6 @@ export default function ProfileDetailsView({
       <ItemsSection
         key="location"
         sectionKey="location"
-        title="Location"
         items={[
           { label: 'Country', value: pd.country || profile.country },
           { label: 'State', value: pd.state || profile.state },
@@ -289,12 +245,56 @@ export default function ProfileDetailsView({
         ]}
       />
     ),
+    show('lifestyle') && (
+      <ItemsSection
+        key="lifestyle"
+        sectionKey="lifestyle"
+        items={[
+          { label: 'Diet', value: lifestyle.diet },
+          { label: 'Drinking', value: lifestyle.drinking },
+          { label: 'Smoking', value: lifestyle.smoking },
+        ]}
+      />
+    ),
+    show('education') && education.length > 0 && (
+      <Section key="education" sectionKey="education">
+        <div className="space-y-3">
+          {education.map((edu: ProfileRecord, index: number) => (
+            <div key={edu.id || index} className="rounded-xl bg-[#FFFBFC] p-4 ring-1 ring-[#FAF0F4]">
+              <p className="font-display font-semibold text-[#5D2B44]">
+                {edu.degree || edu.qualification || 'Education'}
+              </p>
+              {edu.specialization && <p className="mt-0.5 text-sm text-[#9A5776]">{edu.specialization}</p>}
+              {edu.institutionName && <p className="mt-1 text-sm text-[#6B4A5A]">{edu.institutionName}</p>}
+              {(edu.startYear || edu.endYear) && (
+                <p className="mt-2 text-xs font-medium text-[#B66A8A]">
+                  {[edu.startYear, edu.endYear].filter(Boolean).join(' – ')}
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      </Section>
+    ),
+    show('experience') && (experience?.currentlyWorking || experience?.jobTitle || profile.occupation) && (
+      <ItemsSection
+        key="experience"
+        sectionKey="experience"
+        items={[
+          { label: 'Currently Working', value: experience.currentlyWorking },
+          { label: 'Job Title', value: experience.jobTitle || profile.occupation },
+          { label: 'Company', value: experience.companyName },
+          { label: 'Industry', value: experience.industry },
+          { label: 'Employment Type', value: experience.employmentType },
+          { label: 'Salary', value: experience.currentSalary || profile.income },
+          { label: 'Skills', value: experience.skills },
+        ]}
+      />
+    ),
     show('family') && (
       <ItemsSection
         key="family"
         sectionKey="family"
-        title="Family Background"
-        defaultOpen
         items={[
           { label: 'Family Type', value: family.familyType },
           { label: 'Family Status', value: family.familyStatus },
@@ -309,10 +309,10 @@ export default function ProfileDetailsView({
       />
     ),
     show('family') && siblingDetails.length > 0 && (
-      <Section key="siblings" title="Sibling Details" sectionKey="family">
+      <Section key="siblings" sectionKey="family">
         <div className="space-y-2">
           {siblingDetails.map((sibling: ProfileRecord, index: number) => (
-            <div key={index} className="rounded-xl bg-[#FFFBFC] px-4 py-3 text-sm">
+            <div key={index} className="rounded-xl bg-[#FFFBFC] px-4 py-3 text-sm ring-1 ring-[#FAF0F4]">
               <span className="font-medium text-[#5D2B44]">
                 {sibling.relation || sibling.type || `Sibling ${index + 1}`}
               </span>
@@ -324,19 +324,10 @@ export default function ProfileDetailsView({
         </div>
       </Section>
     ),
-    show('express') && !omitExpress && (profile.bio || express.aboutMe) && (
-      <Section key="express" title="About Me" sectionKey="express" defaultOpen>
-        <p className="text-sm leading-relaxed text-[#6B4A5A] whitespace-pre-wrap">
-          {express.aboutMe || profile.bio}
-        </p>
-      </Section>
-    ),
     show('preferences') && (
       <ItemsSection
         key="preferences"
         sectionKey="preferences"
-        title="Partner Preferences"
-        defaultOpen
         items={[
           {
             label: 'Preferred Age',
@@ -356,89 +347,21 @@ export default function ProfileDetailsView({
         ]}
       />
     ),
-    show('lifestyle') && (
-      <ItemsSection
-        key="lifestyle"
-        sectionKey="lifestyle"
-        title="Lifestyle"
-        items={[
-          { label: 'Diet', value: lifestyle.diet },
-          { label: 'Drinking', value: lifestyle.drinking },
-          { label: 'Smoking', value: lifestyle.smoking },
-        ]}
-      />
-    ),
-    show('education') && education.length > 0 && (
-      <Section key="education" title="Education" sectionKey="education" defaultOpen>
-        <div className="space-y-3">
-          {education.map((edu: ProfileRecord, index: number) => (
-            <div
-              key={edu.id || index}
-              className="rounded-xl border border-[#F2DFE8] bg-gradient-to-r from-[#FFFBFC] to-[#F8F5FF] p-4"
-            >
-              <p className="font-display font-semibold text-[#523045]">
-                {edu.degree || edu.qualification || 'Education'}
-              </p>
-              {edu.specialization && <p className="mt-0.5 text-xs text-[#9A5776]">{edu.specialization}</p>}
-              {edu.institutionName && <p className="mt-1 text-sm text-[#6B4A5A]">{edu.institutionName}</p>}
-              {(edu.startYear || edu.endYear) && (
-                <p className="mt-1 text-xs font-medium text-[#B66A8A]">
-                  {[edu.startYear, edu.endYear].filter(Boolean).join(' – ')}
-                </p>
-              )}
-            </div>
-          ))}
-        </div>
-      </Section>
-    ),
-    show('experience') && (experience?.currentlyWorking || profile.occupation) && (
-      <ItemsSection
-        key="experience"
-        sectionKey="experience"
-        title="Professional Experience"
-        defaultOpen
-        items={[
-          { label: 'Currently Working', value: experience.currentlyWorking },
-          { label: 'Job Title', value: experience.jobTitle || profile.occupation },
-          { label: 'Company', value: experience.companyName },
-          { label: 'Industry', value: experience.industry },
-          { label: 'Employment Type', value: experience.employmentType },
-          { label: 'Salary', value: experience.currentSalary || profile.income },
-          { label: 'Skills', value: experience.skills },
-        ]}
-      />
-    ),
-    show('hobbies') && hobbies.length > 0 && (
-      <Section key="hobbies" title="Hobbies & Interests" sectionKey="hobbies" defaultOpen>
-        <div className="flex flex-wrap gap-2">
-          {hobbies.map((hobby: string) => (
-            <span
-              key={hobby}
-              className="rounded-full border border-[#E5C8D5] bg-[#FFF5F8] px-3.5 py-1.5 text-sm font-medium text-[#8D4C6A]"
-            >
-              {hobby}
-            </span>
-          ))}
-        </div>
-      </Section>
-    ),
   ].filter(Boolean);
 
   if (!sections.length) {
     return (
       <div className="rounded-2xl border border-dashed border-[#E5C8D5] bg-[#FFFBFC] px-6 py-12 text-center">
-        <Sparkles size={28} className="mx-auto text-[#D4899F]" />
+        <Sparkles size={24} className="mx-auto text-[#D4899F]" />
         <p className="mt-3 font-medium text-[#5D2B44]">
           {isLimited ? 'Full profile available after match is accepted' : 'No details in this section yet'}
         </p>
         <p className="mt-1 text-sm text-[#9A5776]">
-          {isLimited
-            ? 'Accept the interest request to view family, preferences, horoscope, and more.'
-            : 'Add more information to your profile to see it here.'}
+          {isLimited ? 'Accept the interest to view more.' : 'Edit your profile to add information.'}
         </p>
       </div>
     );
   }
 
-  return <div className="space-y-3">{sections}</div>;
+  return <div className="grid gap-4">{sections}</div>;
 }

@@ -133,6 +133,18 @@ export enum TaskStatus {
   COMPLETED = 'completed',
 }
 
+export enum TaskPriorityLevel {
+  HIGH = 'high',
+  MEDIUM = 'medium',
+  LOW = 'low',
+}
+
+export enum PlannerActivityAction {
+  ADDED = 'added',
+  COMPLETED = 'completed',
+  UPDATED = 'updated',
+}
+
 export enum PaymentStatus {
   PENDING = 'pending',
   PROCESSING = 'processing',

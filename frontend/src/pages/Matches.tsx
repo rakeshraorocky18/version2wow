@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Heart, Inbox, Search, Send, Sparkles, Star, UserCheck, Users } from 'lucide-react';
+import { Heart, Inbox, Search, Send, Sparkles, Star, UserCheck, Users, Crown, Zap } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   useMatchActions,
@@ -11,6 +11,8 @@ import {
   useSentInterests,
   useAcceptedInterests,
   useShortlist,
+  usePremiumStatus,
+  usePremiumDevToggle,
 } from '../hooks/useMatchmaking';
 import MatchProfileCard from '../components/matchmaking/MatchProfileCard';
 import MatchFiltersPanel from '../components/matchmaking/MatchFiltersPanel';
@@ -20,6 +22,7 @@ import { EMPTY_FILTERS, type InterestSubTab, type MatchFilters, type MatchIntere
 import { useAuthStore } from '../store/authStore';
 import api from '../lib/api';
 import { formatMatchGenderLabel, resolveOppositeGenderLabel } from '../lib/matchGender';
+import { hasActivePremiumSubscription, PREMIUM_BENEFITS } from '../lib/matchmakingPremium';
 
 const TABS: MatchTab[] = ['suggestions', 'search', 'shortlist', 'interests'];
 
@@ -138,7 +141,7 @@ export default function Matches() {
         (next[key] as string) = raw;
       }
     });
-    if (params.get('horoscopeAvailable') === 'true') {
+    if (params.get('horoscopeMatch') === 'true' || params.get('horoscopeAvailable') === 'true') {
       next.horoscopeMatch = true;
     }
     setFilters(next);
@@ -168,6 +171,12 @@ export default function Matches() {
   const received = useReceivedInterests();
   const sent = useSentInterests();
   const accepted = useAcceptedInterests();
+  const { data: premiumStatus } = usePremiumStatus();
+  const devPremiumToggle = usePremiumDevToggle();
+
+  const viewerIsPremium =
+    hasActivePremiumSubscription(premiumStatus?.isPremium) ||
+    hasActivePremiumSubscription(myProfile?.isPremium);
 
   useEffect(() => {
     setSentInterestIds(collectSentIds(sent.data));
@@ -324,6 +333,50 @@ export default function Matches() {
           <MatchTabsNav tabs={tabMeta} active={tab} onChange={setTab} />
         </div>
       </header>
+
+      {/* Premium subscription status (payment integration later) */}
+      {viewerIsPremium ? (
+        <div className="flex items-center gap-3 rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50 to-[#FFFBF5] px-4 py-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-amber-500 text-white shadow-sm">
+            <Crown size={18} />
+          </span>
+          <div>
+            <p className="text-sm font-semibold text-amber-900">Premium active</p>
+            <p className="text-xs text-amber-800/80">{PREMIUM_BENEFITS.boostedProfile}</p>
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3 rounded-2xl border border-[#F0DFE7] bg-[#FFFBFC] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#FFF0F5] text-[#B66A8A]">
+              <Zap size={18} />
+            </span>
+            <div>
+              <p className="text-sm font-semibold text-[#5D2B44]">Boost your profile with Premium</p>
+              <p className="text-xs text-[#9A5776]">
+                Premium members get boosted visibility in match listings. Payment integration coming soon.
+              </p>
+            </div>
+          </div>
+          {!premiumStatus?.paymentIntegrationEnabled && (
+            <button
+              type="button"
+              disabled={devPremiumToggle.isPending}
+              onClick={async () => {
+                try {
+                  await devPremiumToggle.mutateAsync();
+                  toast.success('Premium enabled for testing — your profile is now boosted');
+                } catch {
+                  toast.error('Could not toggle premium');
+                }
+              }}
+              className="shrink-0 rounded-xl bg-gradient-to-r from-[#B66A8A] to-[#C07AA0] px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:from-[#A75878] hover:to-[#B06A90] disabled:opacity-60"
+            >
+              Enable Premium (test)
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Filters */}
       {(tab === 'suggestions' || tab === 'search') && (

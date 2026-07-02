@@ -13,6 +13,7 @@ import { ProfileSearchQueryDto, SendInterestDto } from './dto/matchmaking.dto';
 import { UsersService } from '../users/users.service.typeorm';
 import { calculateCompatibility } from './engines/compatibility.engine';
 import { buildSuggestionFilters, mergeFilters } from './engines/filter.engine';
+import { applyPremiumMatchBoost, enrichWithPremiumBoost, isPremiumSubscriber } from './engines/premium.engine';
 import { Neo4jMatchService } from './services/neo4j-match.service';
 import { NotificationsService } from '../notifications/notifications.service';
 
@@ -172,13 +173,43 @@ export class MatchmakingService {
         const compatibility = calculateCompatibility(viewerRecord, candidateRecord, { includeHoroscope });
         let score = compatibility.score;
         if (graphBoostIds.includes(candidateRecord.id as string)) score = Math.min(100, score + 8);
-        return {
-          ...candidateRecord,
-          compatibilityScore: score,
-          compatibility,
-        };
+        score = applyPremiumMatchBoost(score, candidateRecord);
+        return enrichWithPremiumBoost(
+          {
+            ...candidateRecord,
+            compatibility,
+          },
+          score,
+        );
       })
-      .sort((a, b) => (b.compatibilityScore as number) - (a.compatibilityScore as number));
+      .sort((a, b) => {
+        const scoreDiff = (b.compatibilityScore as number) - (a.compatibilityScore as number);
+        if (scoreDiff !== 0) return scoreDiff;
+        return (isPremiumSubscriber(b) ? 1 : 0) - (isPremiumSubscriber(a) ? 1 : 0);
+      });
+  }
+
+  async getPremiumStatus(userId: string) {
+    const profile = await this.usersService.getProfileOrNull(userId);
+    const isPremium = profile?.isPremium === true;
+    return {
+      isPremium,
+      hasActiveSubscription: isPremium,
+      paymentIntegrationEnabled: false,
+      benefits: {
+        boostedProfile: isPremium,
+        priorityInMatchListings: isPremium,
+      },
+    };
+  }
+
+  /** Dev-only: toggle isPremium until Razorpay is integrated. */
+  async setDevPremiumStatus(userId: string, isPremium: boolean) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new BadRequestException('Not available in production');
+    }
+    await this.usersService.setPremiumStatus(userId, isPremium);
+    return this.getPremiumStatus(userId);
   }
 
   async sendInterest(senderId: string, dto: SendInterestDto): Promise<Match> {

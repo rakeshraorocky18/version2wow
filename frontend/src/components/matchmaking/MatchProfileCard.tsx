@@ -1,6 +1,7 @@
-import { Heart, MapPin, CheckCircle2, Crown, Star, Calendar, BookOpen } from 'lucide-react';
+import { Heart, MapPin, CheckCircle2, Crown, Star, Calendar, BookOpen, Zap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getPhotoUrl } from '../../lib/profileUtils';
+import { isBoostedMatchProfile } from '../../lib/matchmakingPremium';
 import type { MatchProfile } from '../../types/matchmaking';
 
 type Props = {
@@ -29,10 +30,15 @@ export default function MatchProfileCard({
       : null);
   const location = [profile.city, profile.state].filter(Boolean).join(', ');
   const fullName = `${profile.firstName} ${profile.lastName}`.trim();
+  const boosted = isBoostedMatchProfile(profile);
 
   return (
     <article
-      className="group relative flex h-full cursor-pointer flex-col overflow-hidden rounded-3xl border border-[#F0DFE7] bg-gradient-to-b from-white to-[#FFFBFC] shadow-[0_4px_20px_rgba(182,106,138,0.07)] transition duration-300 hover:-translate-y-0.5 hover:border-[#E8C8D8] hover:shadow-[0_16px_40px_rgba(182,106,138,0.16)]"
+      className={`group relative flex h-full cursor-pointer flex-col overflow-hidden rounded-3xl border bg-gradient-to-b from-white to-[#FFFBFC] shadow-[0_4px_20px_rgba(182,106,138,0.07)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_16px_40px_rgba(182,106,138,0.16)] ${
+        boosted
+          ? 'border-amber-300/80 ring-2 ring-amber-200/60 hover:border-amber-400'
+          : 'border-[#F0DFE7] hover:border-[#E8C8D8]'
+      }`}
       onClick={() => navigate(`/app/matches/${profile.id}`)}
     >
       <div className="relative h-52 shrink-0 overflow-hidden bg-gradient-to-br from-[#FCE8EF] via-[#F9DEE7] to-[#F3EEFF]">
@@ -51,14 +57,20 @@ export default function MatchProfileCard({
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#3D1F30]/80 via-[#3D1F30]/20 to-transparent" />
 
         <div className="absolute top-3 left-3 right-3 z-10 flex items-start justify-between gap-2">
-          {showScore && profile.compatibilityScore !== undefined ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-bold text-[#B66A8A] shadow-sm backdrop-blur-sm">
-              <Heart size={11} fill="currentColor" />
-              {profile.compatibilityScore}% match
-            </span>
-          ) : (
-            <span />
-          )}
+          <div className="flex flex-wrap items-center gap-1.5">
+            {boosted && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white shadow-md">
+                <Zap size={10} fill="currentColor" />
+                Boosted
+              </span>
+            )}
+            {showScore && profile.compatibilityScore !== undefined ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-bold text-[#B66A8A] shadow-sm backdrop-blur-sm">
+                <Heart size={11} fill="currentColor" />
+                {profile.compatibilityScore}% match
+              </span>
+            ) : null}
+          </div>
           {onShortlist && (
             <button
               type="button"

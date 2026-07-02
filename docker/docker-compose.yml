@@ -112,6 +112,7 @@ services:
     command: sh -c "rm -rf node_modules/.vite && npm install && npm run dev -- --host --force"
     volumes:
       - ../frontend/src:/app/src
+      - ../frontend/src/index.css:/app/src/index.css
       - ../frontend/index.html:/app/index.html
       - ../frontend/vite.config.ts:/app/vite.config.ts
       - ../frontend/tailwind.config.js:/app/tailwind.config.js

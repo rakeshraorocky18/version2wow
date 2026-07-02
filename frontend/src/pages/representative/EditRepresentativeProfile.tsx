@@ -5,7 +5,9 @@ import {
   ArrowLeft,
   Check,
   ChevronRight,
+  FileText,
   Loader2,
+  Trash2,
   Upload,
   UserRound,
   Users,
@@ -170,6 +172,13 @@ export default function EditRepresentativeProfile() {
     } catch {
       toast.error('Upload failed');
     }
+  };
+
+  const handleDocDelete = (field: 'governmentIdUrl' | 'relationshipProofUrl') => {
+    set(field, '');
+    if (field === 'governmentIdUrl' && govIdRef.current) govIdRef.current.value = '';
+    if (field === 'relationshipProofUrl' && proofRef.current) proofRef.current.value = '';
+    toast.success('Document removed');
   };
 
   const goNext = async () => {
@@ -380,9 +389,19 @@ export default function EditRepresentativeProfile() {
 
                 {step === 5 && (
                   <div className="space-y-4">
-                    <UploadField label="Government ID" uploaded={form.governmentIdUrl} onClick={() => govIdRef.current?.click()} />
+                    <DocumentUploadField
+                      label="Government ID"
+                      fileUrl={form.governmentIdUrl}
+                      onUpload={() => govIdRef.current?.click()}
+                      onDelete={() => handleDocDelete('governmentIdUrl')}
+                    />
                     <input ref={govIdRef} type="file" accept="image/*,.pdf" className="hidden" onChange={(e) => e.target.files?.[0] && handleDocUpload('governmentId', e.target.files[0])} />
-                    <UploadField label="Relationship Proof (Optional)" uploaded={form.relationshipProofUrl} onClick={() => proofRef.current?.click()} />
+                    <DocumentUploadField
+                      label="Relationship Proof (Optional)"
+                      fileUrl={form.relationshipProofUrl}
+                      onUpload={() => proofRef.current?.click()}
+                      onDelete={() => handleDocDelete('relationshipProofUrl')}
+                    />
                     <input ref={proofRef} type="file" accept="image/*,.pdf" className="hidden" onChange={(e) => e.target.files?.[0] && handleDocUpload('relationshipProof', e.target.files[0])} />
                   </div>
                 )}
@@ -424,14 +443,68 @@ function Field({ label, value, onChange, type = 'text', error }: { label: string
   );
 }
 
-function UploadField({ label, uploaded, onClick }: { label: string; uploaded?: string; onClick: () => void }) {
+function fileNameFromUrl(url: string) {
+  try {
+    const name = url.split('/').pop() || 'Uploaded file';
+    return decodeURIComponent(name.split('?')[0]);
+  } catch {
+    return 'Uploaded file';
+  }
+}
+
+function isImageUrl(url: string) {
+  return /\.(jpe?g|png|gif|webp)$/i.test(url.split('?')[0]);
+}
+
+function DocumentUploadField({
+  label,
+  fileUrl,
+  onUpload,
+  onDelete,
+}: {
+  label: string;
+  fileUrl?: string;
+  onUpload: () => void;
+  onDelete: () => void;
+}) {
+  const fileName = fileUrl ? fileNameFromUrl(fileUrl) : '';
+  const isImage = fileUrl ? isImageUrl(fileUrl) : false;
+
   return (
     <div>
       <label className="profile-field-label">{label}</label>
-      <button type="button" onClick={onClick} className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[#E5C8D5] bg-[#FFFBFC] px-4 py-6 text-sm text-[#9A5776] hover:border-[#B66A8A]">
+      <button
+        type="button"
+        onClick={onUpload}
+        className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[#E5C8D5] bg-[#FFFBFC] px-4 py-6 text-sm text-[#9A5776] transition hover:border-[#B66A8A] hover:bg-[#FFF5F8]"
+      >
         <Upload size={16} />
-        {uploaded ? 'Replace uploaded file' : 'Click to upload'}
+        Click to upload
       </button>
+
+      {fileUrl && (
+        <div className="mt-3 flex items-center gap-3 rounded-xl border border-[#F0DFE7] bg-white p-3 shadow-sm">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[#FFF5F8]">
+            {isImage ? (
+              <img src={getPhotoUrl(fileUrl)} alt="" className="h-full w-full object-cover" />
+            ) : (
+              <FileText size={22} className="text-[#B66A8A]" />
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium text-[#5D2B44]">{fileName}</p>
+            <p className="text-xs text-[#9A5776]">Uploaded document</p>
+          </div>
+          <button
+            type="button"
+            onClick={onDelete}
+            aria-label={`Remove ${label}`}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-red-200 bg-red-50 text-red-600 transition hover:bg-red-100"
+          >
+            <Trash2 size={16} />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

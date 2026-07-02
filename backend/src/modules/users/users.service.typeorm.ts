@@ -145,6 +145,14 @@ export class UsersService implements OnModuleInit {
     return this.formatProfileResponse(profile);
   }
 
+  async setPremiumStatus(userId: string, isPremium: boolean) {
+    const profile = await this.profileRepository.findOne({ where: { userId } });
+    if (!profile) throw new NotFoundException('Profile not found');
+    profile.isPremium = isPremium;
+    const saved = await this.profileRepository.save(profile);
+    return this.formatProfileResponse(saved);
+  }
+
   async updateProfilePhoto(userId: string, photoUrl: string): Promise<ProfileEntity & { wizardProfile: Record<string, unknown> }> {
     let profile = await this.profileRepository.findOne({ where: { userId } });
     if (!profile) {

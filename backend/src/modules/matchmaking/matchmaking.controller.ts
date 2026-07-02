@@ -22,6 +22,19 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 export class MatchmakingController {
   constructor(private readonly matchmakingService: MatchmakingService) {}
 
+  @Get('premium/status')
+  @ApiOperation({ summary: 'Get viewer premium subscription status for matchmaking' })
+  async getPremiumStatus(@Req() req: { user: { id: string } }) {
+    return this.matchmakingService.getPremiumStatus(req.user.id);
+  }
+
+  @Post('premium/dev-toggle')
+  @ApiOperation({ summary: 'Dev only: toggle isPremium until payment is integrated' })
+  async toggleDevPremium(@Req() req: { user: { id: string } }) {
+    const current = await this.matchmakingService.getPremiumStatus(req.user.id);
+    return this.matchmakingService.setDevPremiumStatus(req.user.id, !current.isPremium);
+  }
+
   @Get('search')
   @ApiOperation({ summary: 'Search profiles with filters and compatibility score' })
   async searchMatches(@Req() req: { user: { id: string } }, @Query() query: ProfileSearchQueryDto) {

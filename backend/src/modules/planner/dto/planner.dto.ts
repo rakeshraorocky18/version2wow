@@ -1,6 +1,6 @@
 import { IsString, IsOptional, IsNumber, IsDateString, IsEnum } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { TaskStatus, EventType } from '../../../common/enums';
+import { TaskStatus, EventType, TaskPriorityLevel } from '../../../common/enums';
 
 export class CreatePlanDto {
   @ApiProperty()
@@ -51,6 +51,22 @@ export class CreateTaskDto {
   @IsOptional()
   @IsNumber()
   priority?: number;
+
+  @ApiPropertyOptional({ enum: TaskPriorityLevel })
+  @IsOptional()
+  @IsEnum(TaskPriorityLevel)
+  priorityLevel?: TaskPriorityLevel;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  parentTaskId?: string;
+}
+
+export class CreateSubtaskDto {
+  @ApiProperty()
+  @IsString()
+  title: string;
 }
 
 export class UpdateTaskStatusDto {

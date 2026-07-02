@@ -72,6 +72,11 @@
     animation: soft-fade-in 480ms ease-out both;
   }
 
+  .match-profile-page {
+    background: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(252, 232, 239, 0.6), transparent),
+      radial-gradient(ellipse 60% 40% at 100% 0%, rgba(243, 238, 255, 0.5), transparent);
+  }
+
   .hover-glow {
     transition: box-shadow 220ms ease, transform 220ms ease;
   }
@@ -121,4 +126,19 @@
 
 .wizard-step-enter-backward {
   animation: wizard-step-enter-backward 0.35s ease-out both;
+}
+
+@keyframes planner-confetti {
+  0% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(220px) rotate(720deg);
+    opacity: 0;
+  }
+}
+
+.animate-planner-confetti {
+  animation: planner-confetti 2.8s ease-out infinite;
 }

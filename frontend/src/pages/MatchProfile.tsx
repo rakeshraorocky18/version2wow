@@ -5,18 +5,23 @@ import {
   ArrowLeft,
   BookOpen,
   Calendar,
+  CheckCircle2,
+  Crown,
   Heart,
   Lock,
   MapPin,
   MessageCircle,
-  Sparkles,
   Star,
   UserCircle,
   Users,
   HeartHandshake,
   UserRound,
+  Zap,
+  GraduationCap,
+  Briefcase,
 } from 'lucide-react';
 import { getPhotoUrl } from '../lib/profileUtils';
+import { isBoostedMatchProfile } from '../lib/matchmakingPremium';
 import ProfileDetailsView, { type ProfileTab } from '../components/profile/ProfileDetailsView';
 import {
   useAcceptedInterests,
@@ -27,9 +32,10 @@ import {
   useShortlist,
 } from '../hooks/useMatchmaking';
 
-const ALL_TABS: { id: ProfileTab; label: string; icon: typeof Sparkles; fullOnly?: boolean }[] = [
-  { id: 'about', label: 'About', icon: Sparkles },
+const ALL_TABS: { id: ProfileTab; label: string; icon: typeof UserCircle; fullOnly?: boolean }[] = [
   { id: 'personal', label: 'Personal', icon: UserCircle },
+  { id: 'education', label: 'Education', icon: GraduationCap },
+  { id: 'experience', label: 'Work', icon: Briefcase, fullOnly: true },
   { id: 'family', label: 'Family', icon: Users, fullOnly: true },
   { id: 'preferences', label: 'Preferences', icon: HeartHandshake, fullOnly: true },
 ];
@@ -40,11 +46,41 @@ function calcAge(dateOfBirth?: string, age?: number) {
   return Math.max(0, new Date().getFullYear() - new Date(dateOfBirth).getFullYear());
 }
 
+function MatchRing({ score }: { score: number }) {
+  return (
+    <div className="relative flex h-[72px] w-[72px] items-center justify-center">
+      <svg className="absolute inset-0 -rotate-90 drop-shadow-sm" viewBox="0 0 72 72">
+        <circle cx="36" cy="36" r="30" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="5" />
+        <circle
+          cx="36"
+          cy="36"
+          r="30"
+          fill="none"
+          stroke="url(#matchGrad)"
+          strokeWidth="5"
+          strokeDasharray={`${(score / 100) * 188.5} 188.5`}
+          strokeLinecap="round"
+        />
+        <defs>
+          <linearGradient id="matchGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#FFB6C8" />
+            <stop offset="100%" stopColor="#B66A8A" />
+          </linearGradient>
+        </defs>
+      </svg>
+      <div className="text-center leading-none">
+        <span className="text-lg font-bold text-white">{score}%</span>
+        <p className="mt-0.5 text-[9px] font-semibold uppercase tracking-wider text-white/80">Match</p>
+      </div>
+    </div>
+  );
+}
+
 export default function MatchProfile() {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const backTab = searchParams.get('from') || 'search';
-  const [activeTab, setActiveTab] = useState<ProfileTab>('about');
+  const [activeTab, setActiveTab] = useState<ProfileTab>('personal');
 
   const { data, isLoading, isError, refetch } = useMatchProfile(id);
   const profile = data?.profile;
@@ -92,7 +128,7 @@ export default function MatchProfile() {
 
   useEffect(() => {
     if (!visibleTabs.some((t) => t.id === activeTab)) {
-      setActiveTab('about');
+      setActiveTab('personal');
     }
   }, [visibleTabs, activeTab]);
 
@@ -117,23 +153,26 @@ export default function MatchProfile() {
 
   if (isLoading) {
     return (
-      <div className="mx-auto max-w-5xl py-16 text-center">
-        <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-[#B66A8A] border-t-transparent" />
-        <p className="mt-4 text-sm text-[#9A5776]">Loading profile…</p>
+      <div className="match-profile-page mx-auto flex max-w-4xl flex-col items-center justify-center py-24">
+        <div className="relative">
+          <div className="h-14 w-14 animate-spin rounded-full border-[3px] border-[#F4D8E4] border-t-[#B66A8A]" />
+          <Heart size={18} className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-[#B66A8A]" fill="currentColor" />
+        </div>
+        <p className="mt-5 text-sm font-medium text-[#9A5776]">Loading profile…</p>
       </div>
     );
   }
 
   if (isError || !profile) {
     return (
-      <div className="mx-auto max-w-5xl">
+      <div className="match-profile-page mx-auto max-w-4xl px-4">
         <Link
           to={`/app/matches?tab=${backTab}`}
-          className="inline-flex items-center gap-2 text-sm font-medium text-[#B66A8A] hover:underline"
+          className="inline-flex items-center gap-2 rounded-full bg-white/80 px-4 py-2 text-sm font-medium text-[#B66A8A] shadow-sm backdrop-blur-sm transition hover:bg-white"
         >
           <ArrowLeft size={16} /> Back to Matches
         </Link>
-        <div className="mt-6 rounded-2xl border border-[#F2DFE8] bg-white py-16 text-center">
+        <div className="mt-8 rounded-3xl border border-[#F2DFE8] bg-white/90 py-20 text-center shadow-lg">
           <p className="text-[#815A6D]">Profile not found or unavailable.</p>
         </div>
       </div>
@@ -156,9 +195,12 @@ export default function MatchProfile() {
   const country = pd.country || profile.country;
   const location = [cityState, country].filter(Boolean).join(', ');
   const score = compatibility?.score;
+  const isVerified = profile.isVerified as boolean | undefined;
+  const isPremium = profile.isPremium as boolean | undefined;
+  const boosted = isBoostedMatchProfile({ isPremium, isBoosted: profile.isBoosted as boolean | undefined });
 
   const quickFacts = [
-    { icon: Calendar, label: 'Age', value: age != null ? `${age} years` : null },
+    { icon: Calendar, label: 'Age', value: age != null ? `${age} yrs` : null },
     { icon: BookOpen, label: 'Religion', value: religion },
     { icon: MapPin, label: 'Location', value: cityState || location },
   ].filter((f) => f.value);
@@ -184,79 +226,102 @@ export default function MatchProfile() {
   };
 
   return (
-    <div className="soft-fade-in mx-auto max-w-5xl space-y-5 pb-10">
+    <div className="match-profile-page soft-fade-in mx-auto max-w-4xl space-y-6 px-1 pb-12 sm:px-0">
+      {/* Back nav */}
       <Link
         to={`/app/matches?tab=${backTab}`}
-        className="inline-flex items-center gap-2 text-sm font-medium text-[#B66A8A] transition hover:text-[#A75878]"
+        className="inline-flex items-center gap-2 rounded-full border border-[#F0DFE7] bg-white/90 px-4 py-2 text-sm font-medium text-[#B66A8A] shadow-sm backdrop-blur-sm transition hover:border-[#E5C8D5] hover:bg-white hover:shadow-md"
       >
         <ArrowLeft size={16} /> Back to Matches
       </Link>
 
+      {/* Limited access banner */}
       {!fullAccess && (
-        <div className="flex items-start gap-3 rounded-2xl border border-[#E5C8D5] bg-[#FFF8FB] px-4 py-3">
-          <Lock size={18} className="mt-0.5 shrink-0 text-[#B66A8A]" />
-          <div>
-            <p className="text-sm font-semibold text-[#5D2B44]">Limited profile view</p>
-            <p className="text-xs text-[#9A5776]">
-              About Me, Education, Personal, and Religion are visible now. Accept the interest to unlock family, preferences, horoscope, and contact details.
-            </p>
+        <div className="relative overflow-hidden rounded-2xl border border-[#E8C4D4] bg-gradient-to-r from-[#FFF5F9] via-[#FFFBFC] to-[#FFF0F5] px-5 py-4 shadow-sm">
+          <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-[#F4D8E4]/40 blur-2xl" />
+          <div className="relative flex items-start gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#B66A8A] to-[#C07AA0] text-white shadow-md">
+              <Lock size={18} />
+            </span>
+            <div>
+              <p className="font-display text-base font-semibold text-[#5D2B44]">Limited profile view</p>
+              <p className="mt-0.5 text-sm leading-relaxed text-[#9A5776]">
+                About Me, Education, Personal & Religion are visible. Accept interest to unlock family, preferences, horoscope & contact.
+              </p>
+            </div>
           </div>
         </div>
       )}
 
-      <section className="overflow-hidden rounded-3xl border border-[#F2DFE8] bg-white shadow-[0_12px_40px_rgba(174,94,129,0.1)]">
-        <div className="grid lg:grid-cols-[220px_1fr]">
-          <div className="relative bg-gradient-to-br from-[#FFF0F5] to-[#F3EEFF] p-5 lg:p-6">
-            <div className="mx-auto aspect-[3/4] max-w-[200px] overflow-hidden rounded-2xl border-4 border-white shadow-lg lg:max-w-none">
-              {photoUrl ? (
-                <img src={photoUrl} alt={fullName} className="h-full w-full object-cover" />
-              ) : (
-                <div className="flex h-full min-h-[240px] w-full items-center justify-center bg-[#FFF5F8]">
-                  <UserRound size={64} className="text-[#D4A8BC]" strokeWidth={1.5} />
-                </div>
-              )}
-            </div>
-            {score !== undefined && (
-              <div className="mt-4 text-center">
-                <div className="relative mx-auto flex h-16 w-16 items-center justify-center">
-                  <svg className="absolute inset-0 -rotate-90" viewBox="0 0 64 64">
-                    <circle cx="32" cy="32" r="28" fill="none" stroke="#F7E4EC" strokeWidth="5" />
-                    <circle
-                      cx="32"
-                      cy="32"
-                      r="28"
-                      fill="none"
-                      stroke="#B66A8A"
-                      strokeWidth="5"
-                      strokeDasharray={`${(score / 100) * 175.9} 175.9`}
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                  <span className="text-sm font-bold text-[#B66A8A]">{score}%</span>
-                </div>
-                <p className="mt-1 text-[11px] font-semibold uppercase tracking-wide text-[#9A5776]">Match</p>
-              </div>
-            )}
-          </div>
+      {/* Hero profile card */}
+      <section className="relative overflow-hidden rounded-[28px] border border-[#F0DFE7] bg-white shadow-[0_20px_60px_rgba(182,106,138,0.12)]">
+        {/* Decorative header gradient */}
+        <div className="h-24 bg-gradient-to-r from-[#FCE8EF] via-[#F9DEE7] to-[#F3EEFF] sm:h-28">
+          <div className="pointer-events-none absolute left-0 top-0 h-32 w-32 rounded-full bg-white/30 blur-3xl" />
+          <div className="pointer-events-none absolute right-8 top-4 h-20 w-20 rounded-full bg-[#B66A8A]/10 blur-2xl" />
+        </div>
 
-          <div className="flex flex-col border-t border-[#F2DFE8] p-5 sm:p-6 lg:border-l lg:border-t-0">
-            <div className="flex-1">
-              <h1 className="font-display text-2xl font-bold text-[#4A2236] sm:text-3xl">{fullName}</h1>
+        <div className="relative -mt-16 px-5 pb-6 sm:-mt-20 sm:px-8 sm:pb-8">
+          <div className="flex flex-col gap-6 sm:flex-row sm:gap-8">
+            {/* Photo column */}
+            <div className="mx-auto shrink-0 sm:mx-0">
+              <div className="relative">
+                <div className="absolute -inset-1 rounded-[26px] bg-gradient-to-br from-[#FFB6C8] via-[#B66A8A] to-[#9B5A80] opacity-80 blur-sm" />
+                <div className="relative aspect-[3/4] w-[180px] overflow-hidden rounded-3xl border-[3px] border-white shadow-xl sm:w-[200px]">
+                  {photoUrl ? (
+                    <img src={photoUrl} alt={fullName} className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#FFF0F5] to-[#F3EEFF]">
+                      <UserRound size={72} className="text-[#D4A8BC]" strokeWidth={1.2} />
+                    </div>
+                  )}
+                  {score !== undefined && (
+                    <div className="absolute inset-x-0 bottom-0 flex justify-center bg-gradient-to-t from-[#3D1F30]/85 to-transparent pb-3 pt-10">
+                      <MatchRing score={score} />
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Info column */}
+            <div className="min-w-0 flex-1 pt-2 sm:pt-6">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="font-display text-3xl font-bold tracking-tight text-[#4A2236] sm:text-4xl">
+                  {fullName}
+                </h1>
+                {isVerified && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200">
+                    <CheckCircle2 size={13} /> Verified
+                  </span>
+                )}
+                {isPremium && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 ring-1 ring-amber-200">
+                    <Crown size={13} /> Premium
+                  </span>
+                )}
+                {boosted && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 px-2.5 py-1 text-xs font-semibold text-white shadow-sm">
+                    <Zap size={13} fill="currentColor" /> Boosted
+                  </span>
+                )}
+              </div>
 
               {location && (
-                <p className="mt-1.5 flex items-center gap-1.5 text-sm text-[#815A6D]">
-                  <MapPin size={15} className="shrink-0 text-[#B66A8A]" />
+                <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-[#FFF5F8] px-3 py-1.5 text-sm text-[#7B4A62] ring-1 ring-[#F4E4EC]">
+                  <MapPin size={14} className="shrink-0 text-[#B66A8A]" />
                   {location}
                 </p>
               )}
 
               {fullAccess && compatibility?.highlights?.length ? (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {compatibility.highlights.slice(0, 3).map((h: string) => (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {compatibility.highlights.slice(0, 4).map((h: string) => (
                     <span
                       key={h}
-                      className="rounded-full bg-[#FFF0F5] px-3 py-1 text-xs font-medium text-[#A65A7D]"
+                      className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-[#FFF0F5] to-[#F8F0FF] px-3 py-1 text-xs font-medium text-[#A65A7D] ring-1 ring-[#F4E4EC]"
                     >
+                      <Star size={11} className="text-[#B66A8A]" />
                       {h}
                     </span>
                   ))}
@@ -264,92 +329,112 @@ export default function MatchProfile() {
               ) : null}
 
               {quickFacts.length > 0 && (
-                <div className="mt-5 grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+                <div className="mt-5 flex flex-wrap gap-2">
                   {quickFacts.map(({ icon: Icon, label, value }) => (
                     <div
                       key={label}
-                      className="rounded-xl border border-[#F4E4EC] bg-[#FFFBFC] px-3 py-2.5"
+                      className="flex items-center gap-2 rounded-2xl bg-gradient-to-br from-[#FFFBFC] to-[#FFF5F8] px-3.5 py-2.5 ring-1 ring-[#F4E4EC]"
                     >
-                      <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-[#B0889A]">
-                        <Icon size={12} />
-                        {label}
+                      <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-white text-[#B66A8A] shadow-sm">
+                        <Icon size={14} />
+                      </span>
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-[#B0889A]">{label}</p>
+                        <p className="text-sm font-semibold text-[#5D2B44]">{value}</p>
                       </div>
-                      <p className="mt-1 text-sm font-semibold text-[#5D2B44]">{value}</p>
                     </div>
                   ))}
                 </div>
               )}
 
               {bio && (
-                <blockquote className="mt-5 border-l-4 border-[#D4A8BC] bg-[#FFFBFC] px-4 py-3 text-sm italic leading-relaxed text-[#6B4A5A]">
-                  &ldquo;{bio}&rdquo;
-                </blockquote>
+                <div className="relative mt-5 overflow-hidden rounded-2xl bg-gradient-to-br from-[#FFF5F8] to-[#FFFBFC] px-5 py-4 ring-1 ring-[#F4E4EC]">
+                  <Heart size={48} className="pointer-events-none absolute -right-2 -top-2 text-[#F4D8E4]/50" fill="currentColor" />
+                  <p className="relative text-sm italic leading-relaxed text-[#6B4A5A]">
+                    &ldquo;{bio}&rdquo;
+                  </p>
+                </div>
               )}
-            </div>
 
-            <div className="mt-6 flex flex-wrap gap-2.5 border-t border-[#F4E4EC] pt-5">
-              {!fullAccess && (
+              {/* Actions */}
+              <div className="mt-6 flex flex-wrap gap-3">
+                {!fullAccess && (
+                  <button
+                    type="button"
+                    onClick={handleInterest}
+                    disabled={interestSent}
+                    className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#B66A8A] via-[#C07AA0] to-[#B66A8A] bg-[length:200%_100%] px-6 py-3 text-sm font-semibold text-white shadow-[0_8px_24px_rgba(182,106,138,0.35)] transition hover:bg-[position:100%_0] hover:shadow-[0_10px_28px_rgba(182,106,138,0.45)] disabled:cursor-not-allowed disabled:opacity-60 sm:flex-none"
+                  >
+                    <Heart size={17} fill={interestSent ? 'currentColor' : 'none'} />
+                    {interestSent ? 'Interest Sent' : 'Send Interest'}
+                  </button>
+                )}
                 <button
                   type="button"
-                  onClick={handleInterest}
-                  disabled={interestSent}
-                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#B66A8A] to-[#C07AA0] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:from-[#A75878] hover:to-[#B06A90] disabled:opacity-60 sm:flex-none"
+                  onClick={handleShortlist}
+                  className={`inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-semibold transition ${
+                    isShortlisted
+                      ? 'bg-amber-50 text-amber-700 ring-2 ring-amber-300'
+                      : 'bg-white text-[#7B4A62] ring-2 ring-[#F0DFE7] hover:bg-[#FFF5F8] hover:ring-[#E5C8D5]'
+                  }`}
                 >
-                  <Heart size={16} fill={interestSent ? 'currentColor' : 'none'} />
-                  {interestSent ? 'Interested' : 'Send Interest'}
+                  <Star size={17} fill={isShortlisted ? 'currentColor' : 'none'} />
+                  {isShortlisted ? 'Shortlisted' : 'Shortlist'}
                 </button>
-              )}
-              <button
-                type="button"
-                onClick={handleShortlist}
-                className={`inline-flex items-center justify-center gap-2 rounded-xl border-2 px-4 py-2.5 text-sm font-semibold transition ${
-                  isShortlisted
-                    ? 'border-amber-300 bg-amber-50 text-amber-600'
-                    : 'border-[#F0DFE7] bg-white text-[#7B4A62] hover:border-[#E5C8D5]'
-                }`}
-              >
-                <Star size={16} fill={isShortlisted ? 'currentColor' : 'none'} />
-                {isShortlisted ? 'Shortlisted' : 'Shortlist'}
-              </button>
-              {fullAccess && (
-                <Link
-                  to={chatUserId ? `/app/chat?userId=${chatUserId}` : '/app/chat'}
-                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border-2 border-[#B66A8A] bg-white px-5 py-2.5 text-sm font-semibold text-[#B66A8A] transition hover:bg-[#FFF5F8] sm:flex-none"
-                >
-                  <MessageCircle size={16} />
-                  Chat
-                </Link>
-              )}
+                {fullAccess && (
+                  <Link
+                    to={chatUserId ? `/app/chat?userId=${chatUserId}` : '/app/chat'}
+                    className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl bg-white px-6 py-3 text-sm font-semibold text-[#B66A8A] ring-2 ring-[#B66A8A] transition hover:bg-[#FFF5F8] sm:flex-none"
+                  >
+                    <MessageCircle size={17} />
+                    Start Chat
+                  </Link>
+                )}
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      <nav className="flex gap-1 overflow-x-auto rounded-2xl border border-[#F0DFE7] bg-[#FFFBFC] p-1.5 scrollbar-none">
-        {visibleTabs.map(({ id: tabId, label, icon: Icon }) => (
-          <button
-            key={tabId}
-            type="button"
-            onClick={() => setActiveTab(tabId)}
-            className={`flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
-              activeTab === tabId
-                ? 'bg-gradient-to-r from-[#B66A8A] to-[#9B5A80] text-white shadow-md'
-                : 'text-[#7B4A62] hover:bg-[#FFF0F5]'
-            }`}
-          >
-            <Icon size={15} />
-            {label}
-          </button>
-        ))}
+      {/* Tab navigation */}
+      <nav className="flex gap-2 overflow-x-auto rounded-2xl bg-[#FFF5F8]/80 p-2 ring-1 ring-[#F0DFE7] backdrop-blur-sm scrollbar-none">
+        {visibleTabs.map(({ id: tabId, label, icon: Icon }) => {
+          const active = activeTab === tabId;
+          return (
+            <button
+              key={tabId}
+              type="button"
+              onClick={() => setActiveTab(tabId)}
+              className={`flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl px-4 py-3 text-sm font-semibold transition-all duration-200 ${
+                active
+                  ? 'bg-gradient-to-r from-[#B66A8A] to-[#9B5A80] text-white shadow-[0_4px_16px_rgba(182,106,138,0.35)]'
+                  : 'text-[#7B4A62] hover:bg-white/80'
+              }`}
+            >
+              <Icon size={16} strokeWidth={active ? 2.5 : 2} />
+              {label}
+              {!fullAccess && (tabId === 'experience' || tabId === 'family' || tabId === 'preferences') && (
+                <Lock size={12} className="opacity-70" />
+              )}
+            </button>
+          );
+        })}
       </nav>
 
-      <div className="rounded-2xl border border-[#F2DFE8] bg-white p-4 shadow-sm sm:p-5">
-        <ProfileDetailsView
-          profile={profile}
-          tab={activeTab}
-          omitExpress={!!bio}
-          visibility={visibility}
-        />
+      {/* Profile details */}
+      <div className="overflow-hidden rounded-[24px] border border-[#F2DFE8] bg-white shadow-[0_8px_32px_rgba(182,106,138,0.08)]">
+        <div className="border-b border-[#F4E4EC] bg-gradient-to-r from-[#FFFBFC] to-[#FFF5F8] px-5 py-3.5 sm:px-6">
+          <h2 className="font-display text-lg font-semibold text-[#5D2B44]">
+            {visibleTabs.find((t) => t.id === activeTab)?.label ?? 'Details'}
+          </h2>
+        </div>
+        <div className="p-4 sm:p-6">
+          <ProfileDetailsView
+            profile={profile}
+            tab={activeTab}
+            visibility={visibility}
+          />
+        </div>
       </div>
     </div>
   );

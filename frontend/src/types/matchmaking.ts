@@ -23,7 +23,7 @@ export interface MatchFilters {
   caste: string;
   minAge: string;
   maxAge: string;
-  horoscopeAvailable: boolean;
+  horoscopeMatch: boolean;
 }
 
 export interface CompatibilityInfo {
@@ -54,6 +54,7 @@ export interface MatchProfile {
   bio?: string;
   isVerified?: boolean;
   isPremium?: boolean;
+  isBoosted?: boolean;
   onlineStatus?: boolean;
   photos?: string[];
   wizardProfile?: { profilePhoto?: string };
@@ -67,5 +68,5 @@ export const EMPTY_FILTERS: MatchFilters = {
   caste: '',
   minAge: '',
   maxAge: '',
-  horoscopeAvailable: false,
+  horoscopeMatch: false,
 };

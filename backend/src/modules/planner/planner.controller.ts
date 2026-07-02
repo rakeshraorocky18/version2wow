@@ -17,6 +17,7 @@ import {
   CreateTaskDto,
   UpdateTaskStatusDto,
   CreateEventDto,
+  CreateSubtaskDto,
 } from './dto/planner.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
@@ -59,29 +60,46 @@ export class PlannerController {
 
   @Get('plan/:planId/tasks')
   @ApiOperation({ summary: 'Get tasks for a plan' })
-  async getTasks(@Param('planId') planId: string) {
-    return this.plannerService.getTasks(planId);
+  async getTasks(@Req() req: any, @Param('planId') planId: string) {
+    return this.plannerService.getTasks(planId, req.user.id);
+  }
+
+  @Get('plan/:planId/activity')
+  @ApiOperation({ summary: 'Get recent planner activity' })
+  async getActivities(@Req() req: any, @Param('planId') planId: string) {
+    return this.plannerService.getActivities(planId, req.user.id);
   }
 
   @Post('plan/:planId/tasks')
   @ApiOperation({ summary: 'Create a task' })
-  async createTask(@Param('planId') planId: string, @Body() dto: CreateTaskDto) {
-    return this.plannerService.createTask(planId, dto);
+  async createTask(@Req() req: any, @Param('planId') planId: string, @Body() dto: CreateTaskDto) {
+    return this.plannerService.createTask(planId, req.user.id, dto);
+  }
+
+  @Post('tasks/:taskId/subtasks')
+  @ApiOperation({ summary: 'Create a subtask' })
+  async createSubtask(
+    @Req() req: any,
+    @Param('taskId') taskId: string,
+    @Body() dto: CreateSubtaskDto,
+  ) {
+    return this.plannerService.createSubtask(taskId, req.user.id, dto);
   }
 
   @Put('tasks/:taskId/status')
   @ApiOperation({ summary: 'Update task status' })
   async updateTaskStatus(
+    @Req() req: any,
     @Param('taskId') taskId: string,
     @Body() dto: UpdateTaskStatusDto,
   ) {
-    return this.plannerService.updateTaskStatus(taskId, dto);
+    return this.plannerService.updateTaskStatus(taskId, req.user.id, dto);
   }
 
   @Delete('tasks/:taskId')
   @ApiOperation({ summary: 'Delete a task' })
-  async deleteTask(@Param('taskId') taskId: string) {
-    await this.plannerService.deleteTask(taskId);
+  async deleteTask(@Req() req: any, @Param('taskId') taskId: string) {
+    await this.plannerService.deleteTask(taskId, req.user.id);
     return { message: 'Task deleted' };
   }
 

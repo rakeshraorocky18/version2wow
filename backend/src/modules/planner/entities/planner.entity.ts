@@ -5,7 +5,7 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { TaskStatus, EventType } from '../../../common/enums';
+import { TaskStatus, EventType, TaskPriorityLevel, PlannerActivityAction } from '../../../common/enums';
 
 @Entity('wedding_plans')
 export class WeddingPlan {
@@ -48,6 +48,9 @@ export class WeddingTask {
   @Column()
   planId: string;
 
+  @Column({ nullable: true })
+  parentTaskId: string;
+
   @Column()
   title: string;
 
@@ -68,6 +71,9 @@ export class WeddingTask {
 
   @Column({ default: 0 })
   priority: number;
+
+  @Column({ type: 'varchar', default: TaskPriorityLevel.MEDIUM })
+  priorityLevel: TaskPriorityLevel;
 
   @CreateDateColumn()
   createdAt: Date;
@@ -104,6 +110,30 @@ export class WeddingEvent {
 
   @Column({ type: 'int', default: 0 })
   guestCount: number;
+
+  @CreateDateColumn()
+  createdAt: Date;
+}
+
+@Entity('planner_activities')
+export class PlannerActivity {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @Column()
+  planId: string;
+
+  @Column({ nullable: true })
+  taskId: string;
+
+  @Column()
+  taskTitle: string;
+
+  @Column({ type: 'varchar' })
+  action: PlannerActivityAction;
+
+  @Column({ nullable: true })
+  details: string;
 
   @CreateDateColumn()
   createdAt: Date;

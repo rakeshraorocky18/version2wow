@@ -204,6 +204,8 @@ export default function EditProfile({ managedMode = false }: { managedMode?: boo
     weight: '',
     complexion: '',
     bloodGroup: '',
+    phone: '',
+    email: '',
     horoscopeAvailable: false,
     rashi: '',
     nakshatra: '',
@@ -289,6 +291,8 @@ export default function EditProfile({ managedMode = false }: { managedMode?: boo
     const merged = {
       ...form,
       ...existing,
+      phone: existing.phone || existing.wizardProfile?.personalDetails?.phone || '',
+      email: existing.email || existing.wizardProfile?.personalDetails?.email || '',
       horoscope: existing.horoscope || existing.zodiacSign || '',
       age: calculateAge(existing.dateOfBirth),
       prefCities: existing.prefCities || existing.prefLocations || [],
@@ -417,9 +421,17 @@ export default function EditProfile({ managedMode = false }: { managedMode?: boo
 
   const validate = () => {
     const next: Record<string, string> = {};
-    ['firstName', 'lastName', 'dateOfBirth', 'height', 'religion', 'maritalStatus', 'country', 'state', 'city'].forEach((k) => {
+    ['firstName', 'lastName', 'dateOfBirth', 'height', 'phone', 'email', 'religion', 'maritalStatus', 'country', 'state', 'city'].forEach((k) => {
       if (!String(form[k] ?? '').trim()) next[k] = 'Required';
     });
+    const phoneDigits = String(form.phone ?? '').replace(/\D/g, '');
+    if (form.phone && phoneDigits.length < 10) {
+      next.phone = 'Enter a valid mobile number (at least 10 digits)';
+    }
+    const email = String(form.email ?? '').trim();
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      next.email = 'Enter a valid email address';
+    }
     if (form.religion === 'Other' && !String(form.religionOther || '').trim()) {
       next.religionOther = 'Please specify religion';
     }
@@ -448,6 +460,7 @@ export default function EditProfile({ managedMode = false }: { managedMode?: boo
     const payload: ProfileForm = {};
     const copyKeys = [
       'firstName', 'middleName', 'lastName', 'displayName', 'gender', 'dateOfBirth',
+      'phone', 'email',
       'education', 'occupation', 'income',
       'height', 'weight', 'complexion', 'bloodGroup',
       'horoscopeAvailable', 'rashi', 'nakshatra', 'gothram', 'manglik', 'horoscope',
@@ -754,6 +767,27 @@ export default function EditProfile({ managedMode = false }: { managedMode?: boo
                       <option value="">Select blood group</option>
                       {BLOOD_GROUPS.map((v) => <option key={v}>{v}</option>)}
                     </select>
+                  </FormField>
+
+                  <FormField label="Mobile Number" htmlFor="phone" required error={errors.phone}>
+                    <input
+                      id="phone"
+                      type="tel"
+                      className={inputClass(errors.phone)}
+                      placeholder="+91 98765 43210"
+                      value={form.phone || ''}
+                      onChange={(e) => update('phone', e.target.value)}
+                    />
+                  </FormField>
+                  <FormField label="Email Address" htmlFor="email" required error={errors.email}>
+                    <input
+                      id="email"
+                      type="email"
+                      className={inputClass(errors.email)}
+                      placeholder="you@example.com"
+                      value={form.email || ''}
+                      onChange={(e) => update('email', e.target.value)}
+                    />
                   </FormField>
 
                   <SectionCard title="Education Details" subtitle="Optional — add your academic background" icon={GraduationCap}>

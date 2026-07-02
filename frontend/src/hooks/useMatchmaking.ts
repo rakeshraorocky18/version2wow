@@ -141,6 +141,38 @@ export function useMatchProfile(profileId?: string) {
   });
 }
 
+export function usePremiumStatus() {
+  return useQuery({
+    queryKey: ['match-premium-status'],
+    queryFn: async () => {
+      const { data } = await api.get('/matches/premium/status');
+      return data as {
+        isPremium: boolean;
+        hasActiveSubscription: boolean;
+        paymentIntegrationEnabled: boolean;
+        benefits: { boostedProfile: boolean; priorityInMatchListings: boolean };
+      };
+    },
+    staleTime: 60_000,
+  });
+}
+
+export function usePremiumDevToggle() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data } = await api.post('/matches/premium/dev-toggle');
+      return data as { isPremium?: boolean };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['match-premium-status'] });
+      queryClient.invalidateQueries({ queryKey: ['my-profile-for-match-filter'] });
+      queryClient.invalidateQueries({ queryKey: ['matches-suggestions'] });
+      queryClient.invalidateQueries({ queryKey: ['matches-search'] });
+    },
+  });
+}
+
 export function useProfileCompatibility(profileId?: string) {
   const role = useAuthStore((s) => s.user?.role);
   const isMatrimonialUser = role === 'bride' || role === 'groom';
