@@ -18,7 +18,6 @@ export interface MatchInterest {
 export type InterestSubTab = 'received' | 'sent' | 'accepted';
 
 export interface MatchFilters {
-  gender: string;
   religion: string;
   caste: string;
   minAge: string;
@@ -66,7 +65,6 @@ export interface MatchProfile {
 }
 
 export const EMPTY_FILTERS: MatchFilters = {
-  gender: '',
   religion: '',
   caste: '',
   minAge: '',

@@ -1,3 +1,5 @@
+import { horoscopeMatchScore, isHoroscopeCompatible } from './horoscope.engine';
+
 export type ProfileLike = Record<string, any>;
 
 export interface CompatibilityOptions {
@@ -28,18 +30,7 @@ function listIncludes(values: string[] | undefined, value?: string) {
 }
 
 function horoscopeScore(viewer: ProfileLike, candidate: ProfileLike): number {
-  let score = 0;
-  if (viewer.manglik && candidate.manglik && viewer.manglik === candidate.manglik) score += 6;
-  if (viewer.rashi && candidate.rashi && viewer.rashi === candidate.rashi) score += 5;
-  if (viewer.nakshatra && candidate.nakshatra && viewer.nakshatra === candidate.nakshatra) score += 5;
-  if (
-    (viewer.zodiacSign || viewer.horoscope) &&
-    (candidate.zodiacSign || candidate.horoscope) &&
-    (viewer.zodiacSign || viewer.horoscope) === (candidate.zodiacSign || candidate.horoscope)
-  ) {
-    score += 4;
-  }
-  return score;
+  return horoscopeMatchScore(viewer, candidate);
 }
 
 /** Rule-based compatibility engine (ML / Neo4j can replace or augment later). */
@@ -153,14 +144,9 @@ export function calculateCompatibility(
   if (lifestyleMatches.length) breakdown.lifestyle = lifestyleMatches.length * 3;
 
   if (options.includeHoroscope !== false) {
-    const bothHoroscope =
-      viewer.horoscopeAvailable ||
-      candidate.horoscopeAvailable ||
-      viewer.rashi ||
-      candidate.rashi;
-    if (bothHoroscope) {
+    if (isHoroscopeCompatible(viewer, candidate)) {
       breakdown.horoscope = horoscopeScore(viewer, candidate);
-      if (breakdown.horoscope >= 10) highlights.push('Strong horoscope alignment');
+      if (breakdown.horoscope >= 10) highlights.push('Horoscope match');
     }
   }
 

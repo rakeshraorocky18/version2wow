@@ -12,10 +12,9 @@ function filtersToParams(filters: MatchFilters) {
   return params;
 }
 
-export function useMatchSuggestions(filters: MatchFilters, enabled = true) {
+export function useMatchSuggestions(filters: MatchFilters) {
   return useQuery({
     queryKey: ['matches-suggestions', filters],
-    enabled,
     staleTime: 0,
     refetchOnMount: 'always',
     queryFn: async () => {
@@ -93,7 +92,6 @@ export function useMatchActions() {
     queryClient.invalidateQueries({ queryKey: ['matches-received'] });
     queryClient.invalidateQueries({ queryKey: ['matches-sent'] });
     queryClient.invalidateQueries({ queryKey: ['matches-accepted'] });
-    queryClient.invalidateQueries({ queryKey: ['match-profile'] });
   };
 
   const sendInterest = useMutation({
@@ -126,51 +124,6 @@ export function useMatchActions() {
   });
 
   return { sendInterest, toggleShortlist, acceptInterest, rejectInterest };
-}
-
-export function useMatchProfile(profileId?: string) {
-  return useQuery({
-    queryKey: ['match-profile', profileId],
-    enabled: !!profileId,
-    staleTime: 0,
-    refetchOnMount: 'always',
-    queryFn: async () => {
-      const { data } = await api.get(`/matches/profile/${profileId}`);
-      return data as { profile: Record<string, unknown>; visibility: 'limited' | 'full' };
-    },
-  });
-}
-
-export function usePremiumStatus() {
-  return useQuery({
-    queryKey: ['match-premium-status'],
-    queryFn: async () => {
-      const { data } = await api.get('/matches/premium/status');
-      return data as {
-        isPremium: boolean;
-        hasActiveSubscription: boolean;
-        paymentIntegrationEnabled: boolean;
-        benefits: { boostedProfile: boolean; priorityInMatchListings: boolean };
-      };
-    },
-    staleTime: 60_000,
-  });
-}
-
-export function usePremiumDevToggle() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async () => {
-      const { data } = await api.post('/matches/premium/dev-toggle');
-      return data as { isPremium?: boolean };
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['match-premium-status'] });
-      queryClient.invalidateQueries({ queryKey: ['my-profile-for-match-filter'] });
-      queryClient.invalidateQueries({ queryKey: ['matches-suggestions'] });
-      queryClient.invalidateQueries({ queryKey: ['matches-search'] });
-    },
-  });
 }
 
 export function useProfileCompatibility(profileId?: string) {

@@ -13,15 +13,39 @@ export interface ProfileSearchFilters {
   minHeight?: number;
   maxHeight?: number;
   horoscopeAvailable?: boolean;
+  horoscopeMatch?: boolean;
   familyType?: string;
   education?: string;
 }
 
-export function buildSuggestionFilters(viewer: ProfileLike): ProfileSearchFilters {
+export function resolveViewerGender(
+  viewer: ProfileLike | null | undefined,
+  userRole?: string,
+): 'male' | 'female' | null {
+  if (viewer?.gender === 'male' || viewer?.gender === 'female') return viewer.gender;
+  if (userRole === 'groom') return 'male';
+  if (userRole === 'bride') return 'female';
+  return null;
+}
+
+export function resolveOppositeGenderFilter(
+  viewer: ProfileLike | null | undefined,
+  userRole?: string,
+): string | undefined {
+  const gender = resolveViewerGender(viewer, userRole);
+  if (gender === 'male') return 'female';
+  if (gender === 'female') return 'male';
+  return undefined;
+}
+
+export function buildSuggestionFilters(
+  viewer: ProfileLike,
+  userRole?: string,
+): ProfileSearchFilters {
   const filters: ProfileSearchFilters = {};
 
-  if (viewer.gender === 'male') filters.gender = 'female';
-  else if (viewer.gender === 'female') filters.gender = 'male';
+  const oppositeGender = resolveOppositeGenderFilter(viewer, userRole);
+  if (oppositeGender) filters.gender = oppositeGender;
 
   if (viewer.prefReligions?.length) filters.religion = viewer.prefReligions[0];
   else if (viewer.religion) filters.religion = viewer.religion;

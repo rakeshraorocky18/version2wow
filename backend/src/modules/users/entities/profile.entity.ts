@@ -213,6 +213,15 @@ export class ProfileEntity {
   @Column({ nullable: true })
   childrenLivingWith: string;
 
+  @Column({ type: 'int', nullable: true })
+  numberOfChildren: number;
+
+  @Column({ type: 'int', nullable: true })
+  childrenBoys: number;
+
+  @Column({ type: 'int', nullable: true })
+  childrenGirls: number;
+
   @Column({ default: false })
   readyForRemarriage: boolean;
 
