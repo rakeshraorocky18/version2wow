@@ -12,6 +12,7 @@ import {
   Trash2,
   Shield,
   Image as ImageIcon,
+  X,
 } from 'lucide-react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -35,6 +36,11 @@ type ChatMessage = {
   createdAt?: string;
 };
 
+type CallLogPayload = {
+  callType: CallType;
+  status: 'missed' | 'ended';
+};
+
 function MessageBubble({
   message,
   isMine,
@@ -49,12 +55,23 @@ function MessageBubble({
   deleting: boolean;
 }) {
   const mediaSrc = message.mediaUrl ? getPhotoUrl(message.mediaUrl) : '';
+  const isCallLog = message.type === 'audio_call' || message.type === 'video_call';
+  const messageTime = message.createdAt
+    ? new Date(message.createdAt).toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : '';
 
   return (
     <div className={`group flex ${isMine ? 'justify-end' : 'justify-start'}`}>
       <div
         className={`relative max-w-[75%] px-3 py-2 rounded-lg text-sm ${
-          isMine ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-900'
+          isCallLog
+            ? 'border border-gray-200 bg-gray-50 text-gray-700'
+            : isMine
+              ? 'bg-primary-600 text-white'
+              : 'bg-gray-100 text-gray-900'
         }`}
       >
         {canDelete && (
@@ -85,6 +102,15 @@ function MessageBubble({
           </a>
         ) : (
           message.content
+        )}
+        {messageTime && (
+          <p
+            className={`mt-1 text-[10px] ${
+              isCallLog ? 'text-gray-500' : isMine ? 'text-primary-100' : 'text-gray-500'
+            }`}
+          >
+            {messageTime}
+          </p>
         )}
       </div>
     </div>
@@ -325,6 +351,19 @@ export default function Chat() {
     },
   });
 
+  const sendCallLogMessage = (payload: CallLogPayload) => {
+    const contentPrefix = payload.callType === 'video' ? 'Video call' : 'Audio call';
+    const content =
+      payload.status === 'missed'
+        ? `Missed ${payload.callType} call`
+        : `${contentPrefix} ended`;
+
+    sendMessageMutation.mutate({
+      content,
+      type: payload.callType === 'video' ? 'video_call' : 'audio_call',
+    });
+  };
+
   const deleteChatMutation = useMutation({
     mutationFn: async (partnerId: string) => {
       await api.delete(`/chat/conversations/${partnerId}`);
@@ -419,7 +458,7 @@ export default function Chat() {
   }, [activePartnerId, displayMessages.length, contactList]);
 
   return (
-    <div className="h-[calc(100vh-12rem)]">
+    <div className={selectedConversation ? 'h-[calc(100vh-12rem)]' : 'h-auto'}>
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-display font-bold text-gray-900">Messages</h1>
         <button
@@ -431,8 +470,18 @@ export default function Chat() {
         </button>
       </div>
 
-      <div className="card h-full flex overflow-hidden p-0">
-        <div className="w-1/3 border-r border-gray-200 flex flex-col">
+      <div
+        className={`card flex overflow-hidden p-0 ${
+          selectedConversation ? 'h-full' : 'mx-auto mt-2 w-full max-w-2xl'
+        }`}
+      >
+        <div
+          className={`flex flex-col ${
+            selectedConversation
+              ? 'w-1/3 border-r border-gray-200'
+              : 'w-full max-h-[24rem] min-h-[18rem]'
+          }`}
+        >
           <div className="p-4 border-b border-gray-100">
             <div className="relative">
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -508,8 +557,8 @@ export default function Chat() {
           </div>
         </div>
 
-        <div className="flex-1 flex flex-col">
-          {selectedConversation ? (
+        {selectedConversation && (
+          <div className="flex-1 flex flex-col">
             <>
               <div className="p-4 border-b border-gray-200 flex items-center justify-between">
                 <h3 className="font-medium text-gray-900">{selectedContact?.name || 'Chat'}</h3>
@@ -565,6 +614,17 @@ export default function Chat() {
                       </div>
                     )}
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedConversation(null);
+                      setShowMenu(false);
+                    }}
+                    className="rounded-lg p-2 text-gray-500 hover:bg-gray-100"
+                    title="Close chat"
+                  >
+                    <X size={18} />
+                  </button>
                 </div>
               </div>
 
@@ -633,12 +693,8 @@ export default function Chat() {
                 </div>
               </div>
             </>
-          ) : (
-            <div className="flex-1 flex items-center justify-center text-gray-400">
-              <p>Select a match to start messaging</p>
-            </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {showPrivacy && <ChatPrivacySettingsModal onClose={() => setShowPrivacy(false)} />}
@@ -655,6 +711,7 @@ export default function Chat() {
           peerId={activeCall.peerId}
           callType={activeCall.callType}
           isIncoming={activeCall.isIncoming}
+          onCallLog={sendCallLogMessage}
           onClose={() => setActiveCall(null)}
         />
       )}
