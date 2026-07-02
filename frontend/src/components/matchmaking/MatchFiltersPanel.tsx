@@ -22,15 +22,15 @@ export default function MatchFiltersPanel({ filters, onChange, matchGenderLabel 
   const activeCount = countActiveFilters(filters);
 
   return (
-    <section className="overflow-hidden rounded-2xl border border-[#F2DFE8] bg-gradient-to-br from-[#FFFBFC] via-white to-[#FFF8FB] shadow-[0_8px_30px_rgba(174,94,129,0.08)]">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#F4E4EC] bg-white/60 px-5 py-4 sm:px-6">
+    <section className="overflow-hidden rounded-2xl bg-white shadow-[0_8px_28px_rgba(0,0,0,0.06)]">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#F2E6EB] bg-[#FFFAFC] px-5 py-4">
         <div className="flex items-center gap-3">
-          <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#F9DEE7] to-[#F6E8FF] text-[#A4426A]">
+          <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#F9DEE7] to-[#F6E8FF] text-[#A4426A]">
             <SlidersHorizontal size={18} />
           </span>
           <div>
-            <h2 className="font-display text-lg font-semibold text-[#5D2B44]">Refine your search</h2>
-            <p className="text-xs text-[#9A5776]">
+            <h2 className="font-display text-lg font-semibold text-[#402A37]">Member Search</h2>
+            <p className="text-xs text-[#8F7080]">
               {matchGenderLabel
                 ? `Showing ${matchGenderLabel.toLowerCase()} only`
                 : activeCount === 0
@@ -51,12 +51,12 @@ export default function MatchFiltersPanel({ filters, onChange, matchGenderLabel 
         )}
       </div>
 
-      <div className="grid gap-5 p-5 sm:p-6 md:grid-cols-2 xl:grid-cols-3">
+      <div className="space-y-5 p-5">
         <div>
-          <label htmlFor="match-filter-religion" className="profile-field-label">Religion</label>
+          <label htmlFor="match-filter-religion" className="mb-2 block text-xs font-bold uppercase tracking-wide text-[#3F3138]">Religion</label>
           <select
             id="match-filter-religion"
-            className="profile-input"
+            className="profile-input h-11"
             value={filters.religion}
             onChange={(e) => onChange({ ...filters, religion: e.target.value, caste: '' })}
           >
@@ -68,10 +68,10 @@ export default function MatchFiltersPanel({ filters, onChange, matchGenderLabel 
         </div>
 
         <div>
-          <label htmlFor="match-filter-caste" className="profile-field-label">Caste</label>
+          <label htmlFor="match-filter-caste" className="mb-2 block text-xs font-bold uppercase tracking-wide text-[#3F3138]">Caste</label>
           <select
             id="match-filter-caste"
-            className="profile-input"
+            className="profile-input h-11"
             value={filters.caste}
             onChange={(e) => onChange({ ...filters, caste: e.target.value })}
             disabled={!filters.religion || getCastesForReligion(filters.religion).length === 0}
@@ -83,11 +83,11 @@ export default function MatchFiltersPanel({ filters, onChange, matchGenderLabel 
           </select>
         </div>
 
-        <div className="md:col-span-2 xl:col-span-1">
-          <span className="profile-field-label">Age range</span>
+        <div>
+          <span className="mb-2 block text-xs font-bold uppercase tracking-wide text-[#3F3138]">Age range</span>
           <div className="flex items-center gap-2">
             <input
-              className="profile-input"
+              className="profile-input h-11"
               placeholder="Min"
               type="number"
               min={18}
@@ -98,7 +98,7 @@ export default function MatchFiltersPanel({ filters, onChange, matchGenderLabel 
             />
             <span className="shrink-0 text-sm font-medium text-[#C4A0B0]">to</span>
             <input
-              className="profile-input"
+              className="profile-input h-11"
               placeholder="Max"
               type="number"
               min={18}
@@ -111,14 +111,15 @@ export default function MatchFiltersPanel({ filters, onChange, matchGenderLabel 
         </div>
 
         <div>
-          <span className="profile-field-label">Horoscope</span>
+          <span className="mb-2 block text-xs font-bold uppercase tracking-wide text-[#3F3138]">Horoscope match</span>
           <div
-            className={`flex h-[46px] items-center justify-end rounded-xl border px-4 transition ${
+            className={`flex h-[46px] items-center justify-between rounded-xl border px-4 transition ${
               filters.horoscopeMatch
                 ? 'border-[#D4A8BC] bg-gradient-to-r from-[#FFF0F5] to-[#F8F0FF]'
                 : 'border-[#E5C8D5] bg-[#FFFBFC]'
             }`}
           >
+            <span className="text-xs font-medium text-[#6D5360]">{filters.horoscopeMatch ? 'Enabled' : 'Disabled'}</span>
             <button
               type="button"
               role="switch"

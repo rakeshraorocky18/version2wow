@@ -1,60 +1,102 @@
-import { Heart, MessageCircle, Store, Calendar, CheckCircle2, Sparkles, Gift, ArrowRight } from 'lucide-react';
+import {
+  Heart,
+  MessageCircle,
+  Store,
+  Calendar,
+  Sparkles,
+  Gift,
+  ArrowRight,
+  Bot,
+  Wallet,
+  Users,
+  TrendingUp,
+  Target,
+} from 'lucide-react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '../store/authStore';
 import { useMatchActions, useReceivedInterests, useSentInterests, useAcceptedInterests } from '../hooks/useMatchmaking';
 import InterestRequestCard from '../components/matchmaking/InterestRequestCard';
+import api from '../lib/api';
+import dashboardMessagesImage from '../assets/dashboard/dashboard-messages.png';
+import dashboardVendorsImage from '../assets/dashboard/dashboard-vendors.png';
+import dashboardPlannerImage from '../assets/dashboard/dashboard-planner.png';
+import dashboardHoneymoonImage from '../assets/dashboard/dashboard-honeymoon.png';
+import dashboardFindMatchesCustomImage from '../assets/dashboard/dashboard-find-matches-custom.png';
+import dashboardFinanceCustomImage from '../assets/dashboard/dashboard-finance-custom.png';
+import dashboardHeroWeddingStageImage from '../assets/dashboard/dashboard-hero-wedding-stage.png';
+
+interface WeddingPlan {
+  id: string;
+  weddingDate: string;
+  totalBudget?: number;
+}
 
 const quickActions = [
   {
     icon: Heart,
     label: 'Find Matches',
     path: '/app/matches',
-    description: 'Discover partners and celebrate shared values.',
-    color: 'from-[#F9DEE7] to-[#F6E8FF] text-[#A4426A]',
+    description: 'Discover your perfect partner',
+    color: 'from-[#FCEAF1] to-[#F7ECFF] text-[#B15B83]',
+    arrowColor: 'bg-[#E74E8A] text-white',
+    image: dashboardFindMatchesCustomImage,
   },
   {
     icon: MessageCircle,
     label: 'Messages',
     path: '/app/chat',
-    description: 'Stay close with warm conversations and updates.',
-    color: 'from-[#FDEAD8] to-[#FBE8EF] text-[#A35C3E]',
+    description: 'Chat with your matches',
+    color: 'from-[#FFF1E7] to-[#FFF5EF] text-[#B67A4A]',
+    arrowColor: 'bg-[#D9A63D] text-white',
+    image: dashboardMessagesImage,
   },
   {
     icon: Store,
-    label: 'Browse Vendors',
+    label: 'Vendors',
     path: '/app/vendors',
-    description: 'Explore trusted local experts for each moment.',
-    color: 'from-[#EFE4FF] to-[#FBE9F4] text-[#6E4A9C]',
+    description: 'Book trusted wedding experts',
+    color: 'from-[#F2ECFF] to-[#F8F1FF] text-[#7A5CAD]',
+    arrowColor: 'bg-[#9A5B8C] text-white',
+    image: dashboardVendorsImage,
   },
   {
     icon: Calendar,
-    label: 'Plan Wedding',
+    label: 'Planner',
     path: '/app/planner',
-    description: 'Turn your timeline into beautiful milestones.',
-    color: 'from-[#FEE7DB] to-[#FFF0D6] text-[#A56B2B]',
+    description: 'Timeline & task milestones',
+    color: 'from-[#EAF9F2] to-[#F2FCF7] text-[#3C956A]',
+    arrowColor: 'bg-[#2F9D74] text-white',
+    image: dashboardPlannerImage,
   },
   {
     icon: Gift,
-    label: 'Finance Center',
+    label: 'Finance',
     path: '/app/finance',
-    description: 'Track budget, expenses, loans and gift registry.',
-    color: 'from-[#E7F3FF] to-[#F1F8FF] text-[#2F6D97]',
+    description: 'Budget, loans & registry',
+    color: 'from-[#EAF4FF] to-[#F3F8FF] text-[#3974A1]',
+    arrowColor: 'bg-[#3A78A8] text-white',
+    image: dashboardFinanceCustomImage,
   },
   {
     icon: Sparkles,
-    label: 'Travel Packages',
+    label: 'Honeymoon',
     path: '/app/honeymoon',
-    description: 'Explore and book honeymoon destinations instantly.',
-    color: 'from-[#FFEBD6] to-[#FFF3E8] text-[#A6672A]',
+    description: 'Dream destination packages',
+    color: 'from-[#FFF4E8] to-[#FFF8EF] text-[#B17A3B]',
+    arrowColor: 'bg-[#D08A38] text-white',
+    image: dashboardHoneymoonImage,
   },
 ];
 
-const checklistItems = [
-  { label: 'Create your account', done: true, icon: CheckCircle2 },
-  { label: 'Complete your profile', done: false, icon: Sparkles },
-  { label: 'Start exploring matches', done: false, icon: Heart },
-  { label: 'Browse wedding vendors', done: false, icon: Gift },
+const surfaceCardClass =
+  'rounded-2xl border border-[#EFDCE6] bg-white/90 p-5 shadow-[0_10px_30px_rgba(168,90,127,0.12)] backdrop-blur-sm';
+
+const trendingInspirations = [
+  'Pastel floral mandap concepts',
+  'Luxury minimalist invitation suites',
+  'Sangeet spotlight choreography themes',
 ];
 
 export default function Dashboard() {
@@ -66,10 +108,25 @@ export default function Dashboard() {
   const pendingRequests = receivedInterests.length;
   const sentPending = sentInterests.filter((m) => m.status === 'pending').length;
   const acceptedCount = acceptedInterests.length;
-  const completedCount = checklistItems.filter((item) => item.done).length;
-  const checklistProgress = Math.round((completedCount / checklistItems.length) * 100);
   const planningProgress = 24;
   const userName = user?.email ? user.email.split('@')[0] : 'Couple';
+  const { data: plans = [] } = useQuery<WeddingPlan[]>({
+    queryKey: ['planner-plans'],
+    queryFn: async () => {
+      const { data } = await api.get<WeddingPlan[]>('/planner/plans');
+      return data;
+    },
+  });
+  const activePlan = plans[0];
+  const weddingDate = activePlan?.weddingDate ? new Date(activePlan.weddingDate) : null;
+  const today = new Date();
+  const daysRemaining = weddingDate
+    ? Math.max(0, Math.ceil((weddingDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)))
+    : null;
+  const budgetTotal = activePlan?.totalBudget ?? 2500000;
+  const budgetUsed = Math.round(budgetTotal * 0.62);
+  const budgetLeft = budgetTotal - budgetUsed;
+  const budgetUsedPercent = Math.min(100, Math.round((budgetUsed / budgetTotal) * 100));
   const showMatchSection =
     user?.role === 'bride' ||
     user?.role === 'groom' ||
@@ -80,49 +137,82 @@ export default function Dashboard() {
     acceptedCount > 0;
 
   return (
-    <div className="space-y-8">
-      <section className="relative overflow-hidden rounded-3xl border border-[#F2DFE8] bg-gradient-to-br from-[#FFF8FB] via-[#F8F3FF] to-[#FFF5EF] p-8 shadow-[0_15px_45px_rgba(174,94,129,0.14)] sm:p-10">
-        <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-[#F4D8E4]/70 blur-2xl" />
-        <div className="pointer-events-none absolute -bottom-20 left-10 h-56 w-56 rounded-full bg-[#EBDDFF]/70 blur-2xl" />
+    <div className="relative space-y-7 pb-4">
+      <div className="pointer-events-none absolute -top-20 left-1/3 h-56 w-56 rounded-full bg-[#F9DDEA]/50 blur-3xl" />
+      <div className="pointer-events-none absolute top-24 -right-10 h-64 w-64 rounded-full bg-[#E8E3FF]/50 blur-3xl" />
 
-        <div className="relative z-10 grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
-          <div>
-            <p className="inline-flex items-center gap-2 rounded-full border border-[#E5C8D5] bg-white/80 px-4 py-1 text-xs font-medium tracking-wide text-[#9A5776]">
-              <Sparkles size={14} /> Luxury Wedding Command Center
+      <section className="relative overflow-hidden rounded-3xl border border-[#EFDCE6] bg-white shadow-[0_18px_45px_rgba(174,94,129,0.16)]">
+        <img
+          src={dashboardHeroWeddingStageImage}
+          alt="Wedding stage setup"
+          className="absolute inset-y-0 right-0 h-full w-full object-cover lg:w-[48%]"
+        />
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-full bg-gradient-to-r from-white via-white/80 to-transparent lg:w-[60%]" />
+
+        <div className="relative z-10 p-6 sm:p-8">
+          <div className="max-w-3xl">
+            <p className="inline-flex items-center gap-2 rounded-full border border-[#F1DBE5] bg-[#FFF7FB] px-3 py-1 text-xs font-semibold tracking-[0.08em] text-[#C35A86]">
+              <Sparkles size={12} /> WEDDING DASHBOARD
             </p>
-            <h1 className="mt-4 text-3xl font-display font-bold leading-tight text-[#5D2B44] sm:text-4xl">
-              Welcome, {userName}. Your forever story begins here.
+            <h1 className="mt-4 text-3xl font-display font-bold leading-tight text-[#2E1D2B] sm:text-4xl">
+              Hi, {userName}!
             </h1>
-            <p className="mt-4 max-w-2xl text-sm text-[#815A6D] sm:text-base">
-              Design each chapter with intention, emotion, and elegance. From soulmate matches to vendor bookings,
-              every detail now lives in one beautifully curated journey.
+            <p className="mt-2 text-2xl font-medium text-[#3A2835]">Your forever story is taking shape beautifully.</p>
+            <p className="mt-3 max-w-2xl text-sm text-[#6E5965] sm:text-base">
+              Track your planning progress, lock your dream vendors, and connect with matches in one premium workspace
+              designed to keep every important moment organized.
             </p>
 
-            <div className="mt-6 flex flex-wrap gap-3">
-              <Link to="/app/planner" className="btn-primary group !rounded-full !bg-[#B66A8A] hover:!bg-[#A75878]">
-                Continue Planning <ArrowRight size={16} className="ml-2 inline transition-transform group-hover:translate-x-1" />
+            <div className="mt-5 flex flex-wrap gap-3">
+              <Link
+                to="/app/planner"
+                className="inline-flex items-center rounded-full bg-[#EA4D8B] px-5 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:bg-[#D6427E]"
+              >
+                Continue Planning <ArrowRight size={14} className="ml-2" />
               </Link>
               <Link
                 to="/app/matches"
-                className="rounded-full border border-[#D8B6C6] bg-white/80 px-5 py-3 text-sm font-medium text-[#7B4A62] transition hover:bg-white"
+                className="inline-flex items-center rounded-full border border-[#E9D5DF] bg-white px-5 py-2.5 text-xs font-semibold text-[#A45B7C] transition hover:bg-[#FFF7FB]"
               >
-                Explore Matches
+                <Heart size={14} className="mr-2" /> Explore Matches
               </Link>
             </div>
-          </div>
 
-          <div className="relative mx-auto w-full max-w-sm rounded-2xl border border-[#EEDBE5] bg-white/70 p-6 backdrop-blur">
-            <div className="absolute right-4 top-4 rounded-full bg-[#FDE9F2] px-3 py-1 text-xs font-semibold text-[#A75378]">
-              Love Mode
-            </div>
-            <div className="mx-auto mt-4 h-40 w-40 rounded-full border-2 border-[#E6C7D5] bg-gradient-to-b from-[#FFF0F5] to-[#F7ECFF] p-6">
-              <div className="flex h-full items-center justify-center rounded-full border border-[#D9B8C8] bg-white/80">
-                <Heart size={34} className="text-[#C1698F]" fill="currentColor" />
+            <div className="mt-6 grid gap-3 sm:grid-cols-3">
+              <div className="rounded-2xl border border-[#F1DEE7] bg-white/95 p-3 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#FCEAF1] text-[#DE568F]">
+                    <Calendar size={15} />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold leading-none text-[#3A2A35]">{daysRemaining ?? '--'}</p>
+                    <p className="mt-1 text-xs font-medium text-[#7C6673]">Days To Wedding</p>
+                  </div>
+                </div>
+              </div>
+              <div className="rounded-2xl border border-[#EBE3F4] bg-white/95 p-3 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#F1ECFF] text-[#8860BE]">
+                    <Target size={15} />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold leading-none text-[#3A2A35]">{planningProgress}%</p>
+                    <p className="mt-1 text-xs font-medium text-[#7C6673]">Planning Progress</p>
+                  </div>
+                </div>
+              </div>
+              <div className="rounded-2xl border border-[#E5ECF7] bg-white/95 p-3 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#EAF3FF] text-[#4D7AAF]">
+                    <Users size={15} />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold leading-none text-[#3A2A35]">{acceptedCount}</p>
+                    <p className="mt-1 text-xs font-medium text-[#7C6673]">Mutual Matches</p>
+                  </div>
+                </div>
               </div>
             </div>
-            <p className="mt-5 text-center text-sm text-[#7C5A6E]">
-              "The best weddings feel effortless because every detail was planned with love."
-            </p>
           </div>
         </div>
       </section>
@@ -134,26 +224,35 @@ export default function Dashboard() {
             <Link
               key={action.path}
               to={action.path}
-              className="group relative overflow-hidden rounded-2xl border border-[#F1E1E8] bg-white p-5 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-[0_15px_30px_rgba(180,105,140,0.2)]"
+              className={`group relative overflow-hidden rounded-2xl border border-[#F1E1E8] bg-gradient-to-br ${action.color} p-5 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-[0_15px_30px_rgba(180,105,140,0.2)] min-h-[132px]`}
             >
-              <div className={`mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br ${action.color}`}>
-                <Icon size={22} />
+              <img
+                src={action.image}
+                alt={`${action.label} preview`}
+                className="absolute inset-y-0 right-0 h-full w-[45%] object-cover transition-transform duration-500 group-hover:scale-105"
+              />
+              <div className="pointer-events-none absolute inset-y-0 right-[43%] w-24 bg-gradient-to-r from-white/95 via-white/70 to-transparent" />
+
+              <div className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-white/60">
+                <Icon size={16} />
               </div>
-              <h3 className="font-display text-lg font-semibold text-[#573147]">{action.label}</h3>
-              <p className="mt-2 text-sm text-[#7C6673]">{action.description}</p>
-              <span className="mt-4 inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-[#A86584]">
-                Open <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
+              <h3 className="font-display text-[20px] leading-tight font-semibold text-[#3E2A38]">{action.label}</h3>
+              <p className="mt-1.5 text-xs text-[#6F5B66]">{action.description}</p>
+              <span className="mt-4 inline-flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold shadow-sm transition-transform group-hover:translate-x-1 group-hover:scale-105">
+                <span className={`flex h-7 w-7 items-center justify-center rounded-full ${action.arrowColor}`}>
+                  <ArrowRight size={12} />
+                </span>
               </span>
             </Link>
           );
         })}
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-        <div className="rounded-2xl border border-[#F0DFE7] bg-white p-6 shadow-sm">
+      <section className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
+        <div className={surfaceCardClass}>
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="font-display text-xl font-semibold text-[#523045]">Planning Snapshot</h2>
-            <span className="rounded-full bg-[#F7E4EC] px-3 py-1 text-xs font-semibold text-[#A65A7D]">Week 1</span>
+            <h2 className="font-display text-xl font-semibold text-[#523045]">Activity Snapshot</h2>
+            <span className="rounded-full bg-[#F7E4EC] px-3 py-1 text-xs font-semibold text-[#A65A7D]">This Week</span>
           </div>
 
           <div className="mt-5 grid gap-4 sm:grid-cols-3">
@@ -184,57 +283,66 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+      </section>
 
-        <div className="rounded-2xl border border-[#F0DFE7] bg-white p-6 shadow-sm">
-          <h2 className="font-display text-xl font-semibold text-[#523045]">Getting Started</h2>
-          <p className="mt-1 text-sm text-[#7C6673]">A gentle checklist to keep your momentum glowing.</p>
-
-          <div className="mt-5 flex items-center gap-4">
-            <div className="relative h-20 w-20">
-              <svg viewBox="0 0 120 120" className="h-20 w-20 -rotate-90">
-                <circle cx="60" cy="60" r="50" stroke="#F0DFE7" strokeWidth="12" fill="none" />
-                <circle
-                  cx="60"
-                  cy="60"
-                  r="50"
-                  stroke="#C16D91"
-                  strokeWidth="12"
-                  fill="none"
-                  strokeLinecap="round"
-                  strokeDasharray={`${(314 * checklistProgress) / 100} 314`}
-                />
-              </svg>
-              <div className="absolute inset-0 flex items-center justify-center text-sm font-semibold text-[#7A4861]">
-                {checklistProgress}%
-              </div>
-            </div>
-            <div>
-              <p className="font-semibold text-[#5B354A]">{completedCount} of {checklistItems.length} complete</p>
-              <p className="text-sm text-[#7C6673]">Finish these and unlock your full planning dashboard.</p>
-            </div>
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className={surfaceCardClass}>
+          <div className="flex items-center gap-2 text-[#5C3550]">
+            <Bot size={18} />
+            <h3 className="font-display text-lg font-semibold">AI Wedding Agent</h3>
           </div>
+          <p className="mt-2 text-sm text-[#7C6673]">Ask for vendor ideas, rituals checklist, and schedule suggestions instantly.</p>
+          <button className="mt-4 rounded-full bg-[#B66A8A] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#A75878]">
+            Chat with AI Agent
+          </button>
+        </div>
 
-          <div className="mt-5 space-y-2">
-            {checklistItems.map((item) => {
-              const Icon = item.icon;
-              return (
-                <div
-                  key={item.label}
-                  className={`flex items-center gap-3 rounded-lg border p-3 ${item.done ? 'border-[#E0F1E8] bg-[#F3FBF7]' : 'border-[#F0E3EA] bg-[#FFF9FC]'}`}
-                >
-                  <div className={`flex h-7 w-7 items-center justify-center rounded-full ${item.done ? 'bg-[#D7F0E2] text-[#2F8B62]' : 'bg-[#F5E7EE] text-[#9A6380]'}`}>
-                    <Icon size={15} />
-                  </div>
-                  <span className={`text-sm ${item.done ? 'text-[#49745E]' : 'text-[#6F5662]'}`}>{item.label}</span>
-                </div>
-              );
-            })}
+        <div className={surfaceCardClass}>
+          <div className="flex items-center gap-2 text-[#5C3550]">
+            <Wallet size={18} />
+            <h3 className="font-display text-lg font-semibold">Budget Overview</h3>
           </div>
+          <div className="mt-3 space-y-2 text-sm text-[#6F5966]">
+            <p>Total Budget: <span className="font-semibold text-[#5C3550]">₹{budgetTotal.toLocaleString()}</span></p>
+            <p>Used: <span className="font-semibold text-[#B85F87]">₹{budgetUsed.toLocaleString()}</span></p>
+            <p>Remaining: <span className="font-semibold text-[#2F8B62]">₹{budgetLeft.toLocaleString()}</span></p>
+          </div>
+          <div className="mt-4 h-2 rounded-full bg-[#F4E7EE]">
+            <div
+              className="h-2 rounded-full bg-gradient-to-r from-[#D980A4] to-[#A877D1]"
+              style={{ width: `${budgetUsedPercent}%` }}
+            />
+          </div>
+        </div>
+
+        <div className={surfaceCardClass}>
+          <div className="flex items-center gap-2 text-[#5C3550]">
+            <Users size={18} />
+            <h3 className="font-display text-lg font-semibold">Guest Management</h3>
+          </div>
+          <p className="mt-2 text-sm text-[#7C6673]">Track RSVPs, meal preferences, and priority family invites in one place.</p>
+          <Link to="/app/events" className="mt-4 inline-flex text-sm font-semibold text-[#A86584] hover:text-[#8F4F6D]">
+            Open guest planner →
+          </Link>
+        </div>
+      </section>
+
+      <section className="grid gap-4 lg:grid-cols-2">
+        <div className={surfaceCardClass}>
+          <div className="flex items-center gap-2 text-[#5C3550]">
+            <TrendingUp size={18} />
+            <h3 className="font-display text-lg font-semibold">Trending Inspirations</h3>
+          </div>
+          <ul className="mt-3 space-y-2 text-sm text-[#6E5865]">
+            {trendingInspirations.map((item) => (
+              <li key={item}>- {item}</li>
+            ))}
+          </ul>
         </div>
       </section>
 
       {showMatchSection && (
-        <section className="rounded-2xl border border-[#F0DFE7] bg-white p-6 shadow-sm">
+        <section className={surfaceCardClass}>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="font-display text-xl font-semibold text-[#523045]">Interest Requests</h2>
@@ -283,7 +391,7 @@ export default function Dashboard() {
       )}
 
       {acceptedCount > 0 && (
-        <section className="rounded-2xl border border-[#D4EDDA] bg-white p-6 shadow-sm">
+        <section className={surfaceCardClass}>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="font-display text-xl font-semibold text-[#523045]">Mutual Matches</h2>
@@ -306,27 +414,6 @@ export default function Dashboard() {
         </section>
       )}
 
-      <section className="rounded-2xl border border-[#F0DFE7] bg-white p-6 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="font-display text-xl font-semibold text-[#523045]">Your Wedding Storyline</h2>
-          <Link to="/app/events" className="text-sm font-semibold text-[#A86584] hover:text-[#8F4F6D]">Manage events</Link>
-        </div>
-
-        <div className="mt-6 grid gap-4 md:grid-cols-3">
-          <div className="rounded-xl border border-dashed border-[#E6CDD8] bg-[#FFF8FB] p-4">
-            <p className="text-xs uppercase tracking-wide text-[#AD7992]">Now</p>
-            <p className="mt-2 font-semibold text-[#5C3750]">Find your perfect partners and vendors</p>
-          </div>
-          <div className="rounded-xl border border-dashed border-[#E6CDD8] bg-[#FDF8FF] p-4">
-            <p className="text-xs uppercase tracking-wide text-[#AD7992]">Next</p>
-            <p className="mt-2 font-semibold text-[#5C3750]">Build timeline, events, and budget goals</p>
-          </div>
-          <div className="rounded-xl border border-dashed border-[#E6CDD8] bg-[#FFFAF6] p-4">
-            <p className="text-xs uppercase tracking-wide text-[#AD7992]">Then</p>
-            <p className="mt-2 font-semibold text-[#5C3750]">Celebrate each curated moment with confidence</p>
-          </div>
-        </div>
-      </section>
     </div>
   );
 }

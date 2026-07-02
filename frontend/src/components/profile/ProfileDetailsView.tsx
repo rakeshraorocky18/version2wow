@@ -64,22 +64,22 @@ function AccordionSection({
   const { icon: Icon, color, bg } = SECTION_STYLES[sectionKey];
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-[#F2DFE8] bg-white shadow-sm">
+    <div className="group overflow-hidden rounded-2xl border border-[#EEDCE5] bg-white shadow-[0_16px_30px_-28px_rgba(94,43,68,0.8)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_34px_-24px_rgba(94,43,68,0.5)]">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center gap-3 px-5 py-4 text-left transition hover:bg-[#FFFBFC]"
+        className="flex w-full items-center gap-3 px-5 py-4 text-left transition group-hover:bg-[#FFFBFC]"
       >
-        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${bg} ${color}`}>
+        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/80 shadow-sm ${bg} ${color}`}>
           <Icon size={17} />
         </div>
-        <span className="flex-1 font-display text-base font-semibold text-[#523045]">{title}</span>
+        <span className="flex-1 font-display text-[1.05rem] font-semibold text-[#4E2A3D]">{title}</span>
         <ChevronDown
           size={18}
           className={`shrink-0 text-[#9A5776] transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
         />
       </button>
-      {open && <div className="border-t border-[#F2DFE8] px-5 pb-5 pt-4">{children}</div>}
+      {open && <div className="border-t border-[#EFE2E8] bg-gradient-to-b from-[#FFFCFD] to-white px-5 pb-5 pt-4">{children}</div>}
     </div>
   );
 }
@@ -87,9 +87,9 @@ function AccordionSection({
 function DetailRow({ label, value }: { label: string; value: unknown }) {
   const display = typeof value === 'boolean' ? (value ? 'Yes' : 'No') : String(value);
   return (
-    <div className="flex items-start justify-between gap-4 border-b border-[#FAF0F4] py-3 last:border-0">
-      <dt className="shrink-0 text-sm text-[#9A5776]">{label}</dt>
-      <dd className="text-right text-sm font-medium text-[#5D2B44] whitespace-pre-wrap">{display}</dd>
+    <div className="flex items-start justify-between gap-4 border-b border-[#F6EAF0] py-3.5 last:border-0">
+      <dt className="shrink-0 text-xs font-semibold uppercase tracking-wide text-[#9A5776]">{label}</dt>
+      <dd className="text-right text-sm font-semibold text-[#553044] whitespace-pre-wrap">{display}</dd>
     </div>
   );
 }
@@ -312,7 +312,7 @@ export default function ProfileDetailsView({
       <Section key="siblings" title="Sibling Details" sectionKey="family">
         <div className="space-y-2">
           {siblingDetails.map((sibling: ProfileRecord, index: number) => (
-            <div key={index} className="rounded-xl bg-[#FFFBFC] px-4 py-3 text-sm">
+            <div key={index} className="rounded-xl border border-[#EFE2E8] bg-[#FFFBFC] px-4 py-3 text-sm">
               <span className="font-medium text-[#5D2B44]">
                 {sibling.relation || sibling.type || `Sibling ${index + 1}`}
               </span>
@@ -372,10 +372,7 @@ export default function ProfileDetailsView({
       <Section key="education" title="Education" sectionKey="education" defaultOpen>
         <div className="space-y-3">
           {education.map((edu: ProfileRecord, index: number) => (
-            <div
-              key={edu.id || index}
-              className="rounded-xl border border-[#F2DFE8] bg-gradient-to-r from-[#FFFBFC] to-[#F8F5FF] p-4"
-            >
+            <div key={edu.id || index} className="rounded-xl border border-[#EEDCE5] bg-gradient-to-r from-[#FFFBFC] to-[#F8F5FF] p-4 shadow-[0_12px_20px_-24px_rgba(94,43,68,0.8)]">
               <p className="font-display font-semibold text-[#523045]">
                 {edu.degree || edu.qualification || 'Education'}
               </p>
@@ -426,7 +423,7 @@ export default function ProfileDetailsView({
 
   if (!sections.length) {
     return (
-      <div className="rounded-2xl border border-dashed border-[#E5C8D5] bg-[#FFFBFC] px-6 py-12 text-center">
+      <div className="rounded-2xl border border-dashed border-[#E5C8D5] bg-gradient-to-r from-[#FFFBFC] to-[#FFF8FB] px-6 py-12 text-center">
         <Sparkles size={28} className="mx-auto text-[#D4899F]" />
         <p className="mt-3 font-medium text-[#5D2B44]">No details in this section yet</p>
         <p className="mt-1 text-sm text-[#9A5776]">Add more information to your profile to see it here.</p>
@@ -434,5 +431,5 @@ export default function ProfileDetailsView({
     );
   }
 
-  return <div className="space-y-3">{sections}</div>;
+  return <div className="space-y-3.5">{sections}</div>;
 }

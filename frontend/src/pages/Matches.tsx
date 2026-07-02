@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Heart, Search, Sparkles, Star, Users } from 'lucide-react';
+import { Heart, Search, SlidersHorizontal, Sparkles, Star, Users } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { useFooterPagination } from '../context/FooterPaginationContext';
 import {
   useMatchActions,
   useMatchSearch,
@@ -33,6 +34,8 @@ const INTEREST_TABS: { id: InterestSubTab; label: string }[] = [
   { id: 'accepted', label: 'Accepted' },
 ];
 
+const PROFILES_PER_PAGE = 5;
+
 function collectSentIds(matches: MatchInterest[] | undefined) {
   const ids = new Set<string>();
   matches?.forEach((m) => {
@@ -49,8 +52,11 @@ export default function Matches() {
   const [filters, setFilters] = useState<MatchFilters>(EMPTY_FILTERS);
   const [debouncedFilters, setDebouncedFilters] = useState<MatchFilters>(EMPTY_FILTERS);
   const [sentInterestIds, setSentInterestIds] = useState<string[]>([]);
+  const [heroSearch, setHeroSearch] = useState('');
+  const [sortBy, setSortBy] = useState<'default' | 'newest' | 'nameAsc' | 'ageAsc'>('default');
   const [params, setParams] = useSearchParams();
   const user = useAuthStore((s) => s.user);
+  const { setTotalPages } = useFooterPagination();
 
   const { data: myProfile } = useQuery({
     queryKey: ['my-profile-for-match-filter'],
@@ -155,9 +161,55 @@ export default function Matches() {
 
   const profiles = useMemo(() => {
     const list = activeData?.profiles || [];
-    if (!targetGender) return list;
-    return list.filter((p: { gender?: string }) => p.gender === targetGender);
-  }, [activeData?.profiles, targetGender]);
+    const genderFiltered = !targetGender ? list : list.filter((p: { gender?: string }) => p.gender === targetGender);
+    const query = heroSearch.trim().toLowerCase();
+    const searched = !query
+      ? genderFiltered
+      : genderFiltered.filter((p: any) => {
+      const name = `${p.firstName || ''} ${p.lastName || ''}`.trim().toLowerCase();
+      const location = `${p.city || ''} ${p.state || ''} ${p.country || ''}`.toLowerCase();
+      const faith = `${p.religion || ''} ${p.caste || ''}`.toLowerCase();
+      return name.includes(query) || location.includes(query) || faith.includes(query);
+    });
+    const sorted = [...searched];
+    if (sortBy === 'nameAsc') {
+      sorted.sort((a: any, b: any) =>
+        `${a.firstName || ''} ${a.lastName || ''}`.localeCompare(`${b.firstName || ''} ${b.lastName || ''}`),
+      );
+    } else if (sortBy === 'ageAsc') {
+      sorted.sort((a: any, b: any) => (a.age ?? 999) - (b.age ?? 999));
+    } else if (sortBy === 'newest') {
+      sorted.sort(
+        (a: any, b: any) =>
+          new Date(b.createdAt || b.updatedAt || 0).getTime() - new Date(a.createdAt || a.updatedAt || 0).getTime(),
+      );
+    }
+    return sorted;
+  }, [activeData?.profiles, targetGender, heroSearch, sortBy]);
+
+  const currentPage = Math.max(1, Number(params.get('page') || '1'));
+  const totalPages = Math.max(1, Math.ceil(profiles.length / PROFILES_PER_PAGE));
+  const paginatedProfiles = profiles.slice(
+    (currentPage - 1) * PROFILES_PER_PAGE,
+    currentPage * PROFILES_PER_PAGE,
+  );
+
+  useEffect(() => {
+    if (tab === 'interests') {
+      setTotalPages(1);
+      return;
+    }
+    setTotalPages(totalPages);
+  }, [tab, totalPages, setTotalPages]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      const next = new URLSearchParams(params);
+      if (totalPages <= 1) next.delete('page');
+      else next.set('page', String(totalPages));
+      setParams(next, { replace: true });
+    }
+  }, [currentPage, totalPages, params, setParams]);
   const pendingReceivedCount = received.data?.length ?? 0;
 
   const handleInterest = async (profile: { id: string; userId: string }) => {
@@ -181,58 +233,80 @@ export default function Matches() {
   };
 
   return (
-    <div className="space-y-8 soft-fade-in">
-      <section className="relative overflow-hidden rounded-3xl border border-[#F2DFE8] bg-gradient-to-br from-[#FFF8FB] via-[#F8F3FF] to-[#FFF5EF] p-6 shadow-[0_15px_45px_rgba(174,94,129,0.12)] sm:p-8">
-        <div className="pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full bg-[#F4D8E4]/60 blur-2xl" />
-        <div className="pointer-events-none absolute -bottom-16 left-8 h-48 w-48 rounded-full bg-[#EBDDFF]/60 blur-2xl" />
+    <div className="matches-page relative -mx-4 sm:-mx-6">
+      <div className="matches-page-scroll-bg" aria-hidden>
+        <img
+          src="/images/matches-hero-bg.png"
+          alt=""
+          className="matches-page-scroll-texture"
+        />
+      </div>
 
-        <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="inline-flex items-center gap-2 rounded-full border border-[#E5C8D5] bg-white/80 px-4 py-1 text-xs font-medium tracking-wide text-[#9A5776]">
-              <Heart size={14} className="text-[#C1698F]" fill="currentColor" /> Matchmaking
-            </p>
-            <h1 className="mt-3 font-display text-3xl font-bold text-[#5D2B44] sm:text-4xl">Find Your Match</h1>
-            <p className="mt-2 max-w-xl text-sm text-[#815A6D] sm:text-base">
-              {matchGenderLabel
-                ? `Discover compatible ${matchGenderLabel.toLowerCase()} based on your profile preferences.`
-                : 'Discover compatible profiles, send interests, and build meaningful connections.'}
-            </p>
-          </div>
-
-          <div className="inline-flex flex-wrap gap-1 rounded-2xl border border-[#EEDBE5] bg-white/80 p-1.5 shadow-sm backdrop-blur">
-            {TABS.map((t) => {
-              const Icon = t.icon;
-              const active = tab === t.id;
-              return (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => setTab(t.id)}
-                  className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition ${
-                    active
-                      ? 'bg-gradient-to-r from-[#B66A8A] to-[#C07AA0] text-white shadow-md shadow-[#B66A8A]/25'
-                      : 'text-[#7B4A62] hover:bg-[#FFF5F9]'
-                  }`}
-                >
-                  <Icon size={15} />
-                  {t.label}
-                  {t.id === 'interests' && pendingReceivedCount > 0 && (
-                    <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
-                      active ? 'bg-white/25 text-white' : 'bg-[#FDE9F2] text-[#A75378]'
-                    }`}>
-                      {pendingReceivedCount}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
+      <div className="relative z-10 space-y-8 px-4 soft-fade-in sm:px-6">
+      <section className="matches-hero relative overflow-hidden px-2 py-14 sm:px-4 sm:py-16">
+        <div className="relative z-10 mx-auto max-w-3xl text-center">
+          <h1 className="text-4xl font-bold leading-tight tracking-tight text-[#333333] sm:text-[2.75rem]">
+            Our <span className="text-[#f82f71]">Members</span>
+          </h1>
+          <p className="mx-auto mt-5 max-w-2xl text-sm leading-relaxed text-[#444444] sm:text-[15px]">
+            Your search for a great relationship has never been easier with groundbreaking overhaul of the
+            datepress you know and trust.
+          </p>
+          <div className="matches-hero-search mx-auto mt-10 flex max-w-2xl items-center rounded-full bg-white px-4 py-2 shadow-[0_8px_24px_rgba(0,0,0,0.08)]">
+            <Search size={18} className="shrink-0 text-[#999999]" />
+            <input
+              type="text"
+              value={heroSearch}
+              onChange={(e) => {
+                setHeroSearch(e.target.value);
+                if (tab !== 'search') setTab('search');
+              }}
+              onFocus={() => {
+                if (tab !== 'search') setTab('search');
+              }}
+              placeholder="Search"
+              className="h-11 flex-1 bg-transparent px-3 text-sm text-[#333333] placeholder:text-[#999999] outline-none"
+            />
+            <button
+              type="button"
+              onClick={() => setTab('search')}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#f82f71] text-white transition hover:bg-[#e62866]"
+              aria-label="Filter search results"
+            >
+              <SlidersHorizontal size={16} />
+            </button>
           </div>
         </div>
       </section>
 
-      {(tab === 'suggestions' || tab === 'search') && (
-        <MatchFiltersPanel filters={filters} onChange={setFilters} matchGenderLabel={matchGenderLabel} />
-      )}
+      <div className="inline-flex flex-wrap gap-1 rounded-2xl bg-white p-1.5 shadow-[0_8px_28px_rgba(0,0,0,0.06)]">
+        {TABS.map((t) => {
+          const Icon = t.icon;
+          const active = tab === t.id;
+          return (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setTab(t.id)}
+              className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition ${
+                active
+                  ? 'bg-gradient-to-r from-[#B66A8A] to-[#C07AA0] text-white shadow-md shadow-[#B66A8A]/25'
+                  : 'text-[#7B4A62] hover:bg-[#FFF5F9]'
+              }`}
+            >
+              <Icon size={15} />
+              {t.label}
+              {t.id === 'interests' && pendingReceivedCount > 0 && (
+                <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                  active ? 'bg-white/25 text-white' : 'bg-[#FDE9F2] text-[#A75378]'
+                }`}>
+                  {pendingReceivedCount}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
 
       {tab === 'interests' ? (
         <div className="space-y-5">
@@ -323,46 +397,72 @@ export default function Matches() {
         </div>
       ) : (
         <>
-          {!isLoading && (
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-sm font-medium text-[#7B4A62]">
-                {tabLabels[tab]}
-                <span className="ml-2 rounded-full bg-[#F7E4EC] px-2.5 py-0.5 text-xs font-semibold text-[#A65A7D]">
-                  {profiles.length} {profiles.length === 1 ? 'profile' : 'profiles'}
-                </span>
-              </p>
-            </div>
-          )}
+          <div className="flex items-center gap-3">
+            <span className="h-7 w-1.5 rounded-full bg-[#f82f71]" />
+            <h2 className="text-xl font-bold text-[#333333]">Member Search</h2>
+          </div>
 
-          {isLoading ? (
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {Array.from({ length: 6 }).map((_, idx) => (
-                <div key={idx} className="h-80 animate-pulse rounded-2xl border border-[#F0DFE7] bg-gradient-to-br from-[#FFF9FC] to-[#F8F3FF]" />
-              ))}
-            </div>
-          ) : profiles.length > 0 ? (
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {profiles.map((profile: any) => (
-                <MatchProfileCard
-                  key={profile.id}
-                  profile={profile}
-                  showScore
-                  interestSent={sentInterestIds.includes(profile.userId) || sentInterestIds.includes(profile.id)}
-                  onInterest={() => handleInterest(profile)}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="rounded-3xl border border-[#F0DFE7] bg-gradient-to-br from-[#FFF9FC] to-[#FAF5FF] py-16 text-center">
-              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#F7E4EC] text-3xl">
-                💞
+          <div className="grid gap-5 lg:grid-cols-[270px_1fr]">
+            {(tab === 'suggestions' || tab === 'search') && (
+              <div>
+                <MatchFiltersPanel filters={filters} onChange={setFilters} matchGenderLabel={matchGenderLabel} />
               </div>
-              <p className="font-display text-lg font-semibold text-[#5D2B44]">No profiles found right now</p>
-              <p className="mt-1 text-sm text-[#9A5776]">Try clearing filters or check back soon for new matches.</p>
+            )}
+            <div className="space-y-4">
+              {!isLoading && (
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-white px-4 py-3.5 shadow-[0_8px_28px_rgba(0,0,0,0.06)] sm:px-5">
+                  <p className="text-sm font-semibold text-[#333333]">
+                    Total <span className="text-[#f82f71]">{profiles.length}</span> Results Found
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <label htmlFor="match-sort" className="text-sm font-semibold text-[#4C3843]">Sort By</label>
+                    <select
+                      id="match-sort"
+                      value={sortBy}
+                      onChange={(e) => setSortBy(e.target.value as 'default' | 'newest' | 'nameAsc' | 'ageAsc')}
+                      className="h-10 min-w-[150px] rounded-lg border border-[#EEE3E8] bg-[#FAF7F9] px-3 text-sm text-[#5D4A55] outline-none transition focus:border-[#DCAFC2]"
+                    >
+                      <option value="default">Default</option>
+                      <option value="newest">Newest</option>
+                      <option value="nameAsc">Name (A-Z)</option>
+                      <option value="ageAsc">Age (Low-High)</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {isLoading ? (
+                <div className="space-y-4">
+                  {Array.from({ length: 4 }).map((_, idx) => (
+                    <div key={idx} className="h-64 animate-pulse rounded-3xl border border-[#F0DFE7] bg-gradient-to-br from-[#FFF9FC] to-[#F8F3FF]" />
+                  ))}
+                </div>
+              ) : profiles.length > 0 ? (
+                <div className="space-y-4">
+                  {paginatedProfiles.map((profile: any) => (
+                    <MatchProfileCard
+                      key={profile.id}
+                      profile={profile}
+                      showScore
+                      interestSent={sentInterestIds.includes(profile.userId) || sentInterestIds.includes(profile.id)}
+                      onInterest={() => handleInterest(profile)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-3xl border border-[#F0DFE7] bg-gradient-to-br from-[#FFF9FC] to-[#FAF5FF] py-16 text-center">
+                  <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#F7E4EC] text-3xl">
+                    💞
+                  </div>
+                  <p className="font-display text-lg font-semibold text-[#5D2B44]">No profiles found right now</p>
+                  <p className="mt-1 text-sm text-[#9A5776]">Try clearing filters or check back soon for new matches.</p>
+                </div>
+              )}
             </div>
-          )}
+          </div>
         </>
       )}
+      </div>
     </div>
   );
 }
