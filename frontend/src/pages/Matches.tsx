@@ -225,35 +225,34 @@ export default function Matches() {
     }
   };
 
-  const tabLabels: Record<MatchTab, string> = {
-    suggestions: 'Suggested matches',
-    search: 'Search results',
-    shortlist: 'Your shortlist',
-    interests: 'Interest requests',
-  };
-
   return (
-    <div className="matches-page relative -mx-4 sm:-mx-6">
-      <div className="matches-page-scroll-bg" aria-hidden>
-        <img
-          src="/images/matches-hero-bg.png"
-          alt=""
-          className="matches-page-scroll-texture"
-        />
-      </div>
-
-      <div className="relative z-10 space-y-8 px-4 soft-fade-in sm:px-6">
-      <section className="matches-hero relative overflow-hidden px-2 py-14 sm:px-4 sm:py-16">
-        <div className="relative z-10 mx-auto max-w-3xl text-center">
-          <h1 className="text-4xl font-bold leading-tight tracking-tight text-[#333333] sm:text-[2.75rem]">
-            Our <span className="text-[#f82f71]">Members</span>
+    <div className="datepress-matches matches-page relative -mx-4 sm:-mx-6">
+      <section className="dp-breadcrumb">
+        <div className="dp-breadcrumb__bg" aria-hidden>
+          <img src="/images/matches-hero-bg.png" alt="" />
+        </div>
+        <div className="dp-breadcrumb__content">
+          <h1 className="dp-breadcrumb__title">
+            Our <span>Members</span>
           </h1>
-          <p className="mx-auto mt-5 max-w-2xl text-sm leading-relaxed text-[#444444] sm:text-[15px]">
+          <p className="dp-breadcrumb__subtitle">
             Your search for a great relationship has never been easier with groundbreaking overhaul of the
             datepress you know and trust.
           </p>
-          <div className="matches-hero-search mx-auto mt-10 flex max-w-2xl items-center rounded-full bg-white px-4 py-2 shadow-[0_8px_24px_rgba(0,0,0,0.08)]">
-            <Search size={18} className="shrink-0 text-[#999999]" />
+        </div>
+      </section>
+
+      <section className="dp-member-area">
+        <div className="dp-member-area__shapes" aria-hidden>
+          <span className="dp-heart-shape dp-heart-shape--1" />
+          <span className="dp-heart-shape dp-heart-shape--2" />
+          <span className="dp-heart-shape dp-heart-shape--3" />
+          <span className="dp-heart-shape dp-heart-shape--4" />
+        </div>
+
+        <div className="dp-member-area__inner soft-fade-in">
+          <div className="dp-search-bar">
+            <Search size={22} className="dp-search-bar__icon" />
             <input
               type="text"
               value={heroSearch}
@@ -265,78 +264,60 @@ export default function Matches() {
                 if (tab !== 'search') setTab('search');
               }}
               placeholder="Search"
-              className="h-11 flex-1 bg-transparent px-3 text-sm text-[#333333] placeholder:text-[#999999] outline-none"
+              className="dp-search-bar__input"
             />
             <button
               type="button"
               onClick={() => setTab('search')}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#f82f71] text-white transition hover:bg-[#e62866]"
+              className="dp-search-bar__filter"
               aria-label="Filter search results"
             >
-              <SlidersHorizontal size={16} />
+              <SlidersHorizontal size={18} />
             </button>
           </div>
-        </div>
-      </section>
 
-      <div className="inline-flex flex-wrap gap-1 rounded-2xl bg-white p-1.5 shadow-[0_8px_28px_rgba(0,0,0,0.06)]">
-        {TABS.map((t) => {
-          const Icon = t.icon;
-          const active = tab === t.id;
-          return (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => setTab(t.id)}
-              className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition ${
-                active
-                  ? 'bg-gradient-to-r from-[#B66A8A] to-[#C07AA0] text-white shadow-md shadow-[#B66A8A]/25'
-                  : 'text-[#7B4A62] hover:bg-[#FFF5F9]'
-              }`}
-            >
-              <Icon size={15} />
-              {t.label}
-              {t.id === 'interests' && pendingReceivedCount > 0 && (
-                <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
-                  active ? 'bg-white/25 text-white' : 'bg-[#FDE9F2] text-[#A75378]'
-                }`}>
-                  {pendingReceivedCount}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
+          <div className="dp-tabs">
+            {TABS.map((t) => {
+              const Icon = t.icon;
+              const active = tab === t.id;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setTab(t.id)}
+                  className={`dp-tabs__btn ${active ? 'is-active' : ''}`}
+                >
+                  <Icon size={15} />
+                  {t.label}
+                  {t.id === 'interests' && pendingReceivedCount > 0 && (
+                    <span className="dp-tabs__badge">{pendingReceivedCount}</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
 
       {tab === 'interests' ? (
         <div className="space-y-5">
-          <div className="inline-flex flex-wrap gap-1 rounded-2xl border border-[#F0DFE7] bg-white p-1.5 shadow-sm">
+          <div className="dp-tabs dp-tabs--sub">
             {INTEREST_TABS.map((t) => (
               <button
                 key={t.id}
                 type="button"
                 onClick={() => setInterestSubTab(t.id)}
-                className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
-                  interestSubTab === t.id
-                    ? 'bg-[#B66A8A] text-white shadow-sm'
-                    : 'text-[#7B4A62] hover:bg-[#FFF5F9]'
-                }`}
+                className={`dp-tabs__btn ${interestSubTab === t.id ? 'is-active' : ''}`}
               >
                 {t.label}
                 {t.id === 'received' && pendingReceivedCount > 0 && (
-                  <span className={`ml-1.5 rounded-full px-1.5 text-[10px] font-bold ${
-                    interestSubTab === t.id ? 'bg-white/25 text-white' : 'bg-amber-400 text-white'
-                  }`}>
-                    {pendingReceivedCount}
-                  </span>
+                  <span className="dp-tabs__badge">{pendingReceivedCount}</span>
                 )}
               </button>
             ))}
           </div>
 
           {interestSubTab === 'received' && (
-            <div className="rounded-2xl border border-[#F0DFE7] bg-white p-6 shadow-sm space-y-3">
-              <h2 className="font-display text-lg font-semibold text-[#523045]">Received Interests</h2>
+            <div className="dp-panel space-y-3">
+              <h2 className="dp-panel__title">Received Interests</h2>
               {received.data?.length ? (
                 received.data.map((match) => (
                   <InterestRequestCard
@@ -355,27 +336,27 @@ export default function Matches() {
                   />
                 ))
               ) : (
-                <p className="text-sm text-gray-500">No pending interest requests.</p>
+                <p className="text-sm text-[#6a737c]">No pending interest requests.</p>
               )}
             </div>
           )}
 
           {interestSubTab === 'sent' && (
-            <div className="rounded-2xl border border-[#F0DFE7] bg-white p-6 shadow-sm space-y-3">
-              <h2 className="font-display text-lg font-semibold text-[#523045]">Sent Interests</h2>
+            <div className="dp-panel space-y-3">
+              <h2 className="dp-panel__title">Sent Interests</h2>
               {sent.data?.length ? (
                 sent.data.map((match) => (
                   <InterestRequestCard key={match.id} match={match} variant="sent" />
                 ))
               ) : (
-                <p className="text-sm text-gray-500">You have not sent any interests yet.</p>
+                <p className="text-sm text-[#6a737c]">You have not sent any interests yet.</p>
               )}
             </div>
           )}
 
           {interestSubTab === 'accepted' && (
-            <div className="rounded-2xl border border-[#F0DFE7] bg-white p-6 shadow-sm space-y-3">
-              <h2 className="font-display text-lg font-semibold text-[#523045]">Accepted Matches</h2>
+            <div className="dp-panel space-y-3">
+              <h2 className="dp-panel__title">Accepted Matches</h2>
               {accepted.data?.length ? (
                 <>
                   {accepted.data.map((match) => (
@@ -385,42 +366,33 @@ export default function Matches() {
                       variant={match.senderId === user?.id ? 'sent' : 'received'}
                     />
                   ))}
-                  <Link to="/app/chat" className="inline-flex items-center gap-1 text-sm font-semibold text-[#B66A8A] hover:text-[#A75878]">
+                  <Link to="/app/chat" className="inline-flex items-center gap-1 text-sm font-semibold text-[#f4196d] hover:underline">
                     Open chat with your matches →
                   </Link>
                 </>
               ) : (
-                <p className="text-sm text-gray-500">No accepted matches yet.</p>
+                <p className="text-sm text-[#6a737c]">No accepted matches yet.</p>
               )}
             </div>
           )}
         </div>
       ) : (
-        <>
-          <div className="flex items-center gap-3">
-            <span className="h-7 w-1.5 rounded-full bg-[#f82f71]" />
-            <h2 className="text-xl font-bold text-[#333333]">Member Search</h2>
-          </div>
-
-          <div className="grid gap-5 lg:grid-cols-[270px_1fr]">
+        <div className="dp-member-layout">
             {(tab === 'suggestions' || tab === 'search') && (
-              <div>
-                <MatchFiltersPanel filters={filters} onChange={setFilters} matchGenderLabel={matchGenderLabel} />
-              </div>
+              <MatchFiltersPanel filters={filters} onChange={setFilters} matchGenderLabel={matchGenderLabel} />
             )}
-            <div className="space-y-4">
+            <div className="dp-member-results">
               {!isLoading && (
-                <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-white px-4 py-3.5 shadow-[0_8px_28px_rgba(0,0,0,0.06)] sm:px-5">
-                  <p className="text-sm font-semibold text-[#333333]">
-                    Total <span className="text-[#f82f71]">{profiles.length}</span> Results Found
+                <div className="dp-result-toolbar">
+                  <p className="dp-result-toolbar__count">
+                    Total <span>{profiles.length}</span> Results Found
                   </p>
-                  <div className="flex items-center gap-2">
-                    <label htmlFor="match-sort" className="text-sm font-semibold text-[#4C3843]">Sort By</label>
+                  <div className="dp-result-toolbar__sort">
+                    <label htmlFor="match-sort">Sort By</label>
                     <select
                       id="match-sort"
                       value={sortBy}
                       onChange={(e) => setSortBy(e.target.value as 'default' | 'newest' | 'nameAsc' | 'ageAsc')}
-                      className="h-10 min-w-[150px] rounded-lg border border-[#EEE3E8] bg-[#FAF7F9] px-3 text-sm text-[#5D4A55] outline-none transition focus:border-[#DCAFC2]"
                     >
                       <option value="default">Default</option>
                       <option value="newest">Newest</option>
@@ -432,37 +404,36 @@ export default function Matches() {
               )}
 
               {isLoading ? (
-                <div className="space-y-4">
+                <div className="space-y-8">
                   {Array.from({ length: 4 }).map((_, idx) => (
-                    <div key={idx} className="h-64 animate-pulse rounded-3xl border border-[#F0DFE7] bg-gradient-to-br from-[#FFF9FC] to-[#F8F3FF]" />
+                    <div key={idx} className="dp-member-card dp-member-card--skeleton" />
                   ))}
                 </div>
               ) : profiles.length > 0 ? (
-                <div className="space-y-4">
-                  {paginatedProfiles.map((profile: any) => (
+                <div>
+                  {paginatedProfiles.map((profile: any, idx: number) => (
                     <MatchProfileCard
                       key={profile.id}
                       profile={profile}
                       showScore
                       interestSent={sentInterestIds.includes(profile.userId) || sentInterestIds.includes(profile.id)}
                       onInterest={() => handleInterest(profile)}
+                      animationDelay={idx * 100}
                     />
                   ))}
                 </div>
               ) : (
-                <div className="rounded-3xl border border-[#F0DFE7] bg-gradient-to-br from-[#FFF9FC] to-[#FAF5FF] py-16 text-center">
-                  <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#F7E4EC] text-3xl">
-                    💞
-                  </div>
-                  <p className="font-display text-lg font-semibold text-[#5D2B44]">No profiles found right now</p>
-                  <p className="mt-1 text-sm text-[#9A5776]">Try clearing filters or check back soon for new matches.</p>
+                <div className="dp-empty-state">
+                  <div className="dp-empty-state__icon">💞</div>
+                  <p className="dp-empty-state__title">No profiles found right now</p>
+                  <p className="dp-empty-state__text">Try clearing filters or check back soon for new matches.</p>
                 </div>
               )}
             </div>
           </div>
-        </>
       )}
-      </div>
+        </div>
+      </section>
     </div>
   );
 }

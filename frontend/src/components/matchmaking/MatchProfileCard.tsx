@@ -7,12 +7,14 @@ type Props = {
   interestSent?: boolean;
   onInterest: () => void;
   showScore?: boolean;
+  animationDelay?: number;
 };
 
 export default function MatchProfileCard({
   profile,
   interestSent = false,
   onInterest,
+  animationDelay = 0,
 }: Props) {
   const navigate = useNavigate();
 
@@ -22,6 +24,7 @@ export default function MatchProfileCard({
       interestSent={interestSent}
       onInterest={onInterest}
       onClick={() => navigate(`/app/matches/${profile.id}`)}
+      animationDelay={animationDelay}
     />
   );
 }

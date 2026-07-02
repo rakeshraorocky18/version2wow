@@ -18,6 +18,8 @@ function buildPageItems(current: number, total: number): (number | 'ellipsis')[]
   return items;
 }
 
+const FLYING_HEARTS = Array.from({ length: 14 }, (_, i) => i);
+
 export default function AppFooter() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { totalPages } = useFooterPagination();
@@ -38,36 +40,35 @@ export default function AppFooter() {
   const pageItems = buildPageItems(currentPage, totalPages);
 
   return (
-    <footer className="datepress-footer relative mt-8 overflow-hidden rounded-2xl border border-[#EEDDE6] bg-gradient-to-r from-[#EEF4F8] via-[#F8F4F7] to-[#FCECF3] px-4 pb-24 pt-6 shadow-[0_12px_32px_-24px_rgba(118,54,82,0.3)] sm:px-6 sm:pb-28">
-      <div className="pointer-events-none absolute left-0 top-0 hidden h-40 w-20 bg-[linear-gradient(180deg,rgba(220,232,242,0.85),transparent)] sm:block" />
-      <div className="pointer-events-none absolute right-0 top-0 hidden h-40 w-20 bg-[linear-gradient(180deg,rgba(252,220,233,0.85),transparent)] sm:block" />
-
-      <div className="pointer-events-none absolute bottom-0 right-0 z-[1] hidden h-44 w-56 sm:block">
-        <svg viewBox="0 0 320 240" className="h-full w-full" aria-hidden>
-          <path d="M120 230 C 185 185, 250 145, 305 55" fill="none" stroke="#2D141C" strokeWidth="5" strokeLinecap="round" />
-          {[
-            [210, 150], [228, 138], [248, 124], [268, 108], [288, 88], [192, 168], [172, 182], [152, 196],
-          ].map((p, idx) => (
-            <circle key={idx} cx={p[0]} cy={p[1]} r="5" fill="#D81B60" />
+    <footer className="dp-footer">
+      <div className="dp-footer__cycle-wrap" aria-hidden>
+        <ul className="dp-footer__hearts">
+          {FLYING_HEARTS.map((i) => (
+            <li
+              key={i}
+              className={`dp-footer__heart ${i >= 10 ? 'dp-footer__heart--alt' : ''} ${i % 2 === 0 ? 'is-even' : 'is-odd'}`}
+              style={{ animationDelay: `${0.2 + i * 0.3}s` }}
+            />
           ))}
-        </svg>
+        </ul>
+        <img src="/images/footer-cycle.png" alt="" className="dp-footer__cycle" />
       </div>
 
-      <div className="relative z-10 mx-auto max-w-xl text-center">
+      <div className="dp-footer__content">
         {totalPages > 1 && (
-          <div className="mb-4 flex items-center justify-center gap-3 text-sm font-semibold text-[#3B3038]">
+          <nav className="dp-pagination" aria-label="Pagination">
             <button
               type="button"
               aria-label="Previous page"
               disabled={currentPage <= 1}
               onClick={() => goToPage(currentPage - 1)}
-              className="datepress-page-nav text-[#5D5159] hover:text-[#2D252B] disabled:opacity-30 disabled:hover:text-[#5D5159]"
+              className="dp-pagination__nav"
             >
-              <ChevronLeft size={15} />
+              <ChevronLeft size={18} />
             </button>
             {pageItems.map((item, idx) =>
               item === 'ellipsis' ? (
-                <span key={`ellipsis-${idx}`} className="text-xs text-[#3D3037]">
+                <span key={`ellipsis-${idx}`} className="dp-pagination__dots">
                   ...
                 </span>
               ) : (
@@ -75,7 +76,7 @@ export default function AppFooter() {
                   key={item}
                   type="button"
                   onClick={() => goToPage(item)}
-                  className={`datepress-page-pill ${currentPage === item ? 'is-active' : ''}`}
+                  className={`dp-pagination__page ${currentPage === item ? 'is-current' : ''}`}
                   aria-current={currentPage === item ? 'page' : undefined}
                 >
                   {item}
@@ -87,18 +88,14 @@ export default function AppFooter() {
               aria-label="Next page"
               disabled={currentPage >= totalPages}
               onClick={() => goToPage(currentPage + 1)}
-              className="datepress-page-nav text-[#5D5159] hover:text-[#2D252B] disabled:opacity-30 disabled:hover:text-[#5D5159]"
+              className="dp-pagination__nav"
             >
-              <ChevronRight size={15} />
+              <ChevronRight size={18} />
             </button>
-          </div>
+          </nav>
         )}
 
-        <p className="text-xs text-[#6B5A63]">© 2026 WOW. All rights reserved.</p>
-      </div>
-
-      <div className="footer-cycle-track pointer-events-none absolute bottom-0 left-0 right-0 z-[2] h-32 overflow-hidden sm:h-36">
-        <img src="/images/footer-cycle.png" alt="" aria-hidden className="footer-cycle-scroll" />
+        <p className="dp-footer__copyright">© 2026 WOW. All rights reserved.</p>
       </div>
     </footer>
   );

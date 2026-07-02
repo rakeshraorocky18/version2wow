@@ -22,41 +22,37 @@ export default function MatchFiltersPanel({ filters, onChange, matchGenderLabel 
   const activeCount = countActiveFilters(filters);
 
   return (
-    <section className="overflow-hidden rounded-2xl bg-white shadow-[0_8px_28px_rgba(0,0,0,0.06)]">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#F2E6EB] bg-[#FFFAFC] px-5 py-4">
-        <div className="flex items-center gap-3">
-          <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#F9DEE7] to-[#F6E8FF] text-[#A4426A]">
+    <aside className="dp-filter-sidebar">
+      <h4 className="dp-filter-sidebar__title">Member Search</h4>
+      <div className="dp-filter-sidebar__wrapper">
+        <div className="dp-filter-sidebar__header">
+          <span className="dp-filter-sidebar__icon">
             <SlidersHorizontal size={18} />
           </span>
-          <div>
-            <h2 className="font-display text-lg font-semibold text-[#402A37]">Member Search</h2>
-            <p className="text-xs text-[#8F7080]">
-              {matchGenderLabel
-                ? `Showing ${matchGenderLabel.toLowerCase()} only`
-                : activeCount === 0
-                  ? 'Showing all profiles'
-                  : `${activeCount} filter${activeCount === 1 ? '' : 's'} applied`}
-            </p>
-          </div>
+          <p className="dp-filter-sidebar__subtitle">
+            {matchGenderLabel
+              ? `Showing ${matchGenderLabel.toLowerCase()} only`
+              : activeCount === 0
+                ? 'Showing all profiles'
+                : `${activeCount} filter${activeCount === 1 ? '' : 's'} applied`}
+          </p>
+          {activeCount > 0 && (
+            <button
+              type="button"
+              onClick={() => onChange(EMPTY_FILTERS)}
+              className="dp-filter-sidebar__clear"
+            >
+              <RotateCcw size={14} />
+              Clear all
+            </button>
+          )}
         </div>
-        {activeCount > 0 && (
-          <button
-            type="button"
-            onClick={() => onChange(EMPTY_FILTERS)}
-            className="inline-flex items-center gap-1.5 rounded-full border border-[#E5C8D5] bg-white px-4 py-2 text-xs font-semibold text-[#9A5776] transition hover:border-[#D4A8BC] hover:text-[#7B4A62]"
-          >
-            <RotateCcw size={14} />
-            Clear all
-          </button>
-        )}
-      </div>
 
-      <div className="space-y-5 p-5">
-        <div>
-          <label htmlFor="match-filter-religion" className="mb-2 block text-xs font-bold uppercase tracking-wide text-[#3F3138]">Religion</label>
+        <div className="dp-filter-field">
+          <label htmlFor="match-filter-religion" className="dp-filter-label">Religion</label>
           <select
             id="match-filter-religion"
-            className="profile-input h-11"
+            className="dp-filter-input"
             value={filters.religion}
             onChange={(e) => onChange({ ...filters, religion: e.target.value, caste: '' })}
           >
@@ -67,11 +63,11 @@ export default function MatchFiltersPanel({ filters, onChange, matchGenderLabel 
           </select>
         </div>
 
-        <div>
-          <label htmlFor="match-filter-caste" className="mb-2 block text-xs font-bold uppercase tracking-wide text-[#3F3138]">Caste</label>
+        <div className="dp-filter-field">
+          <label htmlFor="match-filter-caste" className="dp-filter-label">Caste</label>
           <select
             id="match-filter-caste"
-            className="profile-input h-11"
+            className="dp-filter-input"
             value={filters.caste}
             onChange={(e) => onChange({ ...filters, caste: e.target.value })}
             disabled={!filters.religion || getCastesForReligion(filters.religion).length === 0}
@@ -83,11 +79,11 @@ export default function MatchFiltersPanel({ filters, onChange, matchGenderLabel 
           </select>
         </div>
 
-        <div>
-          <span className="mb-2 block text-xs font-bold uppercase tracking-wide text-[#3F3138]">Age range</span>
-          <div className="flex items-center gap-2">
+        <div className="dp-filter-field">
+          <span className="dp-filter-label">Age range</span>
+          <div className="dp-filter-age-row">
             <input
-              className="profile-input h-11"
+              className="dp-filter-input"
               placeholder="Min"
               type="number"
               min={18}
@@ -96,9 +92,9 @@ export default function MatchFiltersPanel({ filters, onChange, matchGenderLabel 
               onChange={(e) => onChange({ ...filters, minAge: e.target.value })}
               aria-label="Minimum age"
             />
-            <span className="shrink-0 text-sm font-medium text-[#C4A0B0]">to</span>
+            <span>to</span>
             <input
-              className="profile-input h-11"
+              className="dp-filter-input"
               placeholder="Max"
               type="number"
               min={18}
@@ -110,35 +106,23 @@ export default function MatchFiltersPanel({ filters, onChange, matchGenderLabel 
           </div>
         </div>
 
-        <div>
-          <span className="mb-2 block text-xs font-bold uppercase tracking-wide text-[#3F3138]">Horoscope match</span>
-          <div
-            className={`flex h-[46px] items-center justify-between rounded-xl border px-4 transition ${
-              filters.horoscopeMatch
-                ? 'border-[#D4A8BC] bg-gradient-to-r from-[#FFF0F5] to-[#F8F0FF]'
-                : 'border-[#E5C8D5] bg-[#FFFBFC]'
-            }`}
-          >
-            <span className="text-xs font-medium text-[#6D5360]">{filters.horoscopeMatch ? 'Enabled' : 'Disabled'}</span>
+        <div className="dp-filter-field dp-filter-field--last">
+          <span className="dp-filter-label">Horoscope match</span>
+          <div className={`dp-filter-toggle ${filters.horoscopeMatch ? 'is-on' : ''}`}>
+            <span>{filters.horoscopeMatch ? 'Enabled' : 'Disabled'}</span>
             <button
               type="button"
               role="switch"
               aria-checked={filters.horoscopeMatch}
               aria-label="Horoscope"
               onClick={() => onChange({ ...filters, horoscopeMatch: !filters.horoscopeMatch })}
-              className={`relative h-6 w-11 shrink-0 rounded-full transition ${
-                filters.horoscopeMatch ? 'bg-[#B66A8A]' : 'bg-[#E5C8D5]'
-              }`}
+              className="dp-filter-switch"
             >
-              <span
-                className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition ${
-                  filters.horoscopeMatch ? 'left-[22px]' : 'left-0.5'
-                }`}
-              />
+              <span />
             </button>
           </div>
         </div>
       </div>
-    </section>
+    </aside>
   );
 }

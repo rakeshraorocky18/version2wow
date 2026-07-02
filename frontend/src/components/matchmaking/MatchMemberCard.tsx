@@ -1,13 +1,5 @@
 import { useState } from 'react';
-import {
-  Briefcase,
-  Camera,
-  CheckCircle2,
-  GraduationCap,
-  MapPin,
-  UserPlus,
-  Video,
-} from 'lucide-react';
+import { Camera, CheckCircle2, UserPlus, Video } from 'lucide-react';
 import { getPhotoUrl } from '../../lib/profileUtils';
 
 type ProfileLike = {
@@ -38,6 +30,7 @@ type Props = {
   onInterest?: () => void;
   onClick?: () => void;
   expandableBio?: boolean;
+  animationDelay?: number;
 };
 
 function formatDisplayName(profile: ProfileLike) {
@@ -52,20 +45,13 @@ function formatDisplayName(profile: ProfileLike) {
   return age ? `${name} (${age})` : name;
 }
 
-function Tag({ label, value }: { label: string; value: string }) {
-  return (
-    <span className="inline-flex rounded-full bg-[#F3F3F3] px-3 py-1.5 text-xs text-[#999999]">
-      {label} <strong className="ml-1 font-bold text-[#222222]">{value}</strong>
-    </span>
-  );
-}
-
 export default function MatchMemberCard({
   profile,
   interestSent = false,
   onInterest,
   onClick,
   expandableBio = false,
+  animationDelay = 0,
 }: Props) {
   const [bioExpanded, setBioExpanded] = useState(false);
   const photoUrl = getPhotoUrl(profile.photos?.[0] || profile.wizardProfile?.profilePhoto || '');
@@ -79,47 +65,51 @@ export default function MatchMemberCard({
     'Warm, family-oriented profile looking for a meaningful long-term relationship.';
   const photoCount = Math.max(profile.photos?.length || 0, photoUrl ? 1 : 0);
   const longBio = bio.length > 160;
+  const isOnline = profile.onlineStatus;
 
   return (
-    <div
-      className={`grid gap-4 overflow-hidden rounded-2xl bg-white p-3 shadow-[0_8px_28px_rgba(0,0,0,0.06)] sm:grid-cols-[220px_1fr] sm:p-4 lg:grid-cols-[220px_1fr_220px] ${onClick ? 'cursor-pointer transition hover:-translate-y-0.5 hover:shadow-[0_12px_32px_rgba(0,0,0,0.09)]' : ''}`}
+    <article
+      className="dp-member-card"
+      style={{ animationDelay: `${animationDelay}ms` }}
       onClick={onClick}
       onKeyDown={onClick ? (e) => e.key === 'Enter' && onClick() : undefined}
       role={onClick ? 'button' : undefined}
       tabIndex={onClick ? 0 : undefined}
     >
-      <div className="relative flex h-56 w-full items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-[#F9DEE7] to-[#F6E8FF] sm:h-full sm:min-h-[230px]">
+      <div className="dp-member-card__img-box">
         {photoUrl ? (
-          <img src={photoUrl} alt={displayName} className="h-full w-full object-cover" />
+          <img src={photoUrl} alt={displayName} className="dp-member-card__main-img" />
         ) : (
-          <span className="text-4xl">{profile.gender === 'female' ? '👩' : '👨'}</span>
+          <div className="dp-member-card__placeholder">
+            <span>{profile.gender === 'female' ? '👩' : '👨'}</span>
+          </div>
         )}
-        <div className="absolute bottom-3 left-3 flex gap-2">
-          <span className="inline-flex items-center gap-1 rounded-md bg-black/55 px-2 py-1 text-[11px] font-medium text-white">
-            <Camera size={12} /> {String(photoCount).padStart(2, '0')}
-          </span>
-          <span className="inline-flex items-center gap-1 rounded-md bg-black/55 px-2 py-1 text-[11px] font-medium text-white">
-            <Video size={12} /> 00
-          </span>
+        <div className="dp-member-card__stat-box">
+          <div>
+            <Camera size={14} />
+            {String(photoCount).padStart(2, '0')}
+          </div>
+          <div>
+            <Video size={14} />
+            00
+          </div>
         </div>
       </div>
 
-      <div className="min-w-0 py-1 sm:py-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <h3 className="text-2xl font-bold text-[#f82f71]">{displayName}</h3>
-          {profile.isVerified && <CheckCircle2 size={18} className="text-sky-500" />}
+      <div className="dp-member-card__info">
+        <div className="dp-member-card__title-row">
+          <h5 className="dp-member-card__title">{displayName}</h5>
+          {profile.isVerified && <CheckCircle2 size={20} className="text-sky-500" />}
         </div>
-        <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-emerald-600">
-          <span className="h-2 w-2 rounded-full bg-emerald-500" />
-          {profile.onlineStatus ? 'Online now' : 'Last seen 8h ago'}
-        </p>
-
-        <p className={`mt-3 max-w-2xl text-sm leading-relaxed text-[#666666] ${!bioExpanded && expandableBio ? 'line-clamp-3' : ''}`}>
+        <div className={`dp-member-card__last-seen ${isOnline ? 'is-live' : ''}`}>
+          {isOnline ? 'Live now' : 'Last seen 8h ago'}
+        </div>
+        <p className={`dp-member-card__bio ${!bioExpanded && expandableBio ? 'is-clamped' : ''}`}>
           {bio}
           {expandableBio && longBio && !bioExpanded && (
             <button
               type="button"
-              className="ml-1 font-semibold text-[#f82f71] hover:underline"
+              className="dp-member-card__read-more"
               onClick={(e) => {
                 e.stopPropagation();
                 setBioExpanded(true);
@@ -129,33 +119,46 @@ export default function MatchMemberCard({
             </button>
           )}
         </p>
-
-        <div className="mt-4 flex flex-wrap gap-2">
-          {location && <Tag label="Live in" value={location} />}
-          {profile.education && <Tag label="Education" value={profile.education} />}
-          {profile.occupation && <Tag label="Work as" value={profile.occupation} />}
-          {profile.maritalStatus && <Tag label="Relationship" value={profile.maritalStatus} />}
-        </div>
+        <ul className="dp-member-card__tags">
+          {location && (
+            <li>
+              Live in<span className="info">{location}</span>
+            </li>
+          )}
+          {profile.education && (
+            <li>
+              Education<span className="info">{profile.education}</span>
+            </li>
+          )}
+          {profile.occupation && (
+            <li>
+              Work as<span className="info">{profile.occupation}</span>
+            </li>
+          )}
+          {profile.maritalStatus && (
+            <li>
+              Relationship<span className="info">{profile.maritalStatus}</span>
+            </li>
+          )}
+        </ul>
       </div>
 
       <div
-        className="flex flex-col justify-center border-[#EEEEEE] p-4 lg:border-l lg:p-5"
+        className="dp-member-card__contact"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => e.stopPropagation()}
       >
-        <p className="text-center text-sm font-bold text-[#222222] lg:text-left">
-          Interested in {firstName}?
-        </p>
+        <h5>Interested in {firstName}?</h5>
         <button
           type="button"
           onClick={onInterest}
           disabled={interestSent || !onInterest}
-          className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-[#f82f71] py-3 text-sm font-bold text-white shadow-sm transition hover:bg-[#e62866] disabled:opacity-60"
+          className="dp-connect-btn"
         >
           <UserPlus size={16} />
           {interestSent ? 'Connected' : 'Connect Now'}
         </button>
       </div>
-    </div>
+    </article>
   );
 }
