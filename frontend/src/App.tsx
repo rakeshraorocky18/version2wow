@@ -13,6 +13,8 @@ import Vendors from './pages/Vendors';
 import Planner from './pages/Planner';
 import ProfileRouter from './pages/ProfileRouter';
 import EditProfileRouter from './pages/EditProfileRouter';
+import ProfilePhotos from './pages/ProfilePhotos';
+import ProfileDetails from './pages/ProfileDetails';
 import EditRepresentativeProfile from './pages/representative/EditRepresentativeProfile';
 import ManagedProfileEdit from './pages/representative/ManagedProfileEdit';
 import ManagedProfileView from './pages/representative/ManagedProfileView';
@@ -59,6 +61,8 @@ function App() {
         <Route path="profile/representative/:id" element={<RepresentativeProfileView />} />
         <Route path="profile/vendor/:id" element={<VendorProfileView />} />
         <Route path="profile/edit" element={<EditProfileRouter />} />
+        <Route path="profile/details" element={<ProfileDetails />} />
+        <Route path="profile/photos" element={<ProfilePhotos />} />
         <Route path="profile" element={<ProfileRouter />} />
       </Route>
     </Routes>

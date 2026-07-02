@@ -118,6 +118,14 @@ export class ProfileEntity {
   @Column({ type: 'text', nullable: true, transformer: photosColumnTransformer })
   photos: string[];
 
+  /** Single main profile photo — visible to everyone */
+  @Column({ nullable: true })
+  profilePhoto: string;
+
+  /** Who can see the additional photo gallery */
+  @Column({ type: 'varchar', default: 'matched_only' })
+  galleryVisibility: string;
+
   @Column({ nullable: true })
   displayName: string;
 

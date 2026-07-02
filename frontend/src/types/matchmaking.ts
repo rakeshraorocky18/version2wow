@@ -57,6 +57,9 @@ export interface MatchProfile {
   isBoosted?: boolean;
   onlineStatus?: boolean;
   photos?: string[];
+  profilePhoto?: string;
+  galleryHidden?: boolean;
+  galleryVisibility?: 'public' | 'matched_only';
   wizardProfile?: { profilePhoto?: string };
   compatibilityScore?: number;
   compatibility?: CompatibilityInfo;

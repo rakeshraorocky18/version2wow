@@ -9,6 +9,8 @@ import { UploadedFile } from './types/uploaded-file.type';
 
 @Injectable()
 export class UsersService implements OnModuleInit {
+  private readonly maxProfilePhotos = 6;
+
   constructor(
     @InjectRepository(ProfileEntity)
     private profileRepository: Repository<ProfileEntity>,
@@ -16,6 +18,27 @@ export class UsersService implements OnModuleInit {
 
   async onModuleInit() {
     await this.repairCorruptedPhotos();
+    await this.migrateProfilePhotoFields();
+  }
+
+  private async migrateProfilePhotoFields() {
+    const profiles = await this.profileRepository.find();
+    for (const profile of profiles) {
+      const gallery = this.sanitizePhotos(profile.photos) || [];
+      let changed = false;
+      if (!profile.profilePhoto && gallery.length > 0) {
+        profile.profilePhoto = gallery[0];
+        profile.photos = gallery.slice(1);
+        changed = true;
+      }
+      if (!profile.galleryVisibility) {
+        profile.galleryVisibility = 'matched_only';
+        changed = true;
+      }
+      if (changed) {
+        await this.profileRepository.save(profile);
+      }
+    }
   }
 
   private async repairCorruptedPhotos() {
@@ -161,7 +184,9 @@ export class UsersService implements OnModuleInit {
         firstName: 'User',
         lastName: 'Profile',
         country: 'India',
-        photos: [photoUrl],
+        profilePhoto: photoUrl,
+        photos: [],
+        galleryVisibility: 'matched_only',
         horoscopeAvailable: false,
         haveChildren: false,
         readyForRemarriage: false,
@@ -170,8 +195,52 @@ export class UsersService implements OnModuleInit {
         isVisible: true,
       });
     } else {
-      profile.photos = [photoUrl];
+      profile.profilePhoto = photoUrl;
     }
+    const saved = await this.profileRepository.save(profile);
+    return this.formatProfileResponse(saved);
+  }
+
+  async addGalleryPhoto(userId: string, photoUrl: string): Promise<ProfileEntity & { wizardProfile: Record<string, unknown> }> {
+    const profile = await this.profileRepository.findOne({ where: { userId } });
+    if (!profile) throw new NotFoundException('Profile not found');
+
+    const current = this.sanitizePhotos(profile.photos) || [];
+    if (current.length >= this.maxProfilePhotos) {
+      throw new BadRequestException(`Maximum ${this.maxProfilePhotos} gallery photos allowed`);
+    }
+    if (current.includes(photoUrl) || profile.profilePhoto === photoUrl) {
+      throw new BadRequestException('Photo already exists');
+    }
+    profile.photos = [...current, photoUrl];
+    const saved = await this.profileRepository.save(profile);
+    return this.formatProfileResponse(saved);
+  }
+
+  async removeGalleryPhoto(
+    userId: string,
+    photoUrl: string,
+  ): Promise<ProfileEntity & { wizardProfile: Record<string, unknown> }> {
+    const profile = await this.profileRepository.findOne({ where: { userId } });
+    if (!profile) throw new NotFoundException('Profile not found');
+
+    const current = this.sanitizePhotos(profile.photos) || [];
+    const next = current.filter((p) => p !== photoUrl);
+    if (next.length === current.length) {
+      throw new NotFoundException('Photo not found in gallery');
+    }
+    profile.photos = next;
+    const saved = await this.profileRepository.save(profile);
+    return this.formatProfileResponse(saved);
+  }
+
+  async setGalleryVisibility(
+    userId: string,
+    visibility: 'public' | 'matched_only',
+  ): Promise<ProfileEntity & { wizardProfile: Record<string, unknown> }> {
+    const profile = await this.profileRepository.findOne({ where: { userId } });
+    if (!profile) throw new NotFoundException('Profile not found');
+    profile.galleryVisibility = visibility;
     const saved = await this.profileRepository.save(profile);
     return this.formatProfileResponse(saved);
   }
@@ -465,11 +534,12 @@ export class UsersService implements OnModuleInit {
   }
 
   private formatProfileResponse(profile: ProfileEntity): ProfileEntity & { wizardProfile: Record<string, unknown> } {
-    const normalizedPhotos = Array.isArray(profile.photos)
+    const galleryPhotos = Array.isArray(profile.photos)
       ? profile.photos
       : profile.photos
         ? [String(profile.photos)]
         : [];
+    const mainPhoto = profile.profilePhoto || galleryPhotos[0] || null;
 
     const educationList = this.buildEducationList(profile);
     const experience = this.buildExperience(profile);
@@ -577,11 +647,13 @@ export class UsersService implements OnModuleInit {
         ...(profile.expressYourself || {}),
         aboutMe: profile.expressYourself?.aboutMe || profile.bio,
       },
-      profilePhoto: normalizedPhotos[0] || null,
+      profilePhoto: mainPhoto,
     };
 
     return Object.assign(profile, {
-      photos: normalizedPhotos,
+      profilePhoto: mainPhoto,
+      photos: galleryPhotos,
+      galleryVisibility: profile.galleryVisibility || 'matched_only',
       education: educationSummary || profile.education,
       occupation: profile.occupation || profile.jobTitle,
       wizardProfile,

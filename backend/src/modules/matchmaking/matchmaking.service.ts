@@ -353,9 +353,25 @@ export class MatchmakingService {
 
       return {
         ...match,
-        senderProfile,
-        receiverProfile,
-        partnerProfile: forUserId ? partnerProfile : null,
+        senderProfile:
+          match.status === MatchStatus.ACCEPTED
+            ? senderProfile
+            : senderProfile
+              ? this.stripGalleryFromProfile(senderProfile as unknown as Record<string, unknown>)
+              : null,
+        receiverProfile:
+          match.status === MatchStatus.ACCEPTED
+            ? receiverProfile
+            : receiverProfile
+              ? this.stripGalleryFromProfile(receiverProfile as unknown as Record<string, unknown>)
+              : null,
+        partnerProfile: forUserId
+          ? match.status === MatchStatus.ACCEPTED
+            ? partnerProfile
+            : partnerProfile
+              ? this.stripGalleryFromProfile(partnerProfile as unknown as Record<string, unknown>)
+              : null
+          : null,
         partnerUserId: forUserId ? partnerUserId : null,
       };
     });
@@ -374,7 +390,9 @@ export class MatchmakingService {
       { excludeUserIds },
     );
 
-    const scored = this.scoreProfiles(viewer, result.profiles, query.includeHoroscope !== false);
+    const scored = this.maskProfilesForDiscovery(
+      this.scoreProfiles(viewer, result.profiles, query.includeHoroscope !== false) as Record<string, unknown>[],
+    );
 
     return { profiles: scored, total: result.total, page, limit };
   }
@@ -400,12 +418,14 @@ export class MatchmakingService {
     );
 
     const graphBoostIds = await this.neo4jMatchService.getGraphBoostProfileIds(userId, limit);
-    const scored = this.scoreProfiles(
-      viewer,
-      result.profiles,
-      query.includeHoroscope !== false,
-      graphBoostIds,
-    ).slice(0, limit);
+    const scored = this.maskProfilesForDiscovery(
+      this.scoreProfiles(
+        viewer,
+        result.profiles,
+        query.includeHoroscope !== false,
+        graphBoostIds,
+      ).slice(0, limit) as Record<string, unknown>[],
+    );
 
     return {
       profiles: scored,
@@ -460,10 +480,12 @@ export class MatchmakingService {
       }),
     );
 
-    const scored = this.scoreProfiles(
-      viewer,
-      profiles.filter(Boolean) as object[],
-      true,
+    const scored = this.maskProfilesForDiscovery(
+      this.scoreProfiles(
+        viewer,
+        profiles.filter(Boolean) as object[],
+        true,
+      ) as Record<string, unknown>[],
     );
 
     return { profiles: scored, total: scored.length };
@@ -505,6 +527,36 @@ export class MatchmakingService {
     return false;
   }
 
+  private stripGalleryFromProfile(profile: Record<string, unknown>): Record<string, unknown> {
+    const wizard = (profile.wizardProfile || {}) as Record<string, unknown>;
+    const mainPhoto = profile.profilePhoto || wizard.profilePhoto;
+    return {
+      ...profile,
+      photos: [],
+      galleryHidden: true,
+      wizardProfile: wizard
+        ? {
+            ...wizard,
+            profilePhoto: mainPhoto,
+          }
+        : { profilePhoto: mainPhoto },
+    };
+  }
+
+  private applyGalleryPrivacy(
+    profile: Record<string, unknown>,
+    hasMatchAccess: boolean,
+  ): Record<string, unknown> {
+    const visibility = (profile.galleryVisibility as string) || 'matched_only';
+    const canViewGallery = hasMatchAccess || visibility === 'public';
+    if (canViewGallery) return profile;
+    return this.stripGalleryFromProfile(profile);
+  }
+
+  private maskProfilesForDiscovery(profiles: Record<string, unknown>[]) {
+    return profiles.map((profile) => this.stripGalleryFromProfile(profile));
+  }
+
   private toLimitedProfileView(profile: Record<string, unknown>): Record<string, unknown> {
     const wizard = (profile.wizardProfile || {}) as Record<string, unknown>;
     const pd = { ...((wizard.personalDetails || {}) as Record<string, unknown>) };
@@ -512,8 +564,9 @@ export class MatchmakingService {
     delete pd.phone;
     delete pd.address;
     delete pd.pincode;
+    const mainPhoto = profile.profilePhoto || wizard.profilePhoto;
 
-    return {
+    const base = {
       ...profile,
       email: undefined,
       phone: undefined,
@@ -535,14 +588,17 @@ export class MatchmakingService {
       prefReligions: undefined,
       prefCastes: undefined,
       prefFamilyType: undefined,
+      profilePhoto: mainPhoto,
       wizardProfile: {
-        profilePhoto: wizard.profilePhoto,
+        profilePhoto: mainPhoto,
         personalDetails: pd,
         religion: wizard.religion,
         education: wizard.education,
         expressYourself: wizard.expressYourself,
       },
     };
+
+    return this.applyGalleryPrivacy(base, false);
   }
 
   async getMatchProfile(viewerUserId: string, profileIdOrUserId: string) {
@@ -557,7 +613,7 @@ export class MatchmakingService {
 
     const accepted = await this.hasAcceptedMatch(viewerId, targetUserId);
     if (accepted) {
-      return { profile: profileRecord, visibility: 'full' as const };
+      return { profile: this.applyGalleryPrivacy(profileRecord, true), visibility: 'full' as const };
     }
 
     return {

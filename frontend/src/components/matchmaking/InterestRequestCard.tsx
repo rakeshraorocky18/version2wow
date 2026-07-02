@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Eye, MessageCircle } from 'lucide-react';
-import { getPhotoUrl } from '../../lib/profileUtils';
+import { getMainProfilePhoto, getPhotoUrl } from '../../lib/profileUtils';
 import type { MatchInterest } from '../../types/matchmaking';
 
 const STATUS_STYLES: Record<string, string> = {
@@ -29,7 +29,7 @@ export default function InterestRequestCard({ match, variant, onAccept, onReject
     (variant === 'received' ? match.senderId : match.receiverId);
   const chatUserId = match.partnerUserId || profile?.userId;
   const name = profile ? `${profile.firstName || ''} ${profile.lastName || ''}`.trim() : 'Profile';
-  const photoUrl = getPhotoUrl(profile?.photos?.[0] || profile?.wizardProfile?.profilePhoto || '');
+  const photoUrl = getPhotoUrl(getMainProfilePhoto(profile || {}));
   const status = match.status || 'pending';
   const statusLabel =
     status === 'pending' ? 'Pending' : status === 'accepted' ? 'Mutual Match' : status === 'rejected' ? 'Declined' : status;

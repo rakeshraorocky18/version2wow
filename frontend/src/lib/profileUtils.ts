@@ -196,6 +196,34 @@ export function getPhotoUrl(path: string): string {
   return `${origin}${path.startsWith('/') ? path : `/${path}`}`;
 }
 
+export function getMainProfilePhoto(profile: {
+  profilePhoto?: string | null;
+  photos?: string[] | null;
+  wizardProfile?: { profilePhoto?: string | null } | null;
+}): string {
+  if (profile.profilePhoto) return profile.profilePhoto;
+  if (profile.wizardProfile?.profilePhoto) return profile.wizardProfile.profilePhoto;
+  const list = Array.isArray(profile.photos) ? profile.photos.filter(Boolean) : [];
+  return list[0] || '';
+}
+
+export function getGalleryPhotos(profile: {
+  photos?: string[] | null;
+}): string[] {
+  return Array.isArray(profile.photos) ? profile.photos.filter(Boolean) : [];
+}
+
+/** @deprecated use getMainProfilePhoto / getGalleryPhotos */
+export function getProfilePhotos(profile: {
+  profilePhoto?: string | null;
+  photos?: string[] | null;
+  wizardProfile?: { profilePhoto?: string | null } | null;
+}): string[] {
+  const main = getMainProfilePhoto(profile);
+  const gallery = getGalleryPhotos(profile);
+  return main ? [main, ...gallery.filter((p) => p !== main)] : gallery;
+}
+
 export function buildSavePayload(profile: WizardProfile) {
   return {
     personalDetails: profile.personalDetails,

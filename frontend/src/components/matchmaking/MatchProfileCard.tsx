@@ -1,6 +1,6 @@
 import { Heart, MapPin, CheckCircle2, Crown, Star, Calendar, BookOpen, Zap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getPhotoUrl } from '../../lib/profileUtils';
+import { getMainProfilePhoto, getPhotoUrl } from '../../lib/profileUtils';
 import { isBoostedMatchProfile } from '../../lib/matchmakingPremium';
 import type { MatchProfile } from '../../types/matchmaking';
 
@@ -22,7 +22,7 @@ export default function MatchProfileCard({
   showScore = true,
 }: Props) {
   const navigate = useNavigate();
-  const photoUrl = getPhotoUrl(profile.photos?.[0] || profile.wizardProfile?.profilePhoto || '');
+  const photoUrl = getPhotoUrl(getMainProfilePhoto(profile));
   const age =
     profile.age ??
     (profile.dateOfBirth

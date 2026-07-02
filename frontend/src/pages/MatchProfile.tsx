@@ -13,16 +13,17 @@ import {
   MessageCircle,
   Star,
   UserCircle,
+  UserRound,
   Users,
   HeartHandshake,
-  UserRound,
   Zap,
   GraduationCap,
   Briefcase,
 } from 'lucide-react';
-import { getPhotoUrl } from '../lib/profileUtils';
+import { getGalleryPhotos, getMainProfilePhoto, getPhotoUrl } from '../lib/profileUtils';
 import { isBoostedMatchProfile } from '../lib/matchmakingPremium';
 import ProfileDetailsView, { type ProfileTab } from '../components/profile/ProfileDetailsView';
+import ProfileGalleryView from '../components/profile/ProfileGalleryView';
 import {
   useAcceptedInterests,
   useMatchActions,
@@ -188,7 +189,17 @@ export default function MatchProfile() {
     pd.displayName ||
     `${pd.firstName || profile.firstName || ''} ${pd.lastName || profile.lastName || ''}`.trim() ||
     'Profile';
-  const photoUrl = getPhotoUrl(wizard.profilePhoto || profile.photos?.[0] || '');
+  const mainPhotoUrl = getPhotoUrl(getMainProfilePhoto(profile as Parameters<typeof getMainProfilePhoto>[0]));
+  const canViewGallery =
+    fullAccess ||
+    (profile as { galleryVisibility?: string }).galleryVisibility === 'public';
+  const galleryVisibility = (profile as { galleryVisibility?: 'public' | 'matched_only' }).galleryVisibility;
+  const galleryHidden = (profile as { galleryHidden?: boolean }).galleryHidden === true;
+  const galleryPhotos = canViewGallery && !galleryHidden
+    ? getGalleryPhotos(profile as Parameters<typeof getGalleryPhotos>[0])
+    : [];
+  const showLockedGallery = galleryHidden && !canViewGallery;
+  const photoUrl = mainPhotoUrl;
   const chatUserId = profile.userId;
   const age = calcAge(pd.dateOfBirth || profile.dateOfBirth, profile.age);
   const cityState = [pd.city || profile.city, pd.state || profile.state].filter(Boolean).join(', ');
@@ -246,7 +257,7 @@ export default function MatchProfile() {
             <div>
               <p className="font-display text-base font-semibold text-[#5D2B44]">Limited profile view</p>
               <p className="mt-0.5 text-sm leading-relaxed text-[#9A5776]">
-                About Me, Education, Personal & Religion are visible. Accept interest to unlock family, preferences, horoscope & contact.
+                Profile photo is always visible. Album, family, preferences & contact unlock after mutual match.
               </p>
             </div>
           </div>
@@ -395,6 +406,14 @@ export default function MatchProfile() {
           </div>
         </div>
       </section>
+
+      {(showLockedGallery || galleryPhotos.length > 0) && (
+        <ProfileGalleryView
+          photos={galleryPhotos}
+          locked={showLockedGallery}
+          visibility={galleryVisibility}
+        />
+      )}
 
       {/* Tab navigation */}
       <nav className="flex gap-2 overflow-x-auto rounded-2xl bg-[#FFF5F8]/80 p-2 ring-1 ring-[#F0DFE7] backdrop-blur-sm scrollbar-none">

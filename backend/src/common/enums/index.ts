@@ -145,6 +145,11 @@ export enum PlannerActivityAction {
   UPDATED = 'updated',
 }
 
+export enum GalleryVisibility {
+  PUBLIC = 'public',
+  MATCHED_ONLY = 'matched_only',
+}
+
 export enum PaymentStatus {
   PENDING = 'pending',
   PROCESSING = 'processing',

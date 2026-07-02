@@ -105,6 +105,7 @@ function buildContactsFromAccepted(
     partnerProfile?: {
       firstName?: string;
       lastName?: string;
+      profilePhoto?: string;
       photos?: string[];
       wizardProfile?: { profilePhoto?: string; personalDetails?: { firstName?: string; lastName?: string } };
     };
@@ -122,7 +123,7 @@ function buildContactsFromAccepted(
         userId: m.partnerUserId!,
         name: name || 'Mutual match',
         subtitle: 'Mutual match — say hello!',
-        photo: p?.photos?.[0] || p?.wizardProfile?.profilePhoto,
+        photo: p?.profilePhoto || p?.wizardProfile?.profilePhoto || p?.photos?.[0],
       };
     });
 }

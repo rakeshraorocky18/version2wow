@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Delete,
   Body,
   Param,
   Query,
@@ -122,6 +123,56 @@ export class UsersController {
     const url = toPublicUrl(`profiles/${file.filename}`);
     const profile = await this.usersService.updateProfilePhoto(req.user.id, url);
     return { url, profile };
+  }
+
+  @Post('profile/gallery')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload a gallery photo' })
+  @UseInterceptors(
+    FileInterceptor('photo', {
+      storage: wizardUploadStorage,
+      fileFilter: imageFileFilter,
+      limits: { fileSize: 5 * 1024 * 1024 },
+    }),
+  )
+  async uploadGalleryPhoto(
+    @Req() req: { user: { id: string } },
+    @UploadedFile() file: StoredUploadFile,
+  ) {
+    if (!file) {
+      throw new BadRequestException('Photo is required');
+    }
+    const url = toPublicUrl(`profiles/${file.filename}`);
+    const profile = await this.usersService.addGalleryPhoto(req.user.id, url);
+    return { url, profile };
+  }
+
+  @Delete('profile/photos')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Remove a gallery photo' })
+  async removeGalleryPhoto(@Req() req: { user: { id: string } }, @Body() body: { url: string }) {
+    if (!body?.url) {
+      throw new BadRequestException('Photo URL is required');
+    }
+    const profile = await this.usersService.removeGalleryPhoto(req.user.id, body.url);
+    return { profile };
+  }
+
+  @Put('profile/gallery-visibility')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Set who can see gallery photos' })
+  async setGalleryVisibility(
+    @Req() req: { user: { id: string } },
+    @Body() body: { visibility: 'public' | 'matched_only' },
+  ) {
+    if (!body?.visibility || !['public', 'matched_only'].includes(body.visibility)) {
+      throw new BadRequestException('visibility must be public or matched_only');
+    }
+    return this.usersService.setGalleryVisibility(req.user.id, body.visibility);
   }
 
   @Get('profile/:id')

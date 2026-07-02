@@ -21,6 +21,9 @@ import {
   Check,
   GraduationCap,
   Briefcase,
+  Lock,
+  ArrowLeft,
+  AlertCircle,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../lib/api';
@@ -34,20 +37,17 @@ import {
   COMMUNITY_OPTIONS,
   PARTNER_MARITAL_OPTIONS,
 } from '../lib/religionCasteOptions';
-
-type ProfileForm = Record<string, any>;
-
-const SECTIONS = [
-  'Personal Details',
-  'Horoscope Details',
-  'Religion Details',
-  'Marital Information',
-  'Location',
-  'Family Background',
-  'Express Yourself',
-  'Partner Preferences',
-  'Lifestyle',
-] as const;
+import {
+  EDIT_SECTIONS as SECTIONS,
+  SECTION_ERROR_FIELDS,
+  getMaxUnlockedStep,
+  getMissingBySection,
+  isSectionValid,
+  profileCompletion,
+  sectionHasErrors,
+  validateSectionFields,
+  type ProfileForm,
+} from '../lib/profileEditValidation';
 
 const SECTION_META: Record<(typeof SECTIONS)[number], { icon: typeof User; desc: string }> = {
   'Personal Details': { icon: User, desc: 'Your name, photo, and basic information' },
@@ -177,12 +177,6 @@ function calculateAge(dob?: string) {
   const m = t.getMonth() - d.getMonth();
   if (m < 0 || (m === 0 && t.getDate() < d.getDate())) age--;
   return String(age);
-}
-
-function completion(form: ProfileForm) {
-  const keys = ['firstName', 'lastName', 'gender', 'dateOfBirth', 'height', 'religion', 'maritalStatus', 'country', 'state', 'city', 'familyType', 'bio'];
-  const done = keys.filter((k) => String(form[k] ?? '').trim().length > 0).length;
-  return Math.round((done / keys.length) * 100);
 }
 
 export default function EditProfile({ managedMode = false }: { managedMode?: boolean }) {
@@ -419,41 +413,54 @@ export default function EditProfile({ managedMode = false }: { managedMode?: boo
     setPhotoPreview(URL.createObjectURL(file));
   };
 
+  const validateSection = (sectionIndex: number) => {
+    const sectionErrors = validateSectionFields(sectionIndex, form);
+    setErrors((prev) => {
+      const cleared = { ...prev };
+      (SECTION_ERROR_FIELDS[sectionIndex] || []).forEach((k) => {
+        if (!(k in sectionErrors)) delete cleared[k];
+      });
+      return { ...cleared, ...sectionErrors };
+    });
+    return Object.keys(sectionErrors).length === 0;
+  };
+
   const validate = () => {
     const next: Record<string, string> = {};
-    ['firstName', 'lastName', 'dateOfBirth', 'height', 'phone', 'email', 'religion', 'maritalStatus', 'country', 'state', 'city'].forEach((k) => {
-      if (!String(form[k] ?? '').trim()) next[k] = 'Required';
-    });
-    const phoneDigits = String(form.phone ?? '').replace(/\D/g, '');
-    if (form.phone && phoneDigits.length < 10) {
-      next.phone = 'Enter a valid mobile number (at least 10 digits)';
+    for (let i = 0; i < SECTIONS.length; i++) {
+      Object.assign(next, validateSectionFields(i, form));
     }
-    const email = String(form.email ?? '').trim();
-    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      next.email = 'Enter a valid email address';
-    }
-    if (form.religion === 'Other' && !String(form.religionOther || '').trim()) {
-      next.religionOther = 'Please specify religion';
-    }
-    if (form.currentlyWorking && !String(form.occupation || '').trim()) {
-      next.occupation = 'Occupation is required when currently working';
-    }
-    if (!form.currentlyWorking && !String(form.currentStatus || '').trim()) {
-      next.currentStatus = 'Current status is required';
-    }
-    if (!form.currentlyWorking && form.currentStatus === 'Other' && !String(form.currentStatusOther || '').trim()) {
-      next.currentStatusOther = 'Please specify current status';
-    }
-    if (form.horoscopeAvailable) {
-      ['rashi', 'nakshatra', 'manglik', 'placeOfBirth'].forEach((k) => {
-        if (!String(form[k] ?? '').trim()) next[k] = 'Required';
-      });
-    }
-    if (form.maritalStatus === 'Divorced' && !form.yearsMarried) next.yearsMarried = 'Required';
-    if (form.bio?.length > 1000) next.bio = 'Max 1000 characters';
-    if (form.prefAgeMin > form.prefAgeMax) next.prefAgeMax = 'Max age must be greater than min age';
     setErrors(next);
     return Object.keys(next).length === 0;
+  };
+
+  const maxUnlockedStep = useMemo(() => getMaxUnlockedStep(form), [form]);
+
+  const goToStep = (target: number) => {
+    if (target < 0 || target >= SECTIONS.length) return;
+    if (target <= step) {
+      setStep(target);
+      return;
+    }
+    if (target > maxUnlockedStep) {
+      toast.error(`Please complete "${SECTIONS[maxUnlockedStep]}" before continuing`);
+      setStep(maxUnlockedStep);
+      validateSection(maxUnlockedStep);
+      return;
+    }
+    if (!validateSection(step)) {
+      toast.error('Please fill all required fields in this section');
+      return;
+    }
+    setStep(target);
+  };
+
+  const handleNext = () => {
+    if (!validateSection(step)) {
+      toast.error('Please fill all required fields in this section');
+      return;
+    }
+    setStep((s) => Math.min(SECTIONS.length - 1, s + 1));
   };
 
   const buildSavePayload = (changed: ProfileForm): ProfileForm => {
@@ -531,7 +538,11 @@ export default function EditProfile({ managedMode = false }: { managedMode?: boo
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      if (!validate()) throw new Error('Please fix validation errors.');
+      if (!validate()) {
+        const firstInvalid = SECTIONS.findIndex((_, i) => !isSectionValid(i, form));
+        if (firstInvalid >= 0) setStep(firstInvalid);
+        throw new Error('Please fix validation errors.');
+      }
       const changed: ProfileForm = {};
       const ignoreKeys = new Set([
         'age', 'wizardProfile', 'id', 'userId', 'createdAt', 'updatedAt',
@@ -551,9 +562,9 @@ export default function EditProfile({ managedMode = false }: { managedMode?: boo
       if (pendingPhotoFile.current) {
         const formData = new FormData();
         formData.append('profilePhoto', pendingPhotoFile.current);
-        const { data: photoData } = await api.post('/users/profile/photo', formData);
-        changed.photos = [photoData.url];
+        await api.post('/users/profile/photo', formData);
         pendingPhotoFile.current = null;
+        delete changed.photos;
       }
 
       if (changed.photos?.[0]?.startsWith?.('data:')) {
@@ -601,7 +612,8 @@ export default function EditProfile({ managedMode = false }: { managedMode?: boo
     );
   }
 
-  const pct = completion(form);
+  const pct = profileCompletion(form);
+  const missingBySection = useMemo(() => getMissingBySection(form), [form]);
   const SectionIcon = SECTION_META[sectionTitle].icon;
   const selectedPrefReligion = form.prefReligions?.[0] || '';
   const selectedPrefCaste = form.prefCastes?.[0] || '';
@@ -613,6 +625,12 @@ export default function EditProfile({ managedMode = false }: { managedMode?: boo
   return (
     <div className="soft-fade-in -mx-4 rounded-3xl bg-gradient-to-br from-[#FFF0F5] via-[#F8F3FF] to-[#FFF5EF] px-4 py-6 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
     <div className="mx-auto max-w-6xl pb-4">
+      <Link
+        to={managedMode ? '/app/profile/managed' : '/app/profile'}
+        className="mb-5 inline-flex items-center gap-2 rounded-full border border-[#F0DFE7] bg-white/90 px-4 py-2 text-sm font-medium text-[#B66A8A] shadow-sm transition hover:bg-white"
+      >
+        <ArrowLeft size={16} /> Back to profile
+      </Link>
       <div className="grid gap-6 lg:grid-cols-[260px_1fr]">
         {/* Sidebar stepper */}
         <aside className="space-y-4 lg:sticky lg:top-6 lg:self-start">
@@ -634,26 +652,53 @@ export default function EditProfile({ managedMode = false }: { managedMode?: boo
                 </div>
               </div>
             </div>
+
+            {missingBySection.length > 0 && (
+              <div className="border-t border-[#F2DFE8] px-4 py-4">
+                <p className="mb-3 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-amber-700">
+                  <AlertCircle size={12} /> Missing fields
+                </p>
+                <ul className="max-h-52 space-y-2 overflow-y-auto">
+                  {missingBySection.map(({ sectionIndex, section, fields }) => (
+                    <li key={section}>
+                      <button
+                        type="button"
+                        onClick={() => goToStep(sectionIndex)}
+                        className="w-full rounded-lg bg-amber-50/80 px-3 py-2 text-left ring-1 ring-amber-100 transition hover:bg-amber-50 hover:ring-amber-200"
+                      >
+                        <p className="text-xs font-semibold text-[#5D2B44]">{section}</p>
+                        <p className="mt-0.5 text-[11px] leading-snug text-amber-800">{fields.join(' · ')}</p>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             <nav className="p-2">
               {SECTIONS.map((label, i) => {
                 const Icon = SECTION_META[label].icon;
                 const isActive = step === i;
-                const isDone = i < step;
+                const isDone = isSectionValid(i, form);
+                const isAccessible = i <= maxUnlockedStep;
                 return (
                   <button
                     key={label}
                     type="button"
-                    onClick={() => setStep(i)}
+                    onClick={() => goToStep(i)}
+                    disabled={!isAccessible}
                     className={`mb-1 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition ${
                       isActive
                         ? 'bg-[#B66A8A] text-white shadow-sm'
                         : isDone
                           ? 'bg-[#F5FFF8] text-[#3D8B5F] hover:bg-[#E8F8EF]'
-                          : 'text-[#815A6D] hover:bg-[#FFF5F8]'
+                          : isAccessible
+                            ? 'text-[#815A6D] hover:bg-[#FFF5F8]'
+                            : 'cursor-not-allowed text-[#C4A0B0] opacity-60'
                     }`}
                   >
-                    <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${isActive ? 'bg-white/20' : isDone ? 'bg-[#E8F8EF]' : 'bg-[#FAF0F4]'}`}>
-                      {isDone ? <Check size={14} /> : <Icon size={14} />}
+                    <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${isActive ? 'bg-white/20' : isDone ? 'bg-[#E8F8EF]' : isAccessible ? 'bg-[#FAF0F4]' : 'bg-[#F5F0F2]'}`}>
+                      {isDone ? <Check size={14} /> : !isAccessible ? <Lock size={12} /> : <Icon size={14} />}
                     </span>
                     <span className="min-w-0 flex-1 truncate font-medium">{label}</span>
                     {isActive && <ChevronRight size={14} className="shrink-0 opacity-80" />}
@@ -722,7 +767,7 @@ export default function EditProfile({ managedMode = false }: { managedMode?: boo
                     <input id="displayName" className={inputClass()} value={form.displayName || ''} onChange={(e) => update('displayName', e.target.value)} />
                   </FormField>
 
-                  <FormField label="Gender" required>
+                  <FormField label="Gender" required error={errors.gender}>
                     <div className="flex gap-2">
                       {(['male', 'female', 'other'] as const).map((g) => (
                         <button
@@ -1115,7 +1160,7 @@ export default function EditProfile({ managedMode = false }: { managedMode?: boo
               )}
 
               {step === 6 && (
-                <FormField label="About Me" htmlFor="bio" colSpan={2}>
+                <FormField label="About Me" htmlFor="bio" colSpan={2} error={errors.bio}>
                   <textarea
                     id="bio"
                     className={`${inputClass()} min-h-[200px] resize-y leading-relaxed`}
@@ -1226,11 +1271,18 @@ export default function EditProfile({ managedMode = false }: { managedMode?: boo
               )}
             </div>
 
-            {Object.values(errors).some(Boolean) && (
+            {sectionHasErrors(step, errors) && (
               <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
-                Please fix the required fields before saving.
+                Please fill all required fields in this section before continuing.
               </div>
             )}
+            {Object.values(errors).some(Boolean) &&
+              step === SECTIONS.length - 1 &&
+              !sectionHasErrors(step, errors) && (
+                <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+                  Please fix the required fields in earlier sections before saving.
+                </div>
+              )}
           </div>
 
           <div className="flex flex-wrap gap-3 justify-between rounded-2xl border border-[#F2DFE8] bg-white p-4 shadow-sm">
@@ -1253,7 +1305,7 @@ export default function EditProfile({ managedMode = false }: { managedMode?: boo
               <button
                 type="button"
                 className="rounded-xl border border-[#D8B6C6] bg-white px-5 py-2.5 text-sm font-medium text-[#7B4A62] transition hover:bg-[#FFF5F8] disabled:opacity-40"
-                onClick={() => setStep((s) => Math.max(0, s - 1))}
+                onClick={() => goToStep(step - 1)}
                 disabled={step === 0}
               >
                 Previous
@@ -1262,7 +1314,7 @@ export default function EditProfile({ managedMode = false }: { managedMode?: boo
                 <button
                   type="button"
                   className="inline-flex items-center gap-2 rounded-xl bg-[#B66A8A] px-5 py-2.5 text-sm font-medium text-white transition hover:bg-[#A75878]"
-                  onClick={() => setStep((s) => Math.min(SECTIONS.length - 1, s + 1))}
+                  onClick={handleNext}
                 >
                   Next <ChevronRight size={16} />
                 </button>
