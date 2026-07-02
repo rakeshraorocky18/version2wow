@@ -11,6 +11,7 @@ interface CallModalProps {
   peerId: string;
   callType: CallType;
   isIncoming?: boolean;
+  onCallLog?: (payload: { callType: CallType; status: 'missed' | 'ended' }) => void;
   onClose: () => void;
 }
 
@@ -19,6 +20,7 @@ export default function CallModal({
   peerId,
   callType,
   isIncoming = false,
+  onCallLog,
   onClose,
 }: CallModalProps) {
   const [status, setStatus] = useState(isIncoming ? 'ringing' : 'calling');
@@ -31,6 +33,16 @@ export default function CallModal({
   const remoteStreamRef = useRef<MediaStream | null>(null);
   const mountedRef = useRef(true);
   const setupSeqRef = useRef(0);
+  const callLoggedRef = useRef(false);
+
+  const logCall = useCallback(
+    (status: 'missed' | 'ended') => {
+      if (callLoggedRef.current) return;
+      callLoggedRef.current = true;
+      onCallLog?.({ callType, status });
+    },
+    [callType, onCallLog],
+  );
 
   const { emit } = useChatSocket({
     onCallAccepted: async () => {
@@ -39,6 +51,7 @@ export default function CallModal({
     },
     onCallRejected: () => {
       setStatus('rejected');
+      logCall('missed');
       setTimeout(onClose, 1500);
     },
     onCallEnded: () => cleanup(),
@@ -126,12 +139,14 @@ export default function CallModal({
   };
 
   const rejectCall = () => {
+    logCall('missed');
     forceStopMedia();
     emit('call:reject', { callId, callerId: peerId });
     onClose();
   };
 
   const endCall = () => {
+    logCall(status === 'connected' ? 'ended' : 'missed');
     forceStopMedia();
     emit('call:end', { callId, peerId });
     onClose();
@@ -172,6 +187,7 @@ export default function CallModal({
 
   useEffect(() => {
     mountedRef.current = true;
+    callLoggedRef.current = false;
     if (!isIncoming) {
       setupPeerConnection(true);
     }
@@ -180,6 +196,17 @@ export default function CallModal({
       forceStopMedia();
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (isIncoming || status !== 'calling') return;
+    const timeoutId = window.setTimeout(() => {
+      logCall('missed');
+      forceStopMedia();
+      emit('call:end', { callId, peerId });
+      onClose();
+    }, 30000);
+    return () => window.clearTimeout(timeoutId);
+  }, [isIncoming, status, logCall, emit, callId, peerId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
