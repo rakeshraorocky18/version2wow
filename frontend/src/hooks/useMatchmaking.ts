@@ -82,6 +82,17 @@ export function useAcceptedInterests() {
   });
 }
 
+export function useMyMatchProfile() {
+  return useQuery({
+    queryKey: ['my-match-profile'],
+    queryFn: async () => {
+      const { data } = await api.get('/users/profile');
+      return data;
+    },
+    retry: false,
+  });
+}
+
 export function useMatchActions() {
   const queryClient = useQueryClient();
 

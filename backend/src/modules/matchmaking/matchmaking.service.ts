@@ -146,16 +146,28 @@ export class MatchmakingService {
     return profile;
   }
 
+  /** Hide self and users with rejected/blocked interest only — pending/sent profiles stay in discovery. */
   private async excludeUserIds(userId: string): Promise<string[]> {
+    const excluded = new Set<string>();
+    const selfUserId = await this.resolveUserId(userId);
+    excluded.add(selfUserId);
+    if (userId !== selfUserId) excluded.add(userId);
+
     const matches = await this.matchRepository.find({
-      where: [{ senderId: userId }, { receiverId: userId }],
+      where: [{ senderId: selfUserId }, { receiverId: selfUserId }],
     });
-    const ids = new Set<string>([userId]);
-    matches.forEach((m) => {
-      ids.add(m.senderId);
-      ids.add(m.receiverId);
-    });
-    return Array.from(ids);
+
+    for (const match of matches) {
+      if (match.status !== MatchStatus.REJECTED && match.status !== MatchStatus.BLOCKED) {
+        continue;
+      }
+      const senderId = await this.resolveUserId(match.senderId);
+      const receiverId = await this.resolveUserId(match.receiverId);
+      excluded.add(senderId);
+      excluded.add(receiverId);
+    }
+
+    return Array.from(excluded);
   }
 
   private scoreProfiles(

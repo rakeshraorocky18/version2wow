@@ -1,15 +1,17 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { ArrowLeft, Sparkles, UserCircle, Users, HeartHandshake } from 'lucide-react';
 import api from '../lib/api';
+import { useAuthStore } from '../store/authStore';
 import ProfileDetailsView, { type ProfileTab } from '../components/profile/ProfileDetailsView';
 import MatchMemberCard from '../components/matchmaking/MatchMemberCard';
 import {
   useProfileCompatibility,
   useAcceptedInterests,
   useMatchActions,
+  useMyMatchProfile,
   useSentInterests,
 } from '../hooks/useMatchmaking';
 
@@ -22,13 +24,18 @@ const TABS: { id: ProfileTab; label: string; icon: typeof Sparkles }[] = [
 
 export default function MatchProfile() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<ProfileTab>('about');
   const [interestSent, setInterestSent] = useState(false);
+  const [connectError, setConnectError] = useState<string | null>(null);
   const { sendInterest } = useMatchActions();
   const { data: sentInterests = [] } = useSentInterests();
+  const { data: myProfile } = useMyMatchProfile();
+  const currentUser = useAuthStore((s) => s.user);
 
   useEffect(() => {
     window.scrollTo(0, 0);
+    setConnectError(null);
   }, [id]);
 
   const { data: profile, isLoading, isError, refetch } = useQuery({
@@ -58,16 +65,45 @@ export default function MatchProfile() {
     (m: { partnerUserId?: string }) => m.partnerUserId === profile?.userId,
   );
 
+  const isOwnProfile = Boolean(
+    currentUser?.id && profile?.userId && currentUser.id === profile.userId,
+  );
+  const needsOwnProfile = !myProfile?.id;
+
   const handleInterest = async () => {
-    if (!profile?.id) return;
+    setConnectError(null);
+    if (!profile) return;
+    if (isOwnProfile) {
+      const msg = 'You cannot send interest to your own profile';
+      setConnectError(msg);
+      toast.error(msg);
+      return;
+    }
+    if (needsOwnProfile) {
+      const msg = 'Complete your profile before sending interest';
+      setConnectError(msg);
+      toast.error(msg);
+      navigate('/app/profile/edit');
+      return;
+    }
+    const receiverId = profile.userId || profile.id;
+    if (!receiverId) {
+      const msg = 'Unable to send interest for this profile';
+      setConnectError(msg);
+      toast.error(msg);
+      return;
+    }
     try {
-      await sendInterest.mutateAsync(profile.id);
+      await sendInterest.mutateAsync(receiverId);
       setInterestSent(true);
       toast.success('Interest sent successfully');
       refetch();
     } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } } };
-      toast.error(err?.response?.data?.message || 'Could not send interest');
+      const err = error as { response?: { data?: { message?: string | string[] } } };
+      const message = err?.response?.data?.message;
+      const msg = Array.isArray(message) ? message.join(', ') : message || 'Could not send interest';
+      setConnectError(msg);
+      toast.error(msg);
     }
   };
 
@@ -125,9 +161,27 @@ export default function MatchProfile() {
         <MatchMemberCard
           profile={cardProfile}
           interestSent={interestSent || isAcceptedMatch}
-          onInterest={handleInterest}
+          onInterest={isOwnProfile ? undefined : handleInterest}
+          interestLoading={sendInterest.isPending}
+          connectLabel={isOwnProfile ? 'Your Profile' : needsOwnProfile ? 'Complete Profile' : undefined}
+          connectError={connectError}
           expandableBio
         />
+
+        {needsOwnProfile && !isOwnProfile && (
+          <div className="dp-panel py-3 text-center text-sm">
+            <p className="text-[#6a737c]">You need a profile before you can send interest.</p>
+            <Link to="/app/profile/edit" className="mt-2 inline-block font-semibold text-[#f4196d] hover:underline">
+              Complete your profile →
+            </Link>
+          </div>
+        )}
+
+        {isOwnProfile && (
+          <div className="dp-panel py-3 text-center text-sm text-[#6a737c]">
+            This is your profile. Other members can send you interest from Find Your Match.
+          </div>
+        )}
 
         {isAcceptedMatch && (
           <div className="dp-panel py-3 text-center text-sm">

@@ -27,10 +27,13 @@ type ProfileLike = {
 type Props = {
   profile: ProfileLike;
   interestSent?: boolean;
-  onInterest?: () => void;
+  onInterest?: () => void | Promise<void>;
   onClick?: () => void;
   expandableBio?: boolean;
   animationDelay?: number;
+  interestLoading?: boolean;
+  connectLabel?: string;
+  connectError?: string | null;
 };
 
 function formatDisplayName(profile: ProfileLike) {
@@ -52,6 +55,9 @@ export default function MatchMemberCard({
   onClick,
   expandableBio = false,
   animationDelay = 0,
+  interestLoading = false,
+  connectLabel,
+  connectError,
 }: Props) {
   const [bioExpanded, setBioExpanded] = useState(false);
   const photoUrl = getPhotoUrl(profile.photos?.[0] || profile.wizardProfile?.profilePhoto || '');
@@ -151,13 +157,23 @@ export default function MatchMemberCard({
         <h5>Interested in {firstName}?</h5>
         <button
           type="button"
-          onClick={onInterest}
-          disabled={interestSent || !onInterest}
+          onClick={(e) => {
+            e.stopPropagation();
+            void onInterest?.();
+          }}
+          disabled={interestSent || !onInterest || interestLoading}
           className="dp-connect-btn"
         >
           <UserPlus size={16} />
-          {interestSent ? 'Connected' : 'Connect Now'}
+          {interestLoading
+            ? 'Sending...'
+            : interestSent
+              ? 'Connected'
+              : connectLabel || (!onInterest ? 'Unavailable' : 'Connect Now')}
         </button>
+        {connectError && (
+          <p className="mt-3 text-center text-xs font-medium text-red-600">{connectError}</p>
+        )}
       </div>
     </article>
   );

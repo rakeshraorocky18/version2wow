@@ -18,8 +18,6 @@ function buildPageItems(current: number, total: number): (number | 'ellipsis')[]
   return items;
 }
 
-const FLYING_HEARTS = Array.from({ length: 14 }, (_, i) => i);
-
 export default function AppFooter() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { totalPages } = useFooterPagination();
@@ -40,20 +38,7 @@ export default function AppFooter() {
   const pageItems = buildPageItems(currentPage, totalPages);
 
   return (
-    <footer className="dp-footer">
-      <div className="dp-footer__cycle-wrap" aria-hidden>
-        <ul className="dp-footer__hearts">
-          {FLYING_HEARTS.map((i) => (
-            <li
-              key={i}
-              className={`dp-footer__heart ${i >= 10 ? 'dp-footer__heart--alt' : ''} ${i % 2 === 0 ? 'is-even' : 'is-odd'}`}
-              style={{ animationDelay: `${0.2 + i * 0.3}s` }}
-            />
-          ))}
-        </ul>
-        <img src="/images/footer-cycle.png" alt="" className="dp-footer__cycle" />
-      </div>
-
+    <footer className="dp-footer mt-auto">
       <div className="dp-footer__content">
         {totalPages > 1 && (
           <nav className="dp-pagination" aria-label="Pagination">

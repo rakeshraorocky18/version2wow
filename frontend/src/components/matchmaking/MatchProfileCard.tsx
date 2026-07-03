@@ -5,9 +5,10 @@ import MatchMemberCard from './MatchMemberCard';
 type Props = {
   profile: MatchProfile;
   interestSent?: boolean;
-  onInterest: () => void;
+  onInterest: () => void | Promise<void>;
   showScore?: boolean;
   animationDelay?: number;
+  interestLoading?: boolean;
 };
 
 export default function MatchProfileCard({
@@ -15,6 +16,7 @@ export default function MatchProfileCard({
   interestSent = false,
   onInterest,
   animationDelay = 0,
+  interestLoading = false,
 }: Props) {
   const navigate = useNavigate();
 
@@ -25,6 +27,7 @@ export default function MatchProfileCard({
       onInterest={onInterest}
       onClick={() => navigate(`/app/matches/${profile.id}`)}
       animationDelay={animationDelay}
+      interestLoading={interestLoading}
     />
   );
 }

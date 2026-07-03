@@ -682,6 +682,7 @@ export default function EditProfile({ managedMode = false }: { managedMode?: boo
       initialRef.current = { ...form, ...(data || {}) };
       queryClient.setQueryData(['myProfile'], data);
       queryClient.invalidateQueries({ queryKey: ['myProfile'] });
+      queryClient.invalidateQueries({ queryKey: ['my-match-profile'] });
       queryClient.invalidateQueries({ queryKey: ['my-profile-for-match-filter'] });
       queryClient.invalidateQueries({ queryKey: ['matches-suggestions'] });
       queryClient.invalidateQueries({ queryKey: ['matches-search'] });

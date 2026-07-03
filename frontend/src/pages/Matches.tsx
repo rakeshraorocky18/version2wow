@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { Heart, Search, SlidersHorizontal, Sparkles, Star, Users } from 'lucide-react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { useFooterPagination } from '../context/FooterPaginationContext';
 import {
   useMatchActions,
+  useMyMatchProfile,
   useMatchSearch,
   useMatchSuggestions,
   useReceivedInterests,
@@ -18,7 +19,6 @@ import MatchFiltersPanel from '../components/matchmaking/MatchFiltersPanel';
 import InterestRequestCard from '../components/matchmaking/InterestRequestCard';
 import { EMPTY_FILTERS, type InterestSubTab, type MatchFilters, type MatchInterest, type MatchTab } from '../types/matchmaking';
 import { useAuthStore } from '../store/authStore';
-import api from '../lib/api';
 import { formatMatchGenderLabel, resolveOppositeGenderLabel } from '../lib/matchGender';
 
 const TABS: { id: MatchTab; label: string; icon: typeof Heart }[] = [
@@ -47,6 +47,7 @@ function collectSentIds(matches: MatchInterest[] | undefined) {
 }
 
 export default function Matches() {
+  const navigate = useNavigate();
   const [tab, setTab] = useState<MatchTab>('search');
   const [interestSubTab, setInterestSubTab] = useState<InterestSubTab>('received');
   const [filters, setFilters] = useState<MatchFilters>(EMPTY_FILTERS);
@@ -58,14 +59,7 @@ export default function Matches() {
   const user = useAuthStore((s) => s.user);
   const { setTotalPages } = useFooterPagination();
 
-  const { data: myProfile } = useQuery({
-    queryKey: ['my-profile-for-match-filter'],
-    queryFn: async () => {
-      const { data } = await api.get('/users/profile');
-      return data;
-    },
-    retry: false,
-  });
+  const { data: myProfile } = useMyMatchProfile();
 
   const matchGenderLabel = formatMatchGenderLabel(
     resolveOppositeGenderLabel(myProfile?.gender, user?.role),
@@ -213,8 +207,22 @@ export default function Matches() {
   const pendingReceivedCount = received.data?.length ?? 0;
 
   const handleInterest = async (profile: { id: string; userId: string }) => {
+    const receiverId = profile.userId || profile.id;
+    if (!receiverId) {
+      toast.error('Unable to send interest for this profile');
+      return;
+    }
+    if (!myProfile?.id) {
+      toast.error('Complete your profile before sending interest');
+      navigate('/app/profile/edit');
+      return;
+    }
+    if (profile.userId === user?.id) {
+      toast.error('You cannot send interest to your own profile');
+      return;
+    }
     try {
-      await sendInterest.mutateAsync(profile.id);
+      await sendInterest.mutateAsync(receiverId);
       setSentInterestIds((prev) =>
         [...prev, profile.id, profile.userId].filter((id, i, arr) => arr.indexOf(id) === i),
       );
@@ -419,6 +427,7 @@ export default function Matches() {
                       interestSent={sentInterestIds.includes(profile.userId) || sentInterestIds.includes(profile.id)}
                       onInterest={() => handleInterest(profile)}
                       animationDelay={idx * 100}
+                      interestLoading={sendInterest.isPending}
                     />
                   ))}
                 </div>

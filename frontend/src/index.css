@@ -930,6 +930,7 @@
   height: 100%;
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
   transition: 0.5s;
+  pointer-events: none;
 }
 
 .dp-connect-btn:hover:not(:disabled) {
@@ -991,7 +992,7 @@
 .dp-footer {
   position: relative;
   text-align: center;
-  padding: 32px 16px 100px;
+  padding: 24px 16px;
   background: linear-gradient(90deg, #eef4f8 0%, #f8f4f7 50%, #fcecf3 100%);
   border-radius: 20px;
   border: 1px solid #eedde6;
@@ -1002,109 +1003,6 @@
 .dp-footer__content {
   position: relative;
   z-index: 10;
-}
-
-.dp-footer__cycle-wrap {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 140px;
-  overflow: hidden;
-  pointer-events: none;
-  z-index: 2;
-}
-
-.dp-footer__cycle {
-  position: absolute;
-  left: -10%;
-  bottom: 22px;
-  height: 110px;
-  width: auto;
-  object-fit: contain;
-  animation: dp-footer-cycle 18s linear infinite;
-}
-
-@keyframes dp-footer-cycle {
-  0% { left: -10%; }
-  100% { left: 100%; }
-}
-
-.dp-footer__hearts {
-  position: absolute;
-  bottom: 138px;
-  right: 44px;
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  transform: translateX(-50%);
-}
-
-.dp-footer__heart {
-  position: absolute;
-  width: 20px;
-  height: 20px;
-  background: var(--dp-brand);
-  transform: rotate(-45deg);
-  border-radius: 2px;
-  opacity: 0;
-}
-
-.dp-footer__heart::before,
-.dp-footer__heart::after {
-  content: '';
-  position: absolute;
-  width: 20px;
-  height: 20px;
-  background: var(--dp-brand);
-  border-radius: 50%;
-}
-
-.dp-footer__heart::before {
-  top: -10px;
-  left: 0;
-}
-
-.dp-footer__heart::after {
-  left: 10px;
-  top: 0;
-}
-
-.dp-footer__heart--alt {
-  width: 15px;
-  height: 15px;
-}
-
-.dp-footer__heart--alt::before,
-.dp-footer__heart--alt::after {
-  width: 15px;
-  height: 15px;
-}
-
-.dp-footer__heart--alt::before {
-  top: -7px;
-}
-
-.dp-footer__heart--alt::after {
-  left: 7px;
-}
-
-.dp-footer__heart.is-even {
-  animation: dp-flying-even 2.8s linear infinite;
-}
-
-.dp-footer__heart.is-odd {
-  animation: dp-flying-odd 2.8s linear infinite;
-}
-
-@keyframes dp-flying-even {
-  0% { transform: rotate(-45deg) translate(0, 0) scale(1); opacity: 1; filter: blur(0); }
-  100% { transform: rotate(-45deg) translate(130px, -320px) scale(2.5); opacity: 0; filter: blur(10px); }
-}
-
-@keyframes dp-flying-odd {
-  0% { transform: rotate(-45deg) translate(0, 0) scale(1); opacity: 1; filter: blur(0); }
-  100% { transform: rotate(-45deg) translate(-130px, -320px) scale(2.5); opacity: 0; filter: blur(10px); }
 }
 
 .dp-pagination {
@@ -1214,8 +1112,294 @@
   }
 }
 
-@media (min-width: 1024px) {
-  .dp-footer__cycle {
-    height: 130px;
-  }
+/* ============================================================
+   WOW DASHBOARD — Luxury Matchmaking & Wedding Redesign Tokens
+   ============================================================ */
+
+:root {
+  --wow-bg: #FFF9FA; /* Elegant blush-tinted off-white */
+  --wow-card: #FFFFFF;
+  --wow-primary: #D37A8C; /* Softer, richer rose pink */
+  --wow-primary-light: #FBEAEE;
+  --wow-primary-dark: #A64B5E;
+  --wow-gold: #ECC880; /* Champagne gold */
+  --wow-gold-dark: #C89F53;
+  --wow-secondary: #F6D6DF;
+  --wow-success: #88C59A;
+  --wow-warning: #F5C77A;
+  --wow-text: #3D2635; /* Elegant aubergine text */
+  --wow-text-muted: #8E7385;
+  --wow-border: #FBE6EC; /* Soft rose gold borders */
+  --wow-shadow: 0 12px 35px rgba(211, 122, 140, 0.08); /* Rose-tinted warm shadow */
+  --wow-shadow-lg: 0 20px 50px rgba(211, 122, 140, 0.16);
+  --wow-radius: 24px;
+  --wow-radius-lg: 32px;
+}
+
+/* Base Body Update for Romantic Vibe */
+body {
+  background-color: var(--wow-bg);
+  background-image: radial-gradient(circle at 10% 20%, rgba(251, 234, 238, 0.5) 0%, transparent 40%),
+                    radial-gradient(circle at 90% 80%, rgba(243, 234, 255, 0.5) 0%, transparent 40%);
+  color: var(--wow-text);
+}
+
+/* Luxury Card */
+.wow-card {
+  background: var(--wow-card);
+  border: 1px solid var(--wow-border);
+  border-radius: var(--wow-radius);
+  box-shadow: var(--wow-shadow);
+  transition: all 400ms cubic-bezier(0.25, 1, 0.5, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.wow-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #D37A8C, #ECC880, #B984E5);
+  opacity: 0;
+  transition: opacity 300ms ease;
+}
+
+.wow-card:hover {
+  transform: translateY(-5px);
+  box-shadow: var(--wow-shadow-lg);
+  border-color: #F6D6DF;
+}
+
+.wow-card:hover::before {
+  opacity: 1;
+}
+
+/* Wedding Lace/Filigree corner overlay */
+.wow-card-lace {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 60px;
+  height: 60px;
+  background-image: radial-gradient(circle at 100% 0%, transparent 40px, #FBEAEE 41px, transparent 43px);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* Circular progress ring */
+.wow-progress-ring-svg {
+  transform: rotate(-90deg);
+  filter: drop-shadow(0 4px 10px rgba(211, 122, 140, 0.15));
+}
+
+/* Gold Metallic Text */
+.wow-text-gold {
+  background: linear-gradient(135deg, #ECC880 0%, #D5A760 50%, #C89F53 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Rose Gold Metallic Text */
+.wow-text-rosegold {
+  background: linear-gradient(135deg, #D37A8C 0%, #E7A4B3 50%, #A64B5E 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-family: 'Playfair Display', serif;
+}
+
+/* Floating Hearts Animation */
+@keyframes wow-heart-float {
+  0% { transform: translateY(0) scale(1) rotate(0deg); opacity: 0; }
+  10% { opacity: 0.6; }
+  90% { opacity: 0.4; }
+  100% { transform: translateY(-100px) scale(1.2) rotate(15deg); opacity: 0; }
+}
+
+.wow-floating-heart {
+  position: absolute;
+  pointer-events: none;
+  animation: wow-heart-float 6s infinite linear;
+  color: #D37A8C;
+  opacity: 0;
+}
+
+/* Glassmorphism Navigation */
+header.sticky {
+  background: rgba(255, 255, 255, 0.75) !important;
+  backdrop-filter: blur(24px) saturate(120%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(120%) !important;
+  border: 1px solid rgba(251, 230, 236, 0.6) !important;
+  box-shadow: 0 15px 40px rgba(211, 122, 140, 0.08) !important;
+}
+
+/* Active Nav Link Styling - Soft Romantic Accent */
+.wow-nav-active {
+  background: linear-gradient(90deg, #FBEAEE 0%, #F5EEFF 100%) !important;
+  color: #A64B5E !important;
+  box-shadow: 0 4px 15px rgba(211, 122, 140, 0.1) !important;
+}
+
+/* Stats Count up Shimmer */
+.wow-stat-number {
+  background: linear-gradient(90deg, #D37A8C 0%, #ECC880 40%, #B984E5 80%, #D37A8C 120%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: wow-shimmer 4s linear infinite;
+}
+
+@keyframes wow-shimmer {
+  0% { background-position: 0% center; }
+  100% { background-position: 200% center; }
+}
+
+/* Timeline updates */
+.wow-timeline::before {
+  background: linear-gradient(to bottom, #D37A8C, #ECC880, transparent);
+}
+
+/* Vendor Carousel Snap */
+.wow-vendor-carousel {
+  display: flex;
+  gap: 20px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  padding: 10px 4px 16px;
+  scrollbar-width: none;
+}
+
+.wow-vendor-carousel::-webkit-scrollbar {
+  display: none;
+}
+
+.wow-vendor-carousel__item {
+  scroll-snap-align: center;
+  flex-shrink: 0;
+  width: 250px;
+  border-radius: var(--wow-radius);
+  border: 1px solid var(--wow-border);
+  box-shadow: var(--wow-shadow);
+  background: #FFF;
+  transition: all 300ms ease;
+}
+
+.wow-vendor-carousel__item:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: var(--wow-shadow-lg);
+  border-color: #F6D6DF;
+}
+
+/* Custom interactive buttons with hearts/rose-gold glows */
+.wow-btn-romantic {
+  background: linear-gradient(135deg, #D37A8C 0%, #C76175 100%);
+  color: #FFF;
+  box-shadow: 0 8px 25px rgba(211, 122, 140, 0.3);
+  transition: all 300ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.wow-btn-romantic:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px rgba(211, 122, 140, 0.45);
+  background: linear-gradient(135deg, #DE8CA0 0%, #D37A8C 100%);
+}
+
+.wow-btn-gold-outline {
+  border: 1px solid #ECC880;
+  color: #C89F53;
+  background: transparent;
+  transition: all 300ms ease;
+}
+
+.wow-btn-gold-outline:hover {
+  background: #FFFDF9;
+  border-color: #D5A760;
+  color: #B28330;
+  transform: translateY(-2px);
+}
+
+/* Animations & Keyframes */
+@keyframes wow-slide-up {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes wow-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes wow-scale-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes wow-float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-8px); }
+}
+
+@keyframes wow-ring-fill {
+  from { stroke-dashoffset: 283; }
+}
+
+.wow-animate-slide-up { animation: wow-slide-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.wow-animate-fade-in  { animation: wow-fade-in 0.5s ease-out both; }
+.wow-animate-scale-in { animation: wow-scale-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+.wow-animate-delay-1 { animation-delay: 0.05s; }
+.wow-animate-delay-2 { animation-delay: 0.10s; }
+.wow-animate-delay-3 { animation-delay: 0.15s; }
+.wow-animate-delay-4 { animation-delay: 0.20s; }
+.wow-animate-delay-5 { animation-delay: 0.25s; }
+.wow-animate-delay-6 { animation-delay: 0.30s; }
+
+/* Nav notification badge */
+.wow-nav-badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #EA4D8B;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid white;
+  box-shadow: 0 2px 5px rgba(234, 77, 139, 0.4);
+}
+
+/* AI assistant chat bubble */
+.wow-chat-bubble {
+  background: linear-gradient(135deg, #FFF0F4, #F4EAFF);
+  border-radius: 18px 18px 18px 4px;
+  padding: 12px 16px;
+  font-size: 13px;
+  color: #5C3550;
+  line-height: 1.6;
+  border: 1px solid rgba(211, 122, 140, 0.12);
+  box-shadow: 0 4px 12px rgba(211, 122, 140, 0.04);
+}
+
+/* Romantic list marker */
+.wow-romantic-bullet {
+  position: relative;
+  padding-left: 20px;
+}
+.wow-romantic-bullet::before {
+  content: '🌸';
+  position: absolute;
+  left: 0;
+  top: 1px;
+  font-size: 11px;
 }
