@@ -7,7 +7,7 @@
 @layer base {
   body {
     @apply bg-gray-50 text-gray-900 antialiased;
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Inter', sans-serif;
   }
 
   h1,
@@ -1117,19 +1117,20 @@
    ============================================================ */
 
 :root {
-  --wow-bg: #FFF9FA; /* Elegant blush-tinted off-white */
+  --wow-bg: #FAF8FB;
   --wow-card: #FFFFFF;
-  --wow-primary: #D37A8C; /* Softer, richer rose pink */
-  --wow-primary-light: #FBEAEE;
-  --wow-primary-dark: #A64B5E;
-  --wow-gold: #ECC880; /* Champagne gold */
+  --wow-primary: #B76E79;
+  --wow-primary-light: #FFF0F4;
+  --wow-primary-dark: #9E5562;
+  --wow-gold: #ECC880;
   --wow-gold-dark: #C89F53;
-  --wow-secondary: #F6D6DF;
-  --wow-success: #88C59A;
-  --wow-warning: #F5C77A;
-  --wow-text: #3D2635; /* Elegant aubergine text */
-  --wow-text-muted: #8E7385;
-  --wow-border: #FBE6EC; /* Soft rose gold borders */
+  --wow-secondary: #E7C6D0;
+  --wow-success: #8BC48A;
+  --wow-warning: #F4C95D;
+  --wow-text: #2C2630;
+  --wow-text-muted: #6B6670;
+  --wow-border: rgba(183, 110, 121, 0.12);
+  --wow-gradient: linear-gradient(135deg, #B76E79 0%, #D69BA6 100%);
   --wow-shadow: 0 12px 35px rgba(211, 122, 140, 0.08); /* Rose-tinted warm shadow */
   --wow-shadow-lg: 0 20px 50px rgba(211, 122, 140, 0.16);
   --wow-radius: 24px;
@@ -1368,7 +1369,7 @@ header.sticky {
   height: 16px;
   padding: 0 4px;
   border-radius: 999px;
-  background: #EA4D8B;
+  background: #B76E79;
   color: #fff;
   font-size: 9px;
   font-weight: 700;
@@ -1381,7 +1382,7 @@ header.sticky {
 
 /* AI assistant chat bubble */
 .wow-chat-bubble {
-  background: linear-gradient(135deg, #FFF0F4, #F4EAFF);
+  background: linear-gradient(135deg, #FFF0F4, #FFF5F8);
   border-radius: 18px 18px 18px 4px;
   padding: 12px 16px;
   font-size: 13px;
@@ -1402,4 +1403,850 @@ header.sticky {
   left: 0;
   top: 1px;
   font-size: 11px;
+}
+
+/* ============================================================
+   DATEPRESS DASHBOARD — Dating community dashboard skin
+   ============================================================ */
+
+.datepress-dashboard {
+  --dp-brand: #f4196d;
+  --dp-brand-rgb: 244, 25, 109;
+  --dp-black-900: #0c0d0e;
+  --dp-black-800: #242729;
+  --dp-black-750: #2f3337;
+  --dp-black-700: #3c4146;
+  --dp-black-600: #535a60;
+  --dp-black-500: #6a737c;
+  --dp-black-400: #848d95;
+  --dp-black-300: #9fa6ad;
+  --dp-online: #10b981;
+  position: relative;
+  background: #ffffff;
+  min-height: 100%;
+  font-family: 'Inter', sans-serif;
+}
+
+.datepress-dashboard [data-dash-card] {
+  background: #fff;
+  border-radius: 20px;
+  padding: 0;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.02);
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.datepress-dashboard [data-dash-card]:not([data-no-hover]):hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.08);
+}
+
+/* Compact hero */
+.dp-dash-hero {
+  position: relative;
+  padding: 32px 16px 28px;
+  text-align: left;
+  overflow: hidden;
+}
+
+.dp-dash-hero__bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: linear-gradient(180deg, #ffeef1 0%, #fff8fb 55%, #ffffff 100%);
+}
+
+.dp-dash-hero__bg img {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  width: 100%;
+  height: 160px;
+  object-fit: cover;
+  object-position: center top;
+  opacity: 0.35;
+}
+
+.dp-dash-hero__inner {
+  position: relative;
+  z-index: 1;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 8px;
+}
+
+.dp-dash-hero__profile {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.dp-dash-hero__avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid #fff;
+  box-shadow: 0 8px 24px rgba(var(--dp-brand-rgb), 0.2);
+  flex-shrink: 0;
+}
+
+.dp-dash-hero__avatar--placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #ffeef1, #fff1f4);
+  font-size: 1.75rem;
+}
+
+.dp-dash-hero__title {
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-weight: 800;
+  color: var(--dp-black-800);
+  line-height: 1.2;
+  margin: 0;
+}
+
+.dp-dash-hero__title span {
+  color: var(--dp-brand);
+}
+
+.dp-dash-hero__subtitle {
+  font-size: 14px;
+  color: var(--dp-black-600);
+  margin-top: 4px;
+  line-height: 1.5;
+}
+
+.dp-dash-hero__stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+@media (min-width: 640px) {
+  .dp-dash-hero__stats {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.dp-dash-hero__stat {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  border-radius: 14px;
+  padding: 12px 14px;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.03);
+}
+
+.dp-dash-hero__stat-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--dp-black-500);
+}
+
+.dp-dash-hero__stat-value {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--dp-black-800);
+  margin-top: 2px;
+}
+
+.dp-dash-hero__stat-value.is-brand {
+  color: var(--dp-brand);
+}
+
+.dp-dash-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.dp-dash-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 50px;
+  font-size: 13px;
+  font-weight: 700;
+  transition: all 0.3s ease;
+  text-decoration: none;
+}
+
+.dp-dash-btn--primary {
+  background: linear-gradient(135deg, var(--dp-brand) 0%, #ff90b5 100%);
+  color: #fff;
+  box-shadow: 0 8px 20px rgba(var(--dp-brand-rgb), 0.25);
+}
+
+.dp-dash-btn--primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 25px rgba(var(--dp-brand-rgb), 0.35);
+}
+
+.dp-dash-btn--outline {
+  background: #fff;
+  color: var(--dp-brand);
+  border: 1px solid rgba(var(--dp-brand-rgb), 0.2);
+}
+
+.dp-dash-btn--outline:hover {
+  background: #ffeef1;
+}
+
+/* Main content area */
+.dp-dash-area {
+  position: relative;
+  padding: 24px 0 60px;
+}
+
+.dp-dash-area__inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+.dp-dash-section-title {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--dp-black-800);
+  margin-bottom: 4px;
+  letter-spacing: -0.02em;
+}
+
+.dp-dash-section-subtitle {
+  font-size: 13px;
+  color: var(--dp-black-500);
+  margin-bottom: 16px;
+}
+
+.dp-dash-section-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.dp-dash-link {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--dp-brand);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.dp-dash-link:hover {
+  text-decoration: underline;
+}
+
+/* Stat cards */
+.dp-dash-stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 18px;
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.03);
+  text-decoration: none;
+  color: inherit;
+  transition: all 0.3s ease;
+}
+
+.dp-dash-stat-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(var(--dp-brand-rgb), 0.15);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.08);
+}
+
+.dp-dash-stat-card__icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #ffeef1, #fff1f4);
+  color: var(--dp-brand);
+}
+
+.dp-dash-stat-card__value {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--dp-black-800);
+  line-height: 1;
+}
+
+.dp-dash-stat-card:hover .dp-dash-stat-card__value {
+  color: var(--dp-brand);
+}
+
+.dp-dash-stat-card__label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--dp-black-800);
+}
+
+.dp-dash-stat-card__sub {
+  font-size: 11px;
+  color: var(--dp-black-500);
+}
+
+/* Quick actions */
+.dp-dash-quick-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+@media (min-width: 640px) {
+  .dp-dash-quick-grid {
+    grid-template-columns: repeat(8, 1fr);
+  }
+}
+
+.dp-dash-quick-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 8px;
+  border-radius: 16px;
+  background: #f7f8fa;
+  border: 1px solid transparent;
+  text-decoration: none;
+  transition: all 0.3s ease;
+}
+
+.dp-dash-quick-item:hover {
+  background: #fff;
+  border-color: rgba(var(--dp-brand-rgb), 0.15);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
+  transform: translateY(-3px);
+}
+
+.dp-dash-quick-item__icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--dp-brand) 0%, #ff90b5 100%);
+  color: #fff;
+  box-shadow: 0 6px 16px rgba(var(--dp-brand-rgb), 0.2);
+}
+
+.dp-dash-quick-item__label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--dp-black-700);
+  text-align: center;
+  line-height: 1.2;
+}
+
+.dp-dash-quick-item:hover .dp-dash-quick-item__label {
+  color: var(--dp-brand);
+}
+
+/* Timeline */
+.dp-dash-timeline {
+  position: relative;
+  padding-left: 24px;
+}
+
+.dp-dash-timeline::before {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  background: linear-gradient(to bottom, var(--dp-brand), #ff90b5, transparent);
+  border-radius: 2px;
+}
+
+.dp-dash-timeline__item {
+  position: relative;
+  padding-bottom: 16px;
+}
+
+.dp-dash-timeline__item:last-child {
+  padding-bottom: 0;
+}
+
+.dp-dash-timeline__dot {
+  position: absolute;
+  left: -24px;
+  top: 6px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--dp-brand);
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 2px rgba(var(--dp-brand-rgb), 0.2);
+}
+
+.dp-dash-timeline__card {
+  background: #f7f8fa;
+  border-radius: 14px;
+  padding: 12px 16px;
+  border: 1px solid rgba(0, 0, 0, 0.03);
+  transition: all 0.25s ease;
+}
+
+.dp-dash-timeline__card:hover {
+  background: #fff;
+  border-color: rgba(var(--dp-brand-rgb), 0.12);
+}
+
+.dp-dash-timeline__time {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--dp-brand);
+}
+
+.dp-dash-timeline__title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--dp-black-800);
+  margin-top: 4px;
+}
+
+.dp-dash-timeline__day {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--dp-black-500);
+  margin-bottom: 4px;
+}
+
+/* Activity feed */
+.dp-dash-activity__item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+}
+
+.dp-dash-activity__item:last-child {
+  border-bottom: none;
+}
+
+.dp-dash-activity__icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: #ffeef1;
+  color: var(--dp-brand);
+}
+
+.dp-dash-activity__text {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--dp-black-800);
+}
+
+.dp-dash-activity__time {
+  font-size: 11px;
+  color: var(--dp-black-500);
+  margin-top: 2px;
+}
+
+/* Vendor carousel */
+.dp-dash-vendor-scroll {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  padding: 4px 2px 12px;
+  scrollbar-width: none;
+}
+
+.dp-dash-vendor-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.dp-dash-vendor-card {
+  flex-shrink: 0;
+  width: 240px;
+  scroll-snap-align: start;
+  background: #fff;
+  border-radius: 18px;
+  overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
+  transition: all 0.3s ease;
+}
+
+.dp-dash-vendor-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
+}
+
+.dp-dash-vendor-card__img {
+  height: 140px;
+  width: 100%;
+  object-fit: cover;
+}
+
+.dp-dash-vendor-card__body {
+  padding: 14px;
+}
+
+/* AI assistant */
+.dp-dash-ai {
+  background: linear-gradient(135deg, #ffeef1 0%, #fff8fb 50%, #ffffff 100%);
+  border-radius: 20px;
+  border: 1px solid rgba(var(--dp-brand-rgb), 0.1);
+}
+
+.dp-dash-ai__bubble {
+  background: #fff;
+  border-radius: 16px 16px 16px 4px;
+  padding: 14px 16px;
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+  margin-bottom: 16px;
+}
+
+/* Progress ring brand */
+.datepress-dashboard .wow-progress-ring-svg circle:last-child {
+  stroke: url(#dpDashProgressGrad);
+}
+
+/* Member cards in dashboard — tighter spacing */
+.datepress-dashboard .dp-member-card {
+  margin-bottom: 16px;
+}
+
+.datepress-dashboard .dp-member-card:last-child {
+  margin-bottom: 0;
+}
+
+/* Panel padding helper */
+.dp-dash-panel-body {
+  padding: 20px 24px;
+}
+
+@media (max-width: 640px) {
+  .dp-dash-panel-body {
+    padding: 16px;
+  }
+
+  .dp-dash-hero {
+    padding: 24px 12px 20px;
+  }
+}
+
+/* ============================================================
+   SHAADI.COM INSPIRED — Matrimonial dashboard patterns
+   ============================================================ */
+
+.shaadi-my-label {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #e52727;
+  margin-bottom: 12px;
+}
+
+.shaadi-section-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #e52727;
+  margin-bottom: 4px;
+}
+
+.shaadi-avatar-ring {
+  position: relative;
+  width: 76px;
+  height: 76px;
+  flex-shrink: 0;
+}
+
+.shaadi-avatar-ring__inner {
+  position: absolute;
+  inset: 6px;
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+.shaadi-avatar-ring__inner .dp-dash-hero__avatar {
+  width: 100%;
+  height: 100%;
+}
+
+.shaadi-avatar-ring__badge {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  min-width: 32px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: #e52727;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 800;
+  text-align: center;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 8px rgba(229, 39, 39, 0.35);
+}
+
+.shaadi-verified-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #0284c7;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.shaadi-edit-link {
+  font-size: 12px;
+  font-weight: 700;
+  color: #e52727;
+  text-decoration: none;
+}
+
+.shaadi-edit-link:hover {
+  text-decoration: underline;
+}
+
+/* Profile completion banner — Shaadi "complete profile" strip */
+.shaadi-completion-banner {
+  background: linear-gradient(135deg, #fff5f5 0%, #ffffff 60%, #fff8fb 100%);
+  border: 1px solid rgba(229, 39, 39, 0.12);
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(229, 39, 39, 0.06);
+  overflow: hidden;
+}
+
+.shaadi-completion-banner__inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+}
+
+.shaadi-completion-banner__ring {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+}
+
+.shaadi-completion-banner__pct {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 800;
+  color: #e52727;
+}
+
+.shaadi-completion-banner__content {
+  flex: 1;
+  min-width: 200px;
+}
+
+.shaadi-completion-banner__eyebrow {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #e52727;
+  margin-bottom: 2px;
+}
+
+.shaadi-completion-banner__title {
+  font-size: 15px;
+  font-weight: 800;
+  color: #242729;
+  line-height: 1.3;
+}
+
+.shaadi-completion-banner__list {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+}
+
+.shaadi-completion-banner__list li {
+  font-size: 11px;
+  font-weight: 600;
+  color: #535a60;
+  padding-left: 14px;
+  position: relative;
+}
+
+.shaadi-completion-banner__list li::before {
+  content: '○';
+  position: absolute;
+  left: 0;
+  color: #e52727;
+  font-size: 8px;
+  top: 2px;
+}
+
+.shaadi-completion-banner__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.shaadi-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: all 0.25s ease;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.shaadi-btn--primary {
+  background: #e52727;
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(229, 39, 39, 0.25);
+}
+
+.shaadi-btn--primary:hover {
+  background: #c91f1f;
+  transform: translateY(-1px);
+}
+
+.shaadi-btn--outline {
+  background: #fff;
+  color: #e52727;
+  border: 1px solid rgba(229, 39, 39, 0.3);
+}
+
+.shaadi-btn--outline:hover {
+  background: #fff5f5;
+}
+
+.shaadi-btn--ghost {
+  background: transparent;
+  color: #535a60;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.shaadi-btn--ghost:hover {
+  color: #e52727;
+  border-color: rgba(229, 39, 39, 0.2);
+}
+
+/* Quick links strip — Shaadi My Shaadi shortcuts */
+.shaadi-quick-links {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 4px 2px 8px;
+  scrollbar-width: none;
+}
+
+.shaadi-quick-links::-webkit-scrollbar {
+  display: none;
+}
+
+.shaadi-quick-links__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 88px;
+  padding: 12px 10px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.03);
+  text-decoration: none;
+  transition: all 0.25s ease;
+  flex-shrink: 0;
+}
+
+.shaadi-quick-links__item:hover {
+  border-color: rgba(229, 39, 39, 0.2);
+  box-shadow: 0 8px 24px rgba(229, 39, 39, 0.08);
+  transform: translateY(-2px);
+}
+
+.shaadi-quick-links__icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #fff0f0, #fff5f5);
+  color: #e52727;
+}
+
+.shaadi-quick-links__label {
+  font-size: 10px;
+  font-weight: 700;
+  color: #242729;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.shaadi-quick-links__item:hover .shaadi-quick-links__label {
+  color: #e52727;
+}
+
+/* Match score badge on member cards */
+.shaadi-match-score {
+  flex: 1.4;
+  background: linear-gradient(135deg, #e52727, #ff5252) !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.02em;
+}
+
+@media (max-width: 640px) {
+  .shaadi-completion-banner__inner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .shaadi-completion-banner__actions {
+    width: 100%;
+  }
+
+  .shaadi-completion-banner__actions .shaadi-btn {
+    flex: 1;
+    justify-content: center;
+  }
 }

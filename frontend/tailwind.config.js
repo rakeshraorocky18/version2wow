@@ -4,6 +4,17 @@ export default {
   theme: {
     extend: {
       colors: {
+        wow: {
+          bg: '#FAF8FB',
+          card: '#FFFFFF',
+          primary: '#B76E79',
+          'primary-light': '#D69BA6',
+          secondary: '#E7C6D0',
+          success: '#8BC48A',
+          warning: '#F4C95D',
+          text: '#2C2630',
+          muted: '#6B6670',
+        },
         primary: {
           50: '#fdf2f8',
           100: '#fce7f3',

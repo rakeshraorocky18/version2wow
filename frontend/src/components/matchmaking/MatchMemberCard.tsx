@@ -34,6 +34,7 @@ type Props = {
   interestLoading?: boolean;
   connectLabel?: string;
   connectError?: string | null;
+  compatibilityScore?: number;
 };
 
 function formatDisplayName(profile: ProfileLike) {
@@ -58,6 +59,7 @@ export default function MatchMemberCard({
   interestLoading = false,
   connectLabel,
   connectError,
+  compatibilityScore,
 }: Props) {
   const [bioExpanded, setBioExpanded] = useState(false);
   const photoUrl = getPhotoUrl(profile.photos?.[0] || profile.wizardProfile?.profilePhoto || '');
@@ -95,10 +97,17 @@ export default function MatchMemberCard({
             <Camera size={14} />
             {String(photoCount).padStart(2, '0')}
           </div>
-          <div>
-            <Video size={14} />
-            00
-          </div>
+          {compatibilityScore != null && compatibilityScore > 0 && (
+            <div className="shaadi-match-score">
+              {compatibilityScore}% Match
+            </div>
+          )}
+          {compatibilityScore == null || compatibilityScore <= 0 ? (
+            <div>
+              <Video size={14} />
+              00
+            </div>
+          ) : null}
         </div>
       </div>
 
@@ -126,6 +135,11 @@ export default function MatchMemberCard({
           )}
         </p>
         <ul className="dp-member-card__tags">
+          {profile.religion && (
+            <li>
+              Community<span className="info">{profile.religion}</span>
+            </li>
+          )}
           {location && (
             <li>
               Live in<span className="info">{location}</span>

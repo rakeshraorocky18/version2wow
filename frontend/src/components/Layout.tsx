@@ -1,5 +1,6 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
+import { motion } from 'framer-motion';
 import { useAuthStore } from '../store/authStore';
 import AppFooter from './AppFooter';
 import { FooterPaginationProvider, useFooterPagination } from '../context/FooterPaginationContext';
@@ -44,6 +45,7 @@ function FooterPaginationReset() {
 export default function Layout() {
   const location = useLocation();
   const isMatchesPage = location.pathname.startsWith('/app/matches');
+  const isDashboardPage = location.pathname === '/app';
   const logout = useAuthStore((state) => state.logout);
   const user = useAuthStore((state) => state.user);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -86,10 +88,10 @@ export default function Layout() {
 
   return (
     <div
-      className={`min-h-screen flex flex-col ${isMatchesPage ? 'bg-white' : 'bg-[#FAF8FB]'}`}
+      className={`min-h-screen flex flex-col ${isMatchesPage || isDashboardPage ? 'bg-white' : 'bg-[#FAF8FB]'}`}
     >
       {/* Ambient background blobs */}
-      {!isMatchesPage && (
+      {!isMatchesPage && !isDashboardPage && (
         <>
           <div className="pointer-events-none fixed left-[-120px] top-16 h-72 w-72 rounded-full bg-[#F5DCE8]/60 blur-3xl" />
           <div className="pointer-events-none fixed bottom-6 right-[-120px] h-80 w-80 rounded-full bg-[#EAE5FF]/60 blur-3xl" />
@@ -106,18 +108,18 @@ export default function Layout() {
           }}
           onMouseLeave={() => setIsNavHovered(false)}
           className={`
-            sticky top-3 z-50 rounded-2xl border backdrop-blur-xl
-            transition-all duration-300
+            sticky top-3 z-50 rounded-[22px] border backdrop-blur-xl
+            transition-all duration-500 ease-out
             ${isNavVisible || isNavHovered
               ? 'translate-y-0 opacity-100'
               : '-translate-y-24 opacity-0 pointer-events-none'
             }
             ${location.pathname === '/app'
-              ? 'border-[#EEDCE6] bg-white/80 shadow-[0_12px_40px_rgba(174,94,129,0.18)]'
-              : 'border-[#EAD7E1] bg-white/90 shadow-[0_10px_30px_rgba(160,100,134,0.12)]'
+              ? 'border-[rgba(183,110,121,0.12)] bg-white/75 shadow-[0_12px_40px_rgba(183,110,121,0.12)]'
+              : 'border-[rgba(183,110,121,0.12)] bg-white/85 shadow-[0_10px_30px_rgba(183,110,121,0.08)]'
             }
             ${isNavHovered
-              ? 'ring-1 ring-[#E9C7D8] shadow-[0_16px_44px_rgba(170,94,129,0.22)]'
+              ? 'ring-1 ring-[#E7C6D0]/50 shadow-[0_16px_44px_rgba(183,110,121,0.16)]'
               : ''
             }
           `}
@@ -126,14 +128,18 @@ export default function Layout() {
 
             {/* Logo */}
             <Link to="/app" className="flex items-center gap-3 group">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#ED88B2] via-[#D879BA] to-[#B984E5] text-white shadow-[0_4px_12px_rgba(183,110,121,0.35)] transition-transform duration-300 group-hover:scale-105">
+              <motion.span
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.98 }}
+                className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-[#B76E79] to-[#D69BA6] text-white shadow-[0_4px_14px_rgba(183,110,121,0.35)]"
+              >
                 <Heart size={18} fill="currentColor" />
-              </span>
+              </motion.span>
               <div>
-                <span className="text-xl font-display font-bold bg-gradient-to-r from-[#B76E79] to-[#8860BE] bg-clip-text text-transparent">
+                <span className="text-xl font-display font-bold bg-gradient-to-r from-[#B76E79] to-[#D69BA6] bg-clip-text text-transparent">
                   WOW
                 </span>
-                <p className="hidden sm:block text-[10px] font-medium text-[#9E7A8C] -mt-0.5 leading-none">
+                <p className="hidden sm:block text-[10px] font-medium text-[#6B6670] -mt-0.5 leading-none">
                   World of Weddings
                 </p>
               </div>
@@ -154,26 +160,41 @@ export default function Layout() {
                   <Link
                     key={item.path}
                     to={item.path}
-                    className={`
-                      relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium
-                      transition-all duration-200
-                      ${isActive
-                        ? 'bg-gradient-to-r from-[#F9E8F1] to-[#F1E9FB] text-[#B76E79] shadow-[0_2px_10px_rgba(183,110,121,0.15)]'
-                        : 'text-[#74606D] hover:bg-[#FBF0F5] hover:text-[#B76E79]'
-                      }
-                    `}
+                    className="relative"
                   >
-                    <span className={`relative transition-transform duration-200 ${isActive ? 'scale-105' : 'group-hover:scale-105'}`}>
-                      <Icon size={15} />
-                      {badge > 0 && (
-                        <span className="wow-nav-badge">{badge > 9 ? '9+' : badge}</span>
+                    <motion.span
+                      whileHover={{ y: -1 }}
+                      whileTap={{ scale: 0.97 }}
+                      className={`
+                        relative flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-sm font-medium
+                        transition-colors duration-300
+                        ${isActive
+                          ? 'bg-gradient-to-r from-[#FFF0F4] to-[#FFF5F8] text-[#B76E79] shadow-[0_2px_12px_rgba(183,110,121,0.12)]'
+                          : 'text-[#6B6670] hover:bg-[#FFF5F8] hover:text-[#B76E79]'
+                        }
+                      `}
+                    >
+                      <span className="relative">
+                        <Icon size={15} />
+                        {badge > 0 && (
+                          <motion.span
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            className="wow-nav-badge"
+                          >
+                            {badge > 9 ? '9+' : badge}
+                          </motion.span>
+                        )}
+                      </span>
+                      <span>{item.label}</span>
+                      {isActive && (
+                        <motion.span
+                          layoutId="nav-active-indicator"
+                          className="absolute bottom-0 left-3 right-3 h-0.5 rounded-full bg-gradient-to-r from-[#B76E79] to-[#D69BA6]"
+                          transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                        />
                       )}
-                    </span>
-                    <span>{item.label}</span>
-                    {/* Active underline accent */}
-                    {isActive && (
-                      <span className="absolute bottom-0.5 left-3 right-3 h-0.5 rounded-full bg-gradient-to-r from-[#B76E79] to-[#8860BE]" />
-                    )}
+                    </motion.span>
                   </Link>
                 );
               })}
@@ -182,25 +203,27 @@ export default function Layout() {
             {/* Right side: user info + logout */}
             <div className="flex items-center gap-2">
               {/* User pill */}
-              <div className="hidden sm:flex items-center gap-2 rounded-xl border border-[#EBD8E3] bg-white/70 px-3 py-1.5">
-                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-[#F9E5EC] to-[#F0EAFF] text-[#B76E79]">
-                  <User size={12} />
+              <div className="hidden sm:flex items-center gap-2 rounded-2xl border border-[#E7C6D0]/50 bg-white/60 px-3 py-1.5 backdrop-blur-sm">
+                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-[#FFF0F4] to-[#FFF5F8] text-[#B76E79]">
+                  <User size={13} />
                 </div>
-                <span className="text-xs font-medium text-[#5C3550] max-w-[120px] truncate">
+                <span className="text-xs font-medium text-[#2C2630] max-w-[120px] truncate">
                   {user?.email?.split('@')[0] ?? 'User'}
                 </span>
                 <ChevronDown size={12} className="text-[#A08090]" />
               </div>
 
               {/* Logout button */}
-              <button
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.97 }}
                 onClick={logout}
-                className="flex items-center gap-1.5 rounded-xl border border-[#ECD8E3] bg-white/70 px-3 py-2 text-xs font-medium text-[#8D7380] transition-all duration-200 hover:bg-[#FDF2F6] hover:text-red-500 hover:border-red-200"
+                className="flex items-center gap-1.5 rounded-2xl border border-[#E7C6D0]/50 bg-white/60 px-3.5 py-2 text-xs font-medium text-[#8D7380] backdrop-blur-sm transition-colors duration-300 hover:border-red-200 hover:bg-[#FDF2F6] hover:text-red-500"
                 title="Logout"
               >
                 <LogOut size={14} />
                 <span className="hidden sm:inline">Logout</span>
-              </button>
+              </motion.button>
 
               {/* Mobile hamburger */}
               <button
@@ -238,8 +261,8 @@ export default function Layout() {
                         relative flex flex-col items-center gap-1.5 rounded-xl px-2 py-3 text-xs font-semibold text-center
                         transition-all duration-200
                         ${isActive
-                          ? 'bg-gradient-to-br from-[#F9E8F1] to-[#F1E9FB] text-[#B76E79]'
-                          : 'text-[#74606D] hover:bg-[#FBF0F5] hover:text-[#B76E79]'
+                          ? 'bg-gradient-to-br from-[#F9E8F1] to-[#FFF5F8] text-[#B76E79]'
+                          : 'text-[#6B6670] hover:bg-[#FBF0F5] hover:text-[#B76E79]'
                         }
                       `}
                     >

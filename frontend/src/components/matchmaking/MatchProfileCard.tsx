@@ -15,10 +15,13 @@ export default function MatchProfileCard({
   profile,
   interestSent = false,
   onInterest,
+  showScore = false,
   animationDelay = 0,
   interestLoading = false,
 }: Props) {
   const navigate = useNavigate();
+  const score =
+    profile.compatibility?.score ?? profile.compatibilityScore ?? undefined;
 
   return (
     <MatchMemberCard
@@ -28,6 +31,7 @@ export default function MatchProfileCard({
       onClick={() => navigate(`/app/matches/${profile.id}`)}
       animationDelay={animationDelay}
       interestLoading={interestLoading}
+      compatibilityScore={showScore ? score : undefined}
     />
   );
 }
