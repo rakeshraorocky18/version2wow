@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Camera, ChevronRight, Heart, User } from 'lucide-react';
+import { Camera, ChevronRight, User } from 'lucide-react';
 import CircularProgressRing from './CircularProgressRing';
 
 interface ProfileCompletionBannerProps {
@@ -17,7 +17,10 @@ export default function ProfileCompletionBanner({
 
   const pendingItems = [
     ...(!hasPhoto ? ['Add profile photo'] : []),
-    ...missingSections.slice(0, 3).map((s) => `Complete ${s}`),
+    ...missingSections
+      .filter((s) => s !== 'Partner Preferences')
+      .slice(0, 3)
+      .map((s) => `Complete ${s}`),
   ].slice(0, 4);
 
   return (
@@ -53,12 +56,6 @@ export default function ProfileCompletionBanner({
           )}
           <Link to="/app/profile/edit" className="shaadi-btn shaadi-btn--primary">
             <User size={14} /> Complete Profile <ChevronRight size={14} />
-          </Link>
-          <Link
-            to="/app/profile/edit?section=partner-preferences"
-            className="shaadi-btn shaadi-btn--ghost"
-          >
-            <Heart size={14} /> Partner Preferences
           </Link>
         </div>
       </div>

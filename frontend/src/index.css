@@ -2227,6 +2227,134 @@ header.sticky {
   color: #e52727;
 }
 
+.shaadi-quick-links__item.is-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+  background: #f8f9fa;
+}
+
+.shaadi-quick-links__item.is-disabled .shaadi-quick-links__icon {
+  background: #f0f1f2;
+  color: #9fa6ad;
+}
+
+.shaadi-quick-links__item.is-disabled .shaadi-quick-links__label {
+  color: #9fa6ad;
+}
+
+/* Inline AI assistant chat */
+.dp-dash-ai__chat {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dp-dash-ai__messages {
+  max-height: 220px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 4px 2px;
+  scrollbar-width: thin;
+}
+
+.dp-dash-ai__msg {
+  max-width: 88%;
+  padding: 10px 14px;
+  font-size: 12px;
+  line-height: 1.55;
+  border-radius: 14px;
+}
+
+.dp-dash-ai__msg.is-assistant {
+  align-self: flex-start;
+  background: #fff;
+  color: #242729;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  border-radius: 14px 14px 14px 4px;
+}
+
+.dp-dash-ai__msg.is-user {
+  align-self: flex-end;
+  background: linear-gradient(135deg, #f4196d, #ff5a9a);
+  color: #fff;
+  border-radius: 14px 14px 4px 14px;
+}
+
+.dp-dash-ai__msg.is-typing {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  padding: 12px 16px;
+}
+
+.dp-dash-ai__msg.is-typing span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #f4196d;
+  opacity: 0.4;
+  animation: dp-ai-typing 1.2s infinite ease-in-out;
+}
+
+.dp-dash-ai__msg.is-typing span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.dp-dash-ai__msg.is-typing span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes dp-ai-typing {
+  0%, 80%, 100% { opacity: 0.3; transform: scale(0.85); }
+  40% { opacity: 1; transform: scale(1); }
+}
+
+.dp-dash-ai__input-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.dp-dash-ai__input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: #fff;
+  font-size: 12px;
+  color: #242729;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.dp-dash-ai__input:focus {
+  border-color: rgba(244, 25, 109, 0.35);
+}
+
+.dp-dash-ai__send {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  border: none;
+  background: linear-gradient(135deg, #f4196d, #ff5a9a);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.dp-dash-ai__send:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 /* Match score badge on member cards */
 .shaadi-match-score {
   flex: 1.4;
@@ -2249,4 +2377,371 @@ header.sticky {
     flex: 1;
     justify-content: center;
   }
+}
+
+/* ── Landing page (Mrunalini Rao–inspired navbar & hero) ── */
+
+.landing-nav--transparent {
+  background: transparent;
+  color: #fff;
+}
+
+.landing-nav--transparent .landing-nav__link {
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.landing-nav--transparent .landing-nav__link:hover {
+  color: #fff;
+}
+
+.landing-nav--transparent .landing-nav__logo {
+  color: #fff;
+}
+
+.landing-nav--transparent .landing-nav__icon-btn {
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.landing-nav--transparent .landing-nav__icon-btn:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.landing-nav--transparent .landing-nav__cta {
+  background: #fff;
+  color: #1a1a1a;
+}
+
+.landing-nav--transparent .landing-nav__cta:hover {
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.landing-nav--solid {
+  background: rgba(255, 255, 255, 0.97);
+  color: #1a1a1a;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.06);
+  backdrop-filter: blur(12px);
+}
+
+.landing-nav--solid .landing-nav__link {
+  color: #333;
+}
+
+.landing-nav--solid .landing-nav__link:hover {
+  color: #000;
+}
+
+.landing-nav--solid .landing-nav__logo {
+  color: #1a1a1a;
+}
+
+.landing-nav--solid .landing-nav__icon-btn {
+  color: #333;
+}
+
+.landing-nav--solid .landing-nav__icon-btn:hover {
+  color: #000;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.landing-nav--solid .landing-nav__cta {
+  background: #1a1a1a;
+  color: #fff;
+}
+
+.landing-nav--solid .landing-nav__cta:hover {
+  background: #333;
+}
+
+.landing-nav__link {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transition: color 0.2s ease;
+}
+
+.landing-nav__logo {
+  font-weight: 600;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.landing-nav__icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  padding: 0.5rem;
+  transition: color 0.2s ease, background 0.2s ease;
+}
+
+.landing-nav__cta {
+  display: inline-block;
+  border-radius: 0;
+  padding: 0.5rem 1.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.landing-nav__dropdown {
+  background: #fff;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.landing-nav__dropdown-item {
+  color: #333;
+  text-decoration: none;
+  transition: background 0.15s ease;
+}
+
+.landing-nav__dropdown-item:hover {
+  background: #faf8fb;
+}
+
+.landing-search-input {
+  border: none;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.6);
+  background: transparent;
+  padding: 0.75rem 0;
+  font-size: 1.25rem;
+  color: #fff;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.landing-search-input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.landing-search-input:focus {
+  border-bottom-color: #fff;
+}
+
+.landing-hero__overlay {
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.15) 0%,
+    rgba(0, 0, 0, 0.05) 40%,
+    rgba(0, 0, 0, 0.45) 100%
+  );
+}
+
+.landing-hero__label {
+  text-decoration: none;
+  text-shadow: 0 2px 20px rgba(0, 0, 0, 0.35);
+  transition: opacity 0.2s ease;
+}
+
+.landing-hero__label:hover {
+  opacity: 0.85;
+}
+
+.landing-hero__arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font-size: 1.75rem;
+  line-height: 1;
+  backdrop-filter: blur(4px);
+  transition: background 0.2s ease;
+}
+
+.landing-hero__arrow:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.landing-hero__arrow--prev {
+  left: 1.5rem;
+}
+
+.landing-hero__arrow--next {
+  right: 1.5rem;
+}
+
+.landing-editorial__cta {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: #1a1a1a;
+  text-decoration: none;
+  border-bottom: 1px solid #1a1a1a;
+  padding-bottom: 0.25rem;
+  transition: opacity 0.2s ease;
+}
+
+.landing-editorial__cta:hover {
+  opacity: 0.6;
+}
+
+/* ─── WOW Romantic Planner Dashboard ─── */
+.wow-planner {
+  --wow-blush: #FFB6C1;
+  --wow-rose: #FF5C8D;
+  --wow-lavender: #C8A2C8;
+  --wow-champagne: #D4AF37;
+  --wow-peach: #FFDAB9;
+  --wow-cream: #FFF9F5;
+  --wow-glass: rgba(255, 255, 255, 0.65);
+  --wow-glass-border: rgba(255, 182, 193, 0.35);
+  background: linear-gradient(160deg, var(--wow-cream) 0%, #fff5f8 40%, #fdf0f5 100%);
+  min-height: 100%;
+}
+
+.dark .wow-planner {
+  --wow-glass: rgba(30, 20, 35, 0.75);
+  --wow-glass-border: rgba(200, 162, 200, 0.25);
+  background: linear-gradient(160deg, #1a1018 0%, #221520 40%, #1e1220 100%);
+}
+
+.wow-glass-card {
+  background: var(--wow-glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--wow-glass-border);
+  border-radius: 1.25rem;
+  box-shadow: 0 8px 32px rgba(255, 92, 141, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease;
+}
+
+.wow-glass-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 48px rgba(255, 92, 141, 0.15), 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.wow-gradient-hero {
+  background: linear-gradient(135deg, #FFB6C1 0%, #FF5C8D 35%, #C8A2C8 70%, #D4AF37 100%);
+}
+
+.wow-btn-romantic {
+  background: linear-gradient(135deg, #FF5C8D, #C8A2C8);
+  color: white;
+  border-radius: 9999px;
+  padding: 0.625rem 1.5rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 16px rgba(255, 92, 141, 0.35);
+}
+
+.wow-btn-romantic:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(255, 92, 141, 0.45);
+}
+
+.wow-btn-outline {
+  background: rgba(255, 255, 255, 0.85);
+  color: #FF5C8D;
+  border: 1.5px solid rgba(255, 92, 141, 0.4);
+  border-radius: 9999px;
+  padding: 0.625rem 1.5rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  backdrop-filter: blur(8px);
+  transition: all 0.3s ease;
+}
+
+.dark .wow-btn-outline {
+  background: rgba(255, 255, 255, 0.1);
+  color: #FFB6C1;
+}
+
+.wow-btn-outline:hover {
+  background: white;
+  border-color: #FF5C8D;
+}
+
+@keyframes wow-float {
+  0%, 100% { transform: translateY(0) rotate(0deg); opacity: 0.7; }
+  50% { transform: translateY(-20px) rotate(10deg); opacity: 1; }
+}
+
+@keyframes wow-petal-fall {
+  0% { transform: translateY(-10px) rotate(0deg); opacity: 0; }
+  10% { opacity: 0.8; }
+  100% { transform: translateY(100vh) rotate(360deg); opacity: 0; }
+}
+
+@keyframes wow-pulse-glow {
+  0%, 100% { box-shadow: 0 0 20px rgba(255, 92, 141, 0.3); }
+  50% { box-shadow: 0 0 40px rgba(255, 92, 141, 0.6); }
+}
+
+@keyframes wow-check-pop {
+  0% { transform: scale(0); }
+  60% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+.wow-float-particle {
+  animation: wow-float 4s ease-in-out infinite;
+  pointer-events: none;
+  user-select: none;
+}
+
+.wow-petal {
+  animation: wow-petal-fall linear infinite;
+  pointer-events: none;
+}
+
+.wow-pulse-glow {
+  animation: wow-pulse-glow 2s ease-in-out infinite;
+}
+
+.wow-check-animate {
+  animation: wow-check-pop 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.wow-skeleton {
+  background: linear-gradient(90deg, rgba(255,182,193,0.15) 25%, rgba(255,182,193,0.3) 50%, rgba(255,182,193,0.15) 75%);
+  background-size: 200% 100%;
+  animation: wow-skeleton-shimmer 1.5s infinite;
+  border-radius: 0.75rem;
+}
+
+@keyframes wow-skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.wow-progress-bar {
+  height: 8px;
+  border-radius: 9999px;
+  background: rgba(255, 182, 193, 0.2);
+  overflow: hidden;
+}
+
+.wow-progress-fill {
+  height: 100%;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, #FF5C8D, #C8A2C8);
+  transition: width 1s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.wow-priority-high {
+  background: linear-gradient(135deg, #FF5C8D, #ff8fab);
+  color: white;
+}
+
+.wow-priority-medium {
+  background: linear-gradient(135deg, #C8A2C8, #D4AF37);
+  color: white;
+}
+
+.wow-priority-low {
+  background: linear-gradient(135deg, #FFDAB9, #FFB6C1);
+  color: #8B4560;
 }

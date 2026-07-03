@@ -92,6 +92,11 @@ function formatWeddingDateLabel(dateStr: string): string {
   });
 }
 
+function capitalizeFirst(value: string): string {
+  if (!value) return value;
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
 function mapBudgetCategories(items: BudgetItem[]): BudgetCategory[] {
   const byCategory = new Map<string, { spent: number; allocated: number }>();
 
@@ -168,6 +173,10 @@ export function useDashboard() {
   const activePlan = plannerPlans[0] ?? null;
   const activePlanId = activePlan?.id ?? '';
 
+  const userCity = myProfile?.city?.trim() ?? '';
+  const userState = myProfile?.state?.trim() ?? '';
+  const userLocation = [userCity, userState].filter(Boolean).join(', ');
+
   const { data: plannerTimeline } = useQuery<PlannerTimelineData | null>({
     queryKey: ['planner-timeline', activePlanId],
     enabled: Boolean(activePlanId),
@@ -194,9 +203,11 @@ export function useDashboard() {
   });
 
   const { data: vendorsData } = useQuery<VendorsSearchResponse>({
-    queryKey: ['dashboard-vendors'],
+    queryKey: ['dashboard-vendors', userCity, userState],
     queryFn: async () => {
-      const params = new URLSearchParams({ includeExternal: 'true', limit: '4' });
+      const params = new URLSearchParams({ includeExternal: 'true', limit: '8' });
+      if (userCity) params.set('city', userCity);
+      else if (userState) params.set('state', userState);
       const { data } = await api.get<VendorsSearchResponse>(`/vendors/search?${params}`);
       return data;
     },
@@ -215,8 +226,9 @@ export function useDashboard() {
   const acceptedCount = acceptedInterests.length;
   const shortlistCount = shortlistData?.profiles?.length ?? 0;
 
-  const userName =
+  const rawName =
     myProfile?.firstName || (user?.email ? user.email.split('@')[0] : 'there');
+  const userName = capitalizeFirst(rawName);
 
   const formSnapshot = myProfile ? apiProfileToForm(myProfile) : null;
   const completionPct = formSnapshot ? profileCompletion(formSnapshot) : 0;
@@ -385,5 +397,6 @@ export function useDashboard() {
     vendors,
     activities,
     acceptedInterests,
+    userLocation,
   };
 }

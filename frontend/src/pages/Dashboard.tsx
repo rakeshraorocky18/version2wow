@@ -13,7 +13,6 @@ import {
   Wallet,
   PartyPopper,
   Check,
-  FileText,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -37,8 +36,6 @@ import { useDashboard } from '../hooks/useDashboard';
 const quickActions = [
   { icon: <Search size={20} className="text-white" />, label: 'Find Matches', to: '/app/matches', color: '', bg: '' },
   { icon: <Store size={20} className="text-white" />, label: 'Browse Vendors', to: '/app/vendors', color: '', bg: '' },
-  { icon: <Store size={20} className="text-white" />, label: 'Book Vendor', to: '/app/vendors', color: '', bg: '' },
-  { icon: <FileText size={20} className="text-white" />, label: 'Create Invitation', to: '/app/planner', color: '', bg: '' },
   { icon: <Calendar size={20} className="text-white" />, label: 'Wedding Planner', to: '/app/planner', color: '', bg: '' },
   { icon: <Wallet size={20} className="text-white" />, label: 'Manage Budget', to: '/app/finance', color: '', bg: '' },
   { icon: <Camera size={20} className="text-white" />, label: 'Upload Photos', to: '/app/profile/photos', color: '', bg: '' },
@@ -69,6 +66,7 @@ export default function Dashboard() {
     vendors,
     activities,
     acceptedInterests,
+    userLocation,
   } = useDashboard();
 
   const activityWithIcons = activities.map((item) => {
@@ -105,7 +103,7 @@ export default function Dashboard() {
             hasPhoto={hasPhoto}
           />
 
-          <ShaadiQuickLinks />
+          <ShaadiQuickLinks completionPercent={completionPct} />
 
           <DashboardHero
             userName={userName}
@@ -206,7 +204,9 @@ export default function Dashboard() {
 
           <PlannerTimeline tasks={plannerTasks} />
 
-          {vendors.length > 0 && <VendorCarousel vendors={vendors} />}
+          {vendors.length > 0 && (
+            <VendorCarousel vendors={vendors} locationLabel={userLocation || undefined} />
+          )}
 
           <section className="grid gap-4 lg:grid-cols-2">
             <RecentActivity

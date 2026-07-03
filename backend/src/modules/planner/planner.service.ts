@@ -1,9 +1,10 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { WeddingPlan, WeddingTask, WeddingEvent, PlannerActivity } from './entities/planner.entity';
 import { CreatePlanDto, CreateTaskDto, UpdateTaskStatusDto, CreateEventDto, CreateSubtaskDto } from './dto/planner.dto';
 import { TaskStatus, TaskPriorityLevel, PlannerActivityAction } from '../../common/enums';
+import { PlannerGateway } from './planner.gateway';
 
 type DefaultTaskTemplate = {
   title: string;
@@ -101,6 +102,8 @@ export class PlannerService {
     private eventRepository: Repository<WeddingEvent>,
     @InjectRepository(PlannerActivity)
     private activityRepository: Repository<PlannerActivity>,
+    @Inject(forwardRef(() => PlannerGateway))
+    private plannerGateway: PlannerGateway,
   ) {}
 
   private dueDateFromWedding(weddingDate: string, monthsBefore: number): string {
@@ -340,6 +343,9 @@ export class PlannerService {
     if (task.parentTaskId) {
       await this.syncParentTask(task.parentTaskId);
     }
+
+    this.plannerGateway.emitTaskUpdate(userId, { taskId, status: dto.status, planId: task.planId });
+    this.plannerGateway.emitActivityUpdate(userId, { taskTitle: task.title, action: dto.status });
 
     return saved;
   }

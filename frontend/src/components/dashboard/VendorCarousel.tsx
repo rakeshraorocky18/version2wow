@@ -15,16 +15,20 @@ export interface VendorItem {
 
 interface VendorCarouselProps {
   vendors: VendorItem[];
+  locationLabel?: string;
 }
 
-export default function VendorCarousel({ vendors }: VendorCarouselProps) {
+export default function VendorCarousel({ vendors, locationLabel }: VendorCarouselProps) {
+  const subtitle = locationLabel
+    ? `Top picks near ${locationLabel}`
+    : 'Add your city in profile for nearby recommendations';
   return (
     <DashboardCard delay={7} noHover>
       <div className="dp-dash-panel-body">
         <div className="dp-dash-section-header">
           <div>
             <h2 className="dp-dash-section-title">Recommended Vendors</h2>
-            <p className="dp-dash-section-subtitle !mb-0">Curated for your dream wedding</p>
+            <p className="dp-dash-section-subtitle !mb-0">{subtitle}</p>
           </div>
           <Link to="/app/vendors" className="dp-dash-link">
             Browse all →
