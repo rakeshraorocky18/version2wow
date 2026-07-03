@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, Image } from 'lucide-react';
 import api from '../lib/api';
 import { getGalleryPhotos, getMainProfilePhoto } from '../lib/profileUtils';
+import { countProfilePhotos, MAX_PROFILE_PHOTOS } from '../lib/maritalStatusOptions';
 import ProfileMainPhoto from '../components/profile/ProfileMainPhoto';
 import ProfileGallerySection, { type GalleryVisibility } from '../components/profile/ProfileGallerySection';
 
@@ -44,6 +45,7 @@ export default function ProfilePhotos() {
   const displayName = pd.displayName || `${pd.firstName || ''} ${pd.lastName || ''}`.trim() || 'My Profile';
   const mainPhoto = getMainProfilePhoto(profile);
   const galleryPhotos = getGalleryPhotos(profile);
+  const totalPhotoCount = countProfilePhotos(profile);
   const galleryVisibility = (profile.galleryVisibility || 'matched_only') as GalleryVisibility;
 
   return (
@@ -67,11 +69,17 @@ export default function ProfilePhotos() {
 
       <section className="mb-6 overflow-hidden rounded-3xl border border-[#F0DFE7] bg-white p-6 shadow-sm sm:p-8">
         <h2 className="mb-1 font-display text-lg font-semibold text-[#5D2B44]">Profile Photo</h2>
-        <p className="mb-6 text-sm text-[#9A5776]">One main photo — visible to everyone on match cards and search.</p>
-        <ProfileMainPhoto photoUrl={mainPhoto} displayName={displayName} />
+        <p className="mb-6 text-sm text-[#9A5776]">
+          Your main photo and up to {MAX_PROFILE_PHOTOS} photos total ({totalPhotoCount}/{MAX_PROFILE_PHOTOS} used).
+        </p>
+        <ProfileMainPhoto photoUrl={mainPhoto} displayName={displayName} totalPhotoCount={totalPhotoCount} />
       </section>
 
-      <ProfileGallerySection photos={galleryPhotos} visibility={galleryVisibility} />
+      <ProfileGallerySection
+        photos={galleryPhotos}
+        visibility={galleryVisibility}
+        hasMainPhoto={Boolean(mainPhoto)}
+      />
     </div>
   );
 }

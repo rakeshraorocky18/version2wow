@@ -4,13 +4,21 @@ import toast from 'react-hot-toast';
 import { Camera, User } from 'lucide-react';
 import api from '../../lib/api';
 import { getPhotoUrl } from '../../lib/profileUtils';
+import { MAX_PROFILE_PHOTOS } from '../../lib/maritalStatusOptions';
 
 interface ProfileMainPhotoProps {
   photoUrl: string;
   displayName: string;
+  totalPhotoCount?: number;
 }
 
-export default function ProfileMainPhoto({ photoUrl, displayName }: ProfileMainPhotoProps) {
+const MAX_FILE_BYTES = 5 * 1024 * 1024;
+
+export default function ProfileMainPhoto({
+  photoUrl,
+  displayName,
+  totalPhotoCount = 0,
+}: ProfileMainPhotoProps) {
   const queryClient = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -24,12 +32,25 @@ export default function ProfileMainPhoto({ photoUrl, displayName }: ProfileMainP
       toast.success('Profile photo updated');
       queryClient.invalidateQueries({ queryKey: ['myProfile'] });
     },
-    onError: () => toast.error('Upload failed'),
+    onError: (err: unknown) => {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      toast.error(msg || 'Upload failed');
+    },
   });
 
   const handleFile = (file: File | null) => {
     if (!file?.type.startsWith('image/')) {
-      toast.error('Please choose an image');
+      toast.error('Please choose an image file (JPG, PNG, or WEBP)');
+      return;
+    }
+    if (file.size > MAX_FILE_BYTES) {
+      toast.error('Image must be 5 MB or smaller');
+      return;
+    }
+    if (!photoUrl && totalPhotoCount >= MAX_PROFILE_PHOTOS) {
+      toast.error(
+        `You can upload up to ${MAX_PROFILE_PHOTOS} profile photos total. Remove a photo before adding another.`,
+      );
       return;
     }
     upload.mutate(file);
@@ -56,8 +77,16 @@ export default function ProfileMainPhoto({ photoUrl, displayName }: ProfileMainP
       >
         <Camera size={18} />
       </button>
-      <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleFile(e.target.files?.[0] || null)} />
-      <p className="mt-2 text-center text-[11px] font-medium text-emerald-700">One photo · visible to everyone</p>
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => handleFile(e.target.files?.[0] || null)}
+      />
+      <p className="mt-2 text-center text-[11px] font-medium text-emerald-700">
+        Main photo · {totalPhotoCount}/{MAX_PROFILE_PHOTOS} photos used
+      </p>
     </div>
   );
 }

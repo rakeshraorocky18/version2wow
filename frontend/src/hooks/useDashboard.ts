@@ -221,7 +221,7 @@ export function useDashboard() {
     },
   });
 
-  const pendingRequests = receivedInterests.length;
+  const pendingRequests = receivedInterests.filter((m) => m.status === 'pending').length;
   const sentPending = sentInterests.filter((m) => m.status === 'pending').length;
   const acceptedCount = acceptedInterests.length;
   const shortlistCount = shortlistData?.profiles?.length ?? 0;

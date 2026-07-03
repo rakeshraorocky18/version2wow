@@ -62,7 +62,10 @@ export default function MatchProfile() {
   }, [profile, sentInterests]);
 
   const isAcceptedMatch = acceptedMatches.some(
-    (m: { partnerUserId?: string }) => m.partnerUserId === profile?.userId,
+    (m) =>
+      m.partnerUserId === profile?.userId ||
+      m.senderId === profile?.userId ||
+      m.receiverId === profile?.userId,
   );
 
   const isOwnProfile = Boolean(

@@ -56,7 +56,7 @@ export default function Layout() {
   // Notification counts from existing hooks
   const { data: receivedInterests = [] } = useReceivedInterests();
   const { data: acceptedInterests = [] } = useAcceptedInterests();
-  const pendingMatchCount = receivedInterests.length;
+  const pendingMatchCount = receivedInterests.filter((m) => m.status === 'pending').length;
   const acceptedCount = acceptedInterests.length;
 
   useEffect(() => {
