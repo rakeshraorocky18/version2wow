@@ -32,8 +32,6 @@ export interface MatchFilters {
   minAge: string;
   maxAge: string;
   horoscopeMatch: boolean;
-  verifiedOnly: boolean;
-  minProfileCompletion: string;
 }
 
 export interface CompatibilityInfo {
@@ -89,6 +87,4 @@ export const EMPTY_FILTERS: MatchFilters = {
   minAge: '',
   maxAge: '',
   horoscopeMatch: false,
-  verifiedOnly: false,
-  minProfileCompletion: '',
 };

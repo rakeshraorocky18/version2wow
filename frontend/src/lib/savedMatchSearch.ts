@@ -1,9 +1,7 @@
-import type { MatchFilters } from '../types/matchmaking';
+import { EMPTY_FILTERS, type MatchFilters } from '../types/matchmaking';
 
 const SAVED_SEARCHES_KEY = 'wow-saved-match-searches';
-const RECENT_FILTERS_KEY = 'wow-recent-match-filters';
 const MAX_SAVED = 8;
-const MAX_RECENT = 5;
 
 export type SavedSearch = {
   id: string;
@@ -25,8 +23,22 @@ function writeJson(key: string, value: unknown) {
   localStorage.setItem(key, JSON.stringify(value));
 }
 
+function sanitizeFilters(filters: Partial<MatchFilters> | null | undefined): MatchFilters {
+  const next = { ...EMPTY_FILTERS };
+  const raw = filters ?? {};
+  (Object.keys(EMPTY_FILTERS) as Array<keyof MatchFilters>).forEach((key) => {
+    if (key in raw) {
+      next[key] = raw[key] as never;
+    }
+  });
+  return next;
+}
+
 export function getSavedSearches(): SavedSearch[] {
-  return readJson<SavedSearch[]>(SAVED_SEARCHES_KEY, []);
+  return readJson<SavedSearch[]>(SAVED_SEARCHES_KEY, []).map((search) => ({
+    ...search,
+    filters: sanitizeFilters(search.filters),
+  }));
 }
 
 export function saveSearch(name: string, filters: MatchFilters): SavedSearch[] {
@@ -36,7 +48,7 @@ export function saveSearch(name: string, filters: MatchFilters): SavedSearch[] {
   const entry: SavedSearch = {
     id: crypto.randomUUID(),
     name: name.trim() || 'My search',
-    filters: { ...filters },
+    filters: sanitizeFilters(filters),
     savedAt: new Date().toISOString(),
   };
   const next = [entry, ...list].slice(0, MAX_SAVED);
@@ -50,19 +62,3 @@ export function deleteSavedSearch(id: string): SavedSearch[] {
   return next;
 }
 
-export function getRecentFilters(): MatchFilters[] {
-  return readJson<MatchFilters[]>(RECENT_FILTERS_KEY, []);
-}
-
-export function pushRecentFilters(filters: MatchFilters): MatchFilters[] {
-  const hasActive = Object.entries(filters).some(([key, value]) => {
-    if (key === 'horoscopeMatch') return value === true;
-    return Boolean(value);
-  });
-  if (!hasActive) return getRecentFilters();
-
-  const list = getRecentFilters().filter((f) => JSON.stringify(f) !== JSON.stringify(filters));
-  const next = [{ ...filters }, ...list].slice(0, MAX_RECENT);
-  writeJson(RECENT_FILTERS_KEY, next);
-  return next;
-}

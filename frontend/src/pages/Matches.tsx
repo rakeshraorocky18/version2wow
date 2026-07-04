@@ -35,7 +35,6 @@ import {
   isInterestAlreadyExistsError,
   type InterestStatus,
 } from '../lib/matchInterestUtils';
-import { estimateProfileCompletion } from '../lib/matchCardUtils';
 
 const TABS: { id: MatchTab; label: string; icon: typeof Heart }[] = [
   { id: 'suggestions', label: 'Suggested', icon: Sparkles },
@@ -94,9 +93,11 @@ export default function Matches() {
   const currentPage = Math.max(1, Number(params.get('page') || '1'));
 
   useEffect(() => {
-    if (!params.has('gender')) return;
+    if (!params.has('gender') && !params.has('minProfileCompletion') && !params.has('verifiedOnly')) return;
     const next = new URLSearchParams(params);
     next.delete('gender');
+    next.delete('minProfileCompletion');
+    next.delete('verifiedOnly');
     setParams(next, { replace: true });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -164,6 +165,8 @@ export default function Matches() {
           if (value === '' || value === false) next.delete(key);
           else next.set(key, String(value));
         });
+        next.delete('minProfileCompletion');
+        next.delete('verifiedOnly');
         next.delete('page');
         return next;
       },
@@ -233,20 +236,10 @@ export default function Matches() {
       ? list
       : list.filter((p: { gender?: string }) => p.gender === targetGender);
 
-    const verifiedFiltered = debouncedFilters.verifiedOnly
-      ? genderFiltered.filter((p: { isVerified?: boolean }) => p.isVerified === true)
-      : genderFiltered;
-
-    const minCompletion = Number(debouncedFilters.minProfileCompletion) || 0;
-    const completionFiltered =
-      minCompletion > 0
-        ? verifiedFiltered.filter((p) => estimateProfileCompletion(p) >= minCompletion)
-        : verifiedFiltered;
-
     const query = heroSearch.trim().toLowerCase();
     const searched = !query
-      ? completionFiltered
-      : completionFiltered.filter((p: { firstName?: string; lastName?: string; city?: string; state?: string; country?: string; religion?: string; caste?: string }) => {
+      ? genderFiltered
+      : genderFiltered.filter((p: { firstName?: string; lastName?: string; city?: string; state?: string; country?: string; religion?: string; caste?: string }) => {
           const name = `${p.firstName || ''} ${p.lastName || ''}`.trim().toLowerCase();
           const location = `${p.city || ''} ${p.state || ''} ${p.country || ''}`.toLowerCase();
           const faith = `${p.religion || ''} ${p.caste || ''}`.toLowerCase();
@@ -267,7 +260,7 @@ export default function Matches() {
       );
     }
     return sorted;
-  }, [activeData?.profiles, targetGender, heroSearch, sortBy, debouncedFilters.verifiedOnly, debouncedFilters.minProfileCompletion]);
+  }, [activeData?.profiles, targetGender, heroSearch, sortBy]);
 
   const serverTotal = activeData?.total ?? profiles.length;
   const totalPages = Math.max(1, Math.ceil(serverTotal / PROFILES_PER_PAGE));
@@ -668,9 +661,7 @@ export default function Matches() {
                     <p className="dp-empty-state__text">
                       Try adjusting your filters, clearing search, or check back soon for new members.
                     </p>
-                    {(debouncedFilters.verifiedOnly ||
-                      debouncedFilters.minProfileCompletion ||
-                      heroSearch) && (
+                    {heroSearch && (
                       <button
                         type="button"
                         className="dp-filter-sidebar__clear mt-4"
