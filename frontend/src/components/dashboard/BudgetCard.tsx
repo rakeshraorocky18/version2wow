@@ -69,7 +69,7 @@ export default function BudgetCard({
   ];
 
   return (
-    <DashboardCard className={className} delay={4}>
+    <DashboardCard className={`wow-budget-card ${className}`.trim()} delay={4}>
       <div className="dp-dash-panel-body">
         <div className="mb-3 flex items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2">
@@ -88,7 +88,7 @@ export default function BudgetCard({
           </Link>
         </div>
 
-        <div className="grid grid-cols-3 gap-2">
+        <div className="wow-budget-card__summary">
           {summaryItems.map((item) => (
             <div
               key={item.label}
@@ -131,38 +131,40 @@ export default function BudgetCard({
             <p className="text-[10px] font-semibold uppercase tracking-wide text-[#6a737c]">
               Category Breakdown
             </p>
-            {categories.map((cat, i) => {
-              const pct = cat.allocated > 0 ? Math.round((cat.spent / cat.allocated) * 100) : 0;
-              const barColor = CATEGORY_COLORS[i % CATEGORY_COLORS.length];
-              return (
-                <div key={cat.name}>
-                  <div className="mb-1 flex items-start justify-between gap-2 text-[10px] sm:text-[11px]">
-                    <span className="shrink-0 font-semibold text-[#242729]">{cat.name}</span>
-                    <span className="min-w-0 text-right leading-tight text-[#6a737c]">
-                      <span className="block sm:inline">
-                        {formatCurrencyCompact(cat.spent)}
+            <div className="wow-budget-card__category-grid">
+              {categories.map((cat, i) => {
+                const pct = cat.allocated > 0 ? Math.round((cat.spent / cat.allocated) * 100) : 0;
+                const barColor = CATEGORY_COLORS[i % CATEGORY_COLORS.length];
+                return (
+                  <div key={cat.name} className="wow-budget-card__category">
+                    <div className="mb-1.5 flex items-start justify-between gap-2 text-[10px] sm:text-[11px]">
+                      <span className="shrink-0 font-semibold text-[#242729]">{cat.name}</span>
+                      <span className="min-w-0 text-right leading-tight text-[#6a737c]">
+                        <span className="block sm:inline">
+                          {formatCurrencyCompact(cat.spent)}
+                        </span>
+                        <span className="hidden text-[#9fa6ad] sm:inline">
+                          {' '}
+                          / {formatCurrencyFull(cat.allocated)}
+                        </span>
+                        <span className="block text-[9px] text-[#9fa6ad] sm:hidden">
+                          of {formatCurrencyCompact(cat.allocated)}
+                        </span>
                       </span>
-                      <span className="hidden text-[#9fa6ad] sm:inline">
-                        {' '}
-                        / {formatCurrencyFull(cat.allocated)}
-                      </span>
-                      <span className="block text-[9px] text-[#9fa6ad] sm:hidden">
-                        of {formatCurrencyCompact(cat.allocated)}
-                      </span>
-                    </span>
+                    </div>
+                    <div className="h-1.5 overflow-hidden rounded-full bg-[#ebebeb]">
+                      <motion.div
+                        className={`h-full rounded-full ${barColor}`}
+                        initial={{ width: 0 }}
+                        whileInView={{ width: `${Math.min(pct, 100)}%` }}
+                        viewport={{ once: true }}
+                        transition={{ duration: 0.8, delay: i * 0.08 }}
+                      />
+                    </div>
                   </div>
-                  <div className="h-1.5 overflow-hidden rounded-full bg-[#ebebeb]">
-                    <motion.div
-                      className={`h-full rounded-full ${barColor}`}
-                      initial={{ width: 0 }}
-                      whileInView={{ width: `${Math.min(pct, 100)}%` }}
-                      viewport={{ once: true }}
-                      transition={{ duration: 0.8, delay: i * 0.08 }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         )}
       </div>

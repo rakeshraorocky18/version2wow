@@ -17,5 +17,6 @@ export { default as RecommendedMatches } from './RecommendedMatches';
 export { default as ProfileCompletionBanner } from './ProfileCompletionBanner';
 export { default as ShaadiQuickLinks } from './ShaadiQuickLinks';
 export { default as CircularProgressRing } from './CircularProgressRing';
+export { default as CompatibilityInsightsCard } from './CompatibilityInsightsCard';
 export { default as AnimatedNumber } from './AnimatedNumber';
 export { default as DashboardCard } from './DashboardCard';

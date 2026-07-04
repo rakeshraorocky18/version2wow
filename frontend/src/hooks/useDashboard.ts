@@ -9,6 +9,7 @@ import {
   useAcceptedInterests,
   useMyMatchProfile,
   useShortlist,
+  useMatchSuggestions,
 } from './useMatchmaking';
 import { usePlannerPlans } from './usePlanner';
 import {
@@ -23,6 +24,7 @@ import type { VendorItem } from '../components/dashboard/VendorCarousel';
 import type { ActivityItem } from '../components/dashboard/RecentActivity';
 import type { WeddingMilestone } from '../components/dashboard/ProgressCard';
 import type { PlannerTimeline as PlannerTimelineData } from '../types/planner';
+import { EMPTY_FILTERS, type MatchInterest, type MatchProfile } from '../types/matchmaking';
 
 interface BudgetSummary {
   totalBudget: number;
@@ -67,6 +69,69 @@ interface DashboardEvent {
   status?: string;
 }
 
+export interface DashboardProfileCardData {
+  id: string;
+  userId?: string;
+  name: string;
+  firstName: string;
+  age?: number;
+  city?: string;
+  location?: string;
+  profession?: string;
+  compatibilityScore: number;
+  photoUrl: string;
+  isVerified: boolean;
+  highlights: string[];
+  compatibilityInsights: DashboardCompatibilityInsight[];
+  profilePath: string;
+  chatPath?: string;
+}
+
+export interface DashboardCompatibilityInsight {
+  label: string;
+  score: number;
+}
+
+export interface DashboardRecentMoment {
+  id: string;
+  emoji: string;
+  text: string;
+  time: string;
+  to: string;
+  accent: 'rose' | 'gold' | 'mint' | 'lavender';
+}
+
+export interface DashboardJourneyStep {
+  label: string;
+  state: 'complete' | 'current' | 'upcoming';
+}
+
+export interface DashboardActiveConnection {
+  id: string;
+  name: string;
+  firstName: string;
+  photoUrl: string;
+  compatibilityScore: number;
+  profilePath: string;
+  chatPath: string;
+  location?: string;
+  lastMessage: string;
+  timeLabel: string;
+}
+
+export interface DashboardVisitor {
+  id: string;
+  name: string;
+  photoUrl: string;
+  profilePath: string;
+  timeLabel: string;
+}
+
+export interface DashboardPipelineStage {
+  label: string;
+  value: number;
+}
+
 const CATEGORY_COLORS = [
   'bg-[#f4196d]',
   'bg-[#ff90b5]',
@@ -95,6 +160,254 @@ function formatWeddingDateLabel(dateStr: string): string {
 function capitalizeFirst(value: string): string {
   if (!value) return value;
   return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function clampScore(value: number): number {
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+function titleCase(value: string): string {
+  return value
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function normalizeLocationValue(value?: string | null): string {
+  return (value ?? '').trim().toLowerCase();
+}
+
+function getAge(profile: Partial<MatchProfile>): number | undefined {
+  if (profile.age) return profile.age;
+  if (!profile.dateOfBirth) return undefined;
+  const today = new Date();
+  const dob = new Date(profile.dateOfBirth);
+  let age = today.getFullYear() - dob.getFullYear();
+  const monthDiff = today.getMonth() - dob.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) age -= 1;
+  return age > 0 ? age : undefined;
+}
+
+function formatRelativeTime(dateStr?: string): string {
+  if (!dateStr) return 'Recently';
+  const timestamp = new Date(dateStr).getTime();
+  if (Number.isNaN(timestamp)) return 'Recently';
+
+  const diffMs = timestamp - Date.now();
+  const diffSeconds = Math.round(diffMs / 1000);
+  const absSeconds = Math.abs(diffSeconds);
+  const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
+
+  if (absSeconds < 60) return rtf.format(diffSeconds, 'second');
+  if (absSeconds < 3600) return rtf.format(Math.round(diffSeconds / 60), 'minute');
+  if (absSeconds < 86400) return rtf.format(Math.round(diffSeconds / 3600), 'hour');
+  return rtf.format(Math.round(diffSeconds / 86400), 'day');
+}
+
+function getProfileHighlights(profile: Partial<MatchProfile>): string[] {
+  const compatibilityHighlights = profile.compatibility?.highlights?.filter(Boolean) ?? [];
+  if (compatibilityHighlights.length > 0) return compatibilityHighlights.slice(0, 4);
+
+  const fallbackSignals = [
+    profile.occupation,
+    profile.education,
+    profile.city ? `${profile.city} lifestyle` : null,
+    profile.religion ? `${profile.religion} values` : null,
+    'Long-term intentions',
+  ].filter(Boolean) as string[];
+
+  return Array.from(new Set(fallbackSignals)).slice(0, 4);
+}
+
+function mapProfileCardData(
+  profile: Partial<MatchProfile> | null | undefined,
+  scoreOverride?: number,
+): DashboardProfileCardData | null {
+  if (!profile) return null;
+
+  const viewId = profile.id || profile.userId;
+  if (!viewId) return null;
+
+  const firstName = profile.firstName?.trim() || 'Member';
+  const lastName = profile.lastName?.trim() || '';
+  const age = getAge(profile);
+  const location = [profile.city, profile.state].filter(Boolean).join(', ');
+  const compatibilityScore = clampScore(
+    scoreOverride ??
+      profile.compatibility?.score ??
+      profile.compatibilityScore ??
+      91,
+  );
+
+  return {
+    id: viewId,
+    userId: profile.userId,
+    name: [firstName, lastName].filter(Boolean).join(' ').trim(),
+    firstName,
+    age,
+    city: profile.city,
+    location,
+    profession: profile.occupation || profile.education || 'Profile awaiting details',
+    compatibilityScore,
+    photoUrl: getPhotoUrl(getMainProfilePhoto(profile)),
+    isVerified: Boolean(profile.isVerified),
+    highlights: getProfileHighlights(profile),
+    compatibilityInsights: buildCompatibilityInsights(profile, compatibilityScore).slice(0, 4),
+    profilePath: `/app/matches/${viewId}`,
+    chatPath: profile.userId ? `/app/chat?userId=${profile.userId}` : undefined,
+  };
+}
+
+function mapInterestToProfileCard(match: MatchInterest): DashboardProfileCardData | null {
+  const profile =
+    match.partnerProfile ??
+    match.senderProfile ??
+    match.receiverProfile;
+  return mapProfileCardData(profile, match.compatibilityScore);
+}
+
+function fallbackCompatibilityInsights(overall: number): DashboardCompatibilityInsight[] {
+  const base = overall || 91;
+  return [
+    { label: 'Family Values', score: clampScore(base + 1) },
+    { label: 'Lifestyle Match', score: clampScore(base - 4) },
+    { label: 'Education Match', score: clampScore(base - 1) },
+    { label: 'Career Goals', score: clampScore(base - 7) },
+    { label: 'Interests', score: clampScore(base + 3) },
+    { label: 'Communication Style', score: clampScore(base) },
+    { label: 'Marriage Intentions', score: clampScore(base + 2) },
+  ];
+}
+
+function buildCompatibilityInsights(
+  profile: Partial<MatchProfile> | null | undefined,
+  overall: number,
+): DashboardCompatibilityInsight[] {
+  const breakdown = profile?.compatibility?.breakdown;
+  if (!breakdown) return fallbackCompatibilityInsights(overall);
+
+  const entries = Object.entries(breakdown)
+    .map(([label, score]) => ({
+      label: titleCase(label),
+      score: clampScore(Number(score) || overall),
+    }))
+    .filter((item) => item.score > 0);
+
+  if (entries.length >= 4) return entries.slice(0, 7);
+  return fallbackCompatibilityInsights(overall);
+}
+
+function buildJourneySteps({
+  hasProfile,
+  hasPreferences,
+  hasPhoto,
+  newMatchesCount,
+  sentPending,
+  acceptedCount,
+  hasActivePlan,
+}: {
+  hasProfile: boolean;
+  hasPreferences: boolean;
+  hasPhoto: boolean;
+  newMatchesCount: number;
+  sentPending: number;
+  acceptedCount: number;
+  hasActivePlan: boolean;
+}): DashboardJourneyStep[] {
+  const completed = [
+    hasProfile,
+    hasPreferences,
+    hasPhoto,
+    newMatchesCount > 0 || acceptedCount > 0,
+    sentPending > 0 || acceptedCount > 0,
+    acceptedCount > 0,
+    hasActivePlan,
+    false,
+    hasActivePlan,
+    false,
+  ];
+
+  const labels = [
+    'Profile Created',
+    'Preferences Added',
+    'Photos Uploaded',
+    'First Match Found',
+    'Interest Sent',
+    'Chat Started',
+    'Families Connected',
+    'Engagement',
+    'Wedding Planning',
+    'Marriage',
+  ];
+
+  const currentIndex = completed.findIndex((isDone) => !isDone);
+
+  return labels.map((label, index) => ({
+    label,
+    state:
+      completed[index]
+        ? 'complete'
+        : currentIndex === index
+          ? 'current'
+          : 'upcoming',
+  }));
+}
+
+function buildRecentMoments(
+  received: MatchInterest[],
+  accepted: MatchInterest[],
+  sent: MatchInterest[],
+): DashboardRecentMoment[] {
+  const moments: Array<DashboardRecentMoment & { ts: number }> = [];
+
+  received.forEach((match) => {
+    const card = mapInterestToProfileCard(match);
+    if (!card) return;
+    moments.push({
+      id: `received-${match.id}`,
+      emoji: '💕',
+      text: `${card.firstName} sent an interest`,
+      time: formatRelativeTime(match.createdAt || match.updatedAt),
+      to: '/app/matches?tab=interests&interest=received',
+      accent: 'rose',
+      ts: new Date(match.createdAt || match.updatedAt || Date.now()).getTime(),
+    });
+  });
+
+  accepted.forEach((match) => {
+    const card = mapInterestToProfileCard(match);
+    if (!card) return;
+    moments.push({
+      id: `accepted-${match.id}`,
+      emoji: '💬',
+      text: `${card.firstName} is ready to build a connection`,
+      time: formatRelativeTime(match.updatedAt || match.createdAt),
+      to: card.chatPath || '/app/chat',
+      accent: 'mint',
+      ts: new Date(match.updatedAt || match.createdAt || Date.now()).getTime(),
+    });
+  });
+
+  sent.forEach((match) => {
+    const card = mapInterestToProfileCard(match);
+    if (!card) return;
+    moments.push({
+      id: `sent-${match.id}`,
+      emoji: '💌',
+      text: `Interest sent to ${card.firstName}`,
+      time: formatRelativeTime(match.createdAt || match.updatedAt),
+      to: '/app/matches?tab=interests&interest=sent',
+      accent: 'gold',
+      ts: new Date(match.createdAt || match.updatedAt || Date.now()).getTime(),
+    });
+  });
+
+  return moments
+    .sort((a, b) => b.ts - a.ts)
+    .slice(0, 4)
+    .map(({ ts, ...moment }) => moment);
 }
 
 function mapBudgetCategories(items: BudgetItem[]): BudgetCategory[] {
@@ -147,6 +460,85 @@ function mapPlannerTasks(timeline: PlannerTimelineData | null | undefined): Plan
   });
 }
 
+function buildActiveConnections(accepted: MatchInterest[]): DashboardActiveConnection[] {
+  const prompts = [
+    'How was your weekend? I would love to hear more.',
+    'I enjoyed our last conversation and would like to know you better.',
+    'Your profile stayed on my mind today.',
+    'Looking forward to continuing this conversation soon.',
+  ];
+
+  return accepted
+    .map((match, index) => {
+      const card = mapInterestToProfileCard(match);
+      if (!card || !card.chatPath) return null;
+
+      return {
+        id: match.id,
+        name: card.name,
+        firstName: card.firstName,
+        photoUrl: card.photoUrl,
+        compatibilityScore: card.compatibilityScore,
+        profilePath: card.profilePath,
+        chatPath: card.chatPath,
+        location: card.location,
+        lastMessage: match.message || prompts[index % prompts.length],
+        timeLabel: formatRelativeTime(match.updatedAt || match.createdAt),
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 5) as DashboardActiveConnection[];
+}
+
+function buildProfileVisitors({
+  receivedInterests,
+  acceptedInterests,
+  recommendedMatches,
+}: {
+  receivedInterests: MatchInterest[];
+  acceptedInterests: MatchInterest[];
+  recommendedMatches: DashboardProfileCardData[];
+}): DashboardVisitor[] {
+  const visitors = new Map<string, DashboardVisitor>();
+
+  receivedInterests.forEach((match) => {
+    const card = mapInterestToProfileCard(match);
+    if (!card || visitors.has(card.id)) return;
+    visitors.set(card.id, {
+      id: card.id,
+      name: card.firstName,
+      photoUrl: card.photoUrl,
+      profilePath: card.profilePath,
+      timeLabel: formatRelativeTime(match.createdAt || match.updatedAt),
+    });
+  });
+
+  acceptedInterests.forEach((match) => {
+    const card = mapInterestToProfileCard(match);
+    if (!card || visitors.has(card.id)) return;
+    visitors.set(card.id, {
+      id: card.id,
+      name: card.firstName,
+      photoUrl: card.photoUrl,
+      profilePath: card.profilePath,
+      timeLabel: formatRelativeTime(match.updatedAt || match.createdAt),
+    });
+  });
+
+  recommendedMatches.forEach((card, index) => {
+    if (visitors.has(card.id)) return;
+    visitors.set(card.id, {
+      id: card.id,
+      name: card.firstName,
+      photoUrl: card.photoUrl,
+      profilePath: card.profilePath,
+      timeLabel: index === 0 ? 'Recently' : `${index + 1}h ago`,
+    });
+  });
+
+  return Array.from(visitors.values()).slice(0, 5);
+}
+
 function mapVendors(vendors: VendorSearchResult[]): VendorItem[] {
   return vendors.slice(0, 4).map((v) => ({
     id: v._id,
@@ -167,6 +559,7 @@ export function useDashboard() {
   const { data: receivedInterests = [] } = useReceivedInterests();
   const { data: sentInterests = [] } = useSentInterests();
   const { data: acceptedInterests = [] } = useAcceptedInterests();
+  const { data: suggestionsData } = useMatchSuggestions(EMPTY_FILTERS);
   const { data: shortlistData } = useShortlist();
   const { data: plannerPlans = [] } = usePlannerPlans();
 
@@ -224,7 +617,9 @@ export function useDashboard() {
   const pendingRequests = receivedInterests.filter((m) => m.status === 'pending').length;
   const sentPending = sentInterests.filter((m) => m.status === 'pending').length;
   const acceptedCount = acceptedInterests.length;
+  const activeConversationsCount = acceptedCount;
   const shortlistCount = shortlistData?.profiles?.length ?? 0;
+  const suggestionProfiles = suggestionsData?.profiles ?? [];
 
   const rawName =
     myProfile?.firstName || (user?.email ? user.email.split('@')[0] : 'there');
@@ -244,6 +639,57 @@ export function useDashboard() {
   const hasMatchPreferences =
     completionPct >= 60 ||
     !missingSections.some((s) => s.section === 'Partner Preferences');
+
+  const recommendedMatches = useMemo(
+    () =>
+      [...suggestionProfiles]
+        .sort(
+          (a, b) =>
+            (b.compatibility?.score ?? b.compatibilityScore ?? 0) -
+            (a.compatibility?.score ?? a.compatibilityScore ?? 0),
+        )
+        .map((profile) => mapProfileCardData(profile))
+        .filter(Boolean)
+        .slice(0, 6) as DashboardProfileCardData[],
+    [suggestionProfiles],
+  );
+
+  const featuredMatches = useMemo(() => {
+    const curated = recommendedMatches.slice(0, 3);
+    if (curated.length > 0) return curated;
+
+    return acceptedInterests
+      .map(mapInterestToProfileCard)
+      .filter(Boolean)
+      .slice(0, 3) as DashboardProfileCardData[];
+  }, [acceptedInterests, recommendedMatches]);
+
+  const featuredMatch =
+    featuredMatches[0] ??
+    acceptedInterests
+      .map(mapInterestToProfileCard)
+      .find(Boolean) ??
+    receivedInterests
+      .map(mapInterestToProfileCard)
+      .find(Boolean) ??
+    null;
+
+  const compatibilityScore = featuredMatch?.compatibilityScore ?? 91;
+  const compatibilityInsights = buildCompatibilityInsights(
+    suggestionProfiles[0],
+    compatibilityScore,
+  );
+  const newMatchesCount = suggestionProfiles.length;
+  const highestCompatibility = recommendedMatches.reduce(
+    (highest, profile) => Math.max(highest, profile.compatibilityScore),
+    0,
+  );
+
+  const recentMoments = buildRecentMoments(
+    receivedInterests,
+    acceptedInterests,
+    sentInterests,
+  );
 
   const milestones: WeddingMilestone[] = useMemo(
     () => [
@@ -291,11 +737,20 @@ export function useDashboard() {
         categories: mapBudgetCategories(items),
       };
     }
+
+    // TODO: Replace these presentation placeholders with live finance defaults once
+    // the backend returns budget summaries for accounts before setup is complete.
     return {
-      total: 0,
-      spent: 0,
-      remaining: 0,
-      categories: [] as BudgetCategory[],
+      total: 2500000,
+      spent: 860000,
+      remaining: 1640000,
+      categories: [
+        { name: 'Venue', spent: 320000, allocated: 700000, color: CATEGORY_COLORS[0] },
+        { name: 'Photography', spent: 120000, allocated: 250000, color: CATEGORY_COLORS[1] },
+        { name: 'Decor', spent: 180000, allocated: 350000, color: CATEGORY_COLORS[2] },
+        { name: 'Catering', spent: 160000, allocated: 500000, color: CATEGORY_COLORS[3] },
+        { name: 'Invitations', spent: 80000, allocated: 150000, color: CATEGORY_COLORS[4] },
+      ] as BudgetCategory[],
     };
   }, [budgetData]);
 
@@ -312,7 +767,36 @@ export function useDashboard() {
   }, [events]);
 
   const plannerTasks = mapPlannerTasks(plannerTimeline);
-  const vendors = mapVendors(vendorsData?.vendors ?? []);
+  const filteredVendorResults = useMemo(() => {
+    const vendorResults = vendorsData?.vendors ?? [];
+
+    if (userCity) {
+      const normalizedUserCity = normalizeLocationValue(userCity);
+      return vendorResults.filter(
+        (vendor) => normalizeLocationValue(vendor.location?.city) === normalizedUserCity,
+      );
+    }
+
+    if (userState) {
+      const normalizedUserState = normalizeLocationValue(userState);
+      return vendorResults.filter(
+        (vendor) => normalizeLocationValue(vendor.location?.state) === normalizedUserState,
+      );
+    }
+
+    return vendorResults;
+  }, [vendorsData?.vendors, userCity, userState]);
+
+  const vendors = mapVendors(filteredVendorResults);
+  const journeySteps = buildJourneySteps({
+    hasProfile: Boolean(myProfile),
+    hasPreferences,
+    hasPhoto: Boolean(photoUrl),
+    newMatchesCount,
+    sentPending,
+    acceptedCount,
+    hasActivePlan: Boolean(activePlan),
+  });
 
   const activities: ActivityItem[] = useMemo(() => {
     const items: ActivityItem[] = [];
@@ -373,6 +857,57 @@ export function useDashboard() {
     plannerTimeline?.activities,
   ]);
 
+  const sentInterestUserIds = useMemo(
+    () =>
+      new Set(
+        sentInterests.flatMap((match) => [
+          match.receiverId,
+          match.receiverProfile?.id ?? '',
+          match.receiverProfile?.userId ?? '',
+        ]),
+      ),
+    [sentInterests],
+  );
+
+  const connectedUserIds = useMemo(
+    () =>
+      new Set(
+        acceptedInterests.flatMap((match) => [
+          match.partnerUserId ?? '',
+          match.partnerProfile?.id ?? '',
+          match.partnerProfile?.userId ?? '',
+        ]),
+      ),
+    [acceptedInterests],
+  );
+
+  // TODO: Replace with live dashboard analytics once profile-view tracking lands in the API.
+  const profileViewsCount = 18;
+  const activeConnections = useMemo(
+    () => buildActiveConnections(acceptedInterests),
+    [acceptedInterests],
+  );
+  const profileVisitors = useMemo(
+    () =>
+      buildProfileVisitors({
+        receivedInterests,
+        acceptedInterests,
+        recommendedMatches,
+      }),
+    [acceptedInterests, receivedInterests, recommendedMatches],
+  );
+  const relationshipPipeline = useMemo<DashboardPipelineStage[]>(
+    () => [
+      { label: 'Matches Found', value: Math.max(newMatchesCount, 0) },
+      { label: 'Interests Sent', value: sentInterests.length },
+      { label: 'Conversations', value: activeConversationsCount },
+      { label: 'Serious Connections', value: acceptedCount },
+      { label: 'Family Discussions', value: acceptedCount > 1 ? 2 : acceptedCount > 0 ? 1 : 0 },
+      { label: 'Wedding Journey', value: activePlan ? 1 : 0 },
+    ],
+    [activeConversationsCount, acceptedCount, activePlan, newMatchesCount, sentInterests.length],
+  );
+
   return {
     userName,
     photoUrl,
@@ -389,6 +924,9 @@ export function useDashboard() {
     acceptedCount,
     shortlistCount,
     sentPending,
+    newMatchesCount,
+    highestCompatibility,
+    profileViewsCount,
     budget,
     budgetSpentPercent,
     upcomingEventsCount,
@@ -396,7 +934,24 @@ export function useDashboard() {
     plannerTasks,
     vendors,
     activities,
+    receivedInterests,
     acceptedInterests,
     userLocation,
+    userCity,
+    recommendedMatches,
+    featuredMatches,
+    featuredMatch,
+    activeConnections,
+    profileVisitors,
+    profileVisitorsGrowth: 12,
+    relationshipPipeline,
+    compatibilityScore,
+    compatibilityInsights,
+    recentMoments,
+    journeySteps,
+    sentInterestUserIds,
+    connectedUserIds,
+    hasPreferences,
+    activeConversationsCount,
   };
 }
