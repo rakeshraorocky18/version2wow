@@ -344,6 +344,12 @@ export class ProfileEntity {
   @Column({ default: false })
   isPremium: boolean;
 
+  @Column({ default: 'Free' })
+  subscriptionType: string;
+
+  @Column({ type: 'datetime', nullable: true })
+  boostExpiresAt: Date | null;
+
   @Column({ default: false })
   onlineStatus: boolean;
 

@@ -41,3 +41,6 @@ backend/data/*.db-*
 # Misc
 *.tgz
 .cache/
+
+# Accidental nested clone (do not track as submodule)
+version2wow/

@@ -13,12 +13,6 @@ export class SendInterestDto {
   message?: string;
 }
 
-export class ShortlistDto {
-  @ApiProperty({ description: 'Profile ID to shortlist' })
-  @IsString()
-  profileId: string;
-}
-
 export class ProfileSearchQueryDto {
   @ApiPropertyOptional()
   @IsOptional()
@@ -141,4 +135,16 @@ export class ProfileSearchQueryDto {
   @IsInt()
   @Min(1)
   limit?: number;
+}
+
+export class ShortlistDto {
+  @ApiProperty({ description: 'Profile ID to shortlist' })
+  @IsString()
+  profileId: string;
+}
+
+export class SubscribePlanDto {
+  @ApiProperty({ description: 'Plan id: basic | premium | platinum' })
+  @IsString()
+  planId: string;
 }

@@ -59,6 +59,22 @@ export class UsersService implements OnModuleInit {
     return cleaned.length ? cleaned : undefined;
   }
 
+  private countProfilePhotos(profile: ProfileEntity): number {
+    const gallery = this.sanitizePhotos(profile.photos) || [];
+    const galleryOnly = profile.profilePhoto
+      ? gallery.filter((p) => p !== profile.profilePhoto)
+      : gallery;
+    return (profile.profilePhoto ? 1 : 0) + galleryOnly.length;
+  }
+
+  private assertCanAddProfilePhoto(profile: ProfileEntity): void {
+    if (this.countProfilePhotos(profile) >= this.maxProfilePhotos) {
+      throw new BadRequestException(
+        `Maximum ${this.maxProfilePhotos} profile photos allowed. Remove a photo before uploading another.`,
+      );
+    }
+  }
+
   async createProfile(userId: string, dto: CreateProfileDto): Promise<ProfileEntity> {
     const existing = await this.profileRepository.findOne({ where: { userId } });
     if (existing) {
@@ -175,8 +191,43 @@ export class UsersService implements OnModuleInit {
     const profile = await this.profileRepository.findOne({ where: { userId } });
     if (!profile) throw new NotFoundException('Profile not found');
     profile.isPremium = isPremium;
+    if (!isPremium && profile.subscriptionType !== 'Free') {
+      profile.subscriptionType = 'Free';
+    } else if (isPremium && profile.subscriptionType === 'Free') {
+      profile.subscriptionType = 'Premium';
+    }
     const saved = await this.profileRepository.save(profile);
     return this.formatProfileResponse(saved);
+  }
+
+  async setSubscription(userId: string, subscriptionType: string) {
+    const profile = await this.profileRepository.findOne({ where: { userId } });
+    if (!profile) throw new NotFoundException('Profile not found');
+    profile.subscriptionType = subscriptionType;
+    profile.isPremium = subscriptionType !== 'Free';
+    const saved = await this.profileRepository.save(profile);
+    return this.formatProfileResponse(saved);
+  }
+
+  async activateProfileBoost(userId: string, durationHours = 24) {
+    const profile = await this.profileRepository.findOne({ where: { userId } });
+    if (!profile) throw new NotFoundException('Profile not found');
+    const now = Date.now();
+    const currentExpiry = profile.boostExpiresAt ? new Date(profile.boostExpiresAt).getTime() : 0;
+    const base = Math.max(now, currentExpiry);
+    profile.boostExpiresAt = new Date(base + durationHours * 60 * 60 * 1000);
+    const saved = await this.profileRepository.save(profile);
+    return this.formatProfileResponse(saved);
+  }
+
+  async clearExpiredBoost(userId: string) {
+    const profile = await this.profileRepository.findOne({ where: { userId } });
+    if (!profile?.boostExpiresAt) return profile;
+    if (new Date(profile.boostExpiresAt).getTime() <= Date.now()) {
+      profile.boostExpiresAt = null;
+      return this.profileRepository.save(profile);
+    }
+    return profile;
   }
 
   async updateProfilePhoto(userId: string, photoUrl: string): Promise<ProfileEntity & { wizardProfile: Record<string, unknown> }> {
@@ -198,6 +249,11 @@ export class UsersService implements OnModuleInit {
         isVisible: true,
       });
     } else {
+      if (!profile.profilePhoto && this.countProfilePhotos(profile) >= this.maxProfilePhotos) {
+        throw new BadRequestException(
+          `Maximum ${this.maxProfilePhotos} profile photos allowed. Remove a photo before uploading another.`,
+        );
+      }
       profile.profilePhoto = photoUrl;
     }
     const saved = await this.profileRepository.save(profile);
@@ -208,10 +264,9 @@ export class UsersService implements OnModuleInit {
     const profile = await this.profileRepository.findOne({ where: { userId } });
     if (!profile) throw new NotFoundException('Profile not found');
 
+    this.assertCanAddProfilePhoto(profile);
+
     const current = this.sanitizePhotos(profile.photos) || [];
-    if (current.length >= this.maxProfilePhotos) {
-      throw new BadRequestException(`Maximum ${this.maxProfilePhotos} gallery photos allowed`);
-    }
     if (current.includes(photoUrl) || profile.profilePhoto === photoUrl) {
       throw new BadRequestException('Photo already exists');
     }
@@ -665,6 +720,15 @@ export class UsersService implements OnModuleInit {
       galleryVisibility: profile.galleryVisibility || 'matched_only',
       education: educationSummary || profile.education,
       occupation: profile.occupation || profile.jobTitle,
+      subscriptionType: profile.subscriptionType || (profile.isPremium ? 'Premium' : 'Free'),
+      isPremium: profile.isPremium || profile.subscriptionType !== 'Free',
+      isBoosted: Boolean(
+        profile.boostExpiresAt && new Date(profile.boostExpiresAt).getTime() > Date.now(),
+      ),
+      boostExpiresAt:
+        profile.boostExpiresAt && new Date(profile.boostExpiresAt).getTime() > Date.now()
+          ? profile.boostExpiresAt
+          : null,
       wizardProfile,
     });
   }
@@ -730,6 +794,18 @@ export class UsersService implements OnModuleInit {
     }
 
     const skip = (page - 1) * limit;
+    qb
+      .orderBy(
+        `CASE WHEN p.boostExpiresAt IS NOT NULL AND p.boostExpiresAt > datetime('now') THEN 0 ELSE 1 END`,
+        'ASC',
+      )
+      .addOrderBy(
+        `CASE p.subscriptionType WHEN 'Platinum' THEN 0 WHEN 'Premium' THEN 1 WHEN 'Basic' THEN 2 ELSE 3 END`,
+        'ASC',
+      )
+      .addOrderBy('p.isPremium', 'DESC')
+      .addOrderBy('p.updatedAt', 'DESC');
+
     const [profiles, total] = await qb.skip(skip).take(limit).getManyAndCount();
 
     return {

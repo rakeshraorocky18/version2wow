@@ -1,13 +1,13 @@
 import { Link } from 'react-router-dom';
 import { Sparkles } from 'lucide-react';
 import type { MatchProfile } from '../../types/matchmaking';
+import type { InterestStatus } from '../../lib/matchInterestUtils';
 import MatchProfileCard from '../matchmaking/MatchProfileCard';
 import DashboardCard from './DashboardCard';
 
 interface RecommendedMatchesProps {
   profiles: MatchProfile[];
   onSendInterest: (profile: MatchProfile) => void | Promise<void>;
-  acceptedUserIds: Set<string>;
   interestLoadingId?: string | null;
 }
 
@@ -34,16 +34,23 @@ export default function RecommendedMatches({
 
         {profiles.length > 0 ? (
           <div className="space-y-0">
-            {profiles.map((profile, i) => (
-              <MatchProfileCard
-                key={profile.id}
-                profile={profile}
-                showScore
-                animationDelay={i * 80}
-                interestLoading={interestLoadingId === profile.id}
-                onInterest={() => onSendInterest(profile)}
-              />
-            ))}
+            {profiles.map((profile, i) => {
+              const interestStatus = (profile.interestStatus || 'none') as InterestStatus;
+              return (
+                <MatchProfileCard
+                  key={profile.id}
+                  profile={profile}
+                  showScore
+                  interestStatus={interestStatus}
+                  partnerUserId={profile.matchPartnerUserId || profile.userId}
+                  animationDelay={i * 80}
+                  interestLoading={interestLoadingId === profile.id}
+                  onInterest={
+                    interestStatus === 'none' ? () => onSendInterest(profile) : undefined
+                  }
+                />
+              );
+            })}
           </div>
         ) : (
           <div className="dp-empty-state !py-12">
