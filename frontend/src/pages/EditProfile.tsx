@@ -38,6 +38,10 @@ import {
   PARTNER_MARITAL_OPTIONS,
 } from '../lib/religionCasteOptions';
 import {
+  MARITAL_STATUS_OPTIONS,
+  CHILDREN_MARITAL_STATUSES,
+} from '../lib/maritalStatusOptions';
+import {
   EDIT_SECTIONS as SECTIONS,
   SECTION_ERROR_FIELDS,
   getMaxUnlockedStep,
@@ -131,7 +135,6 @@ const HEIGHT_OPTIONS = Array.from({ length: 31 }).map((_, i) => {
 
 const COMPLEXIONS = ['Very Fair', 'Fair', 'Wheatish', 'Wheatish Brown', 'Brown', 'Dark'];
 const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
-const MARITAL_OPTIONS = ['Never Married', 'Divorced', 'Widowed', 'Awaiting Divorce', 'Annulled'];
 const YEARS_MARRIED_OPTIONS = [
   'Less than 1 year',
   '1-2 years',
@@ -143,7 +146,6 @@ const YEARS_MARRIED_OPTIONS = [
 ];
 const CHILD_COUNT_OPTIONS = ['0', '1', '2', '3', '4', '5', '6+'];
 const CHILDREN_LIVING_WITH_OPTIONS = ['Mother', 'Father', 'Shared Custody', 'Relatives', 'Others'];
-const CHILDREN_MARITAL_STATUSES = ['Divorced', 'Widowed'];
 const FAMILY_TYPES = ['Nuclear Family', 'Joint Family', 'Extended Family'];
 const FAMILY_STATUS = ['Middle Class', 'Upper Middle Class', 'Affluent', 'Rich'];
 const EATING = ['Vegetarian', 'Eggetarian', 'Non-Vegetarian', 'Vegan'];
@@ -1146,10 +1148,10 @@ export default function EditProfile({ managedMode = false }: { managedMode?: boo
 
               {step === 3 && (
                 <>
-                  <FormField label="Marital Status" htmlFor="maritalStatus" required error={errors.maritalStatus}>
+                  <FormField label="Relationship Status" htmlFor="maritalStatus" required error={errors.maritalStatus}>
                     <select id="maritalStatus" className={inputClass(errors.maritalStatus)} value={form.maritalStatus || ''} onChange={(e) => update('maritalStatus', e.target.value)}>
-                      <option value="">Select status</option>
-                      {MARITAL_OPTIONS.map((v) => <option key={v}>{v}</option>)}
+                      <option value="">Select relationship status</option>
+                      {MARITAL_STATUS_OPTIONS.map((v) => <option key={v} value={v}>{v}</option>)}
                     </select>
                   </FormField>
                   {form.maritalStatus === 'Divorced' && (

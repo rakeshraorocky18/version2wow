@@ -1,22 +1,34 @@
 import { useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { Camera, Globe, Heart, ImagePlus, Lock, Trash2, Upload } from 'lucide-react';
+import { Camera, ImagePlus, Globe, Heart, Lock, Trash2, Upload } from 'lucide-react';
 import api from '../../lib/api';
 import { getPhotoUrl } from '../../lib/profileUtils';
+import {
+  MAX_PROFILE_PHOTOS,
+  maxGalleryPhotos,
+} from '../../lib/maritalStatusOptions';
 
-const MAX_GALLERY = 6;
 export type GalleryVisibility = 'public' | 'matched_only';
 
 interface ProfileGallerySectionProps {
   photos: string[];
   visibility: GalleryVisibility;
+  hasMainPhoto?: boolean;
 }
 
-export default function ProfileGallerySection({ photos, visibility }: ProfileGallerySectionProps) {
+const MAX_FILE_BYTES = 5 * 1024 * 1024;
+
+export default function ProfileGallerySection({
+  photos,
+  visibility,
+  hasMainPhoto = false,
+}: ProfileGallerySectionProps) {
   const queryClient = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
+  const galleryLimit = maxGalleryPhotos(hasMainPhoto);
+  const totalPhotos = (hasMainPhoto ? 1 : 0) + photos.length;
 
   const safeIndex = photos.length ? Math.min(activeIndex, photos.length - 1) : 0;
   const activePhoto = photos[safeIndex];
@@ -64,11 +76,17 @@ export default function ProfileGallerySection({ photos, visibility }: ProfileGal
 
   const handleFile = (file: File | null) => {
     if (!file?.type.startsWith('image/')) {
-      toast.error('Please choose an image');
+      toast.error('Please choose an image file (JPG, PNG, or WEBP)');
       return;
     }
-    if (photos.length >= MAX_GALLERY) {
-      toast.error(`Maximum ${MAX_GALLERY} album photos`);
+    if (file.size > MAX_FILE_BYTES) {
+      toast.error('Image must be 5 MB or smaller');
+      return;
+    }
+    if (photos.length >= galleryLimit || totalPhotos >= MAX_PROFILE_PHOTOS) {
+      toast.error(
+        `You can upload up to ${MAX_PROFILE_PHOTOS} profile photos total. Remove a photo before adding another.`,
+      );
       return;
     }
     uploadMutation.mutate(file);
@@ -82,7 +100,8 @@ export default function ProfileGallerySection({ photos, visibility }: ProfileGal
           <div>
             <h2 className="font-display text-lg font-semibold text-[#5D2B44]">Photo Album</h2>
             <p className="mt-0.5 text-sm text-[#9A5776]">
-              Separate from your main profile photo · up to {MAX_GALLERY} photos
+              Additional photos · {totalPhotos}/{MAX_PROFILE_PHOTOS} used
+              {hasMainPhoto ? ' (includes main profile photo)' : ''}
             </p>
           </div>
 
@@ -114,12 +133,12 @@ export default function ProfileGallerySection({ photos, visibility }: ProfileGal
           <button
             type="button"
             onClick={() => fileRef.current?.click()}
-            disabled={uploadMutation.isPending}
-            className="flex w-full flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-[#E5C8D5] bg-[#FFFBFC] py-12 transition hover:border-[#B66A8A] hover:bg-[#FFF5F8]"
+            disabled={uploadMutation.isPending || totalPhotos >= MAX_PROFILE_PHOTOS}
+            className="flex w-full flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-[#E5C8D5] bg-[#FFFBFC] py-12 transition hover:border-[#B66A8A] hover:bg-[#FFF5F8] disabled:cursor-not-allowed disabled:opacity-60"
           >
             <ImagePlus size={32} className="text-[#B66A8A]" />
             <span className="text-sm font-medium text-[#5D2B44]">Add album photos</span>
-            <span className="text-xs text-[#9A5776]">Up to {MAX_GALLERY} photos</span>
+            <span className="text-xs text-[#9A5776]">Up to {galleryLimit} more photo{galleryLimit !== 1 ? 's' : ''}</span>
           </button>
         ) : (
           <div className="grid gap-4 sm:grid-cols-[1fr_auto]">
@@ -145,7 +164,7 @@ export default function ProfileGallerySection({ photos, visibility }: ProfileGal
                   <img src={getPhotoUrl(url)} alt="" className="h-full w-full object-cover" />
                 </button>
               ))}
-              {photos.length < MAX_GALLERY && (
+              {photos.length < galleryLimit && totalPhotos < MAX_PROFILE_PHOTOS && (
                 <button
                   type="button"
                   onClick={() => fileRef.current?.click()}
@@ -166,6 +185,12 @@ export default function ProfileGallerySection({ photos, visibility }: ProfileGal
           className="hidden"
           onChange={(e) => handleFile(e.target.files?.[0] || null)}
         />
+
+        {totalPhotos >= MAX_PROFILE_PHOTOS && (
+          <p className="mt-3 text-xs font-medium text-amber-700">
+            Photo limit reached ({MAX_PROFILE_PHOTOS} photos). Remove a photo to upload a new one.
+          </p>
+        )}
 
         <p className="mt-4 flex items-center gap-2 border-t border-[#F0DFE7] pt-4 text-xs text-[#9A5776]">
           {visibility === 'public' ? (

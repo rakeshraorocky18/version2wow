@@ -1,134 +1,94 @@
 import { Link } from 'react-router-dom';
-import { ArrowRight, BadgeCheck, Calendar, Heart, MapPin, Search, User } from 'lucide-react';
-import CircularProgressRing from './CircularProgressRing';
+import { ArrowRight, Calendar, Eye, Heart, Mail, Search, Sparkles } from 'lucide-react';
 
 interface DashboardHeroProps {
   userName: string;
-  userPhoto?: string;
   profileCompletion: number;
-  isVerified?: boolean;
-  profession?: string;
-  location?: string;
-  planningPercent: number;
+  compatibilityScore: number;
+  newMatches: number;
+  activeConversations: number;
   daysUntilWedding: number;
+  profileViews: number;
+  recentInterests: number;
   nextTask: string;
-  pendingInterests: number;
-  mutualMatches: number;
 }
 
 export default function DashboardHero({
   userName,
-  userPhoto,
   profileCompletion,
-  isVerified,
-  profession,
-  location,
-  planningPercent,
+  compatibilityScore,
+  newMatches,
+  activeConversations,
   daysUntilWedding,
+  profileViews,
+  recentInterests,
   nextTask,
-  pendingInterests,
-  mutualMatches,
 }: DashboardHeroProps) {
-  const matchStatus =
-    pendingInterests > 0 && mutualMatches > 0
-      ? `${mutualMatches} mutual · ${pendingInterests} pending`
-      : pendingInterests > 0
-        ? `${pendingInterests} interest${pendingInterests > 1 ? 's' : ''} awaiting`
-        : mutualMatches > 0
-          ? `${mutualMatches} mutual match${mutualMatches > 1 ? 'es' : ''}`
-          : 'Explore new connections';
+  const stats = [
+    { label: 'Profile Completion', value: `${profileCompletion}%` },
+    { label: 'Compatibility Score', value: `${compatibilityScore}%` },
+    { label: 'New Matches', value: String(newMatches) },
+    { label: 'Active Conversations', value: String(activeConversations) },
+    { label: 'Wedding Countdown', value: daysUntilWedding > 0 ? `${daysUntilWedding} days` : 'Set date' },
+    { label: 'Profile Views', value: String(profileViews) },
+    { label: 'Recent Interests', value: String(recentInterests) },
+  ];
 
   return (
-      <section className="dp-dash-hero">
-      <div className="dp-dash-hero__bg" aria-hidden>
-        <img src="/images/matches-hero-bg.png" alt="" />
-      </div>
-      <div className="dp-dash-hero__inner">
-        <p className="shaadi-my-label">My WOW</p>
+    <section className="wow-dashboard-hero">
+      <div className="wow-dashboard-hero__glow" aria-hidden />
+      <div className="wow-dashboard-hero__content">
+        <div className="wow-dashboard-hero__copy">
+          <span className="wow-pill-label">
+            <Sparkles size={13} />
+            Premium Matchmaking Journey
+          </span>
+          <h1 className="wow-dashboard-hero__title">
+            Welcome back, {userName} <span aria-hidden>❤️</span>
+          </h1>
+          <p className="wow-dashboard-hero__subtitle">
+            Your journey to finding the perfect life partner is progressing beautifully.
+          </p>
 
-        <div className="dp-dash-hero__profile">
-          <div className="shaadi-avatar-ring">
-            <CircularProgressRing
-              percent={profileCompletion}
-              size={76}
-              strokeWidth={4}
-              gradientId="shaadiProgressGrad"
-            />
-            <div className="shaadi-avatar-ring__inner">
-              {userPhoto ? (
-                <img src={userPhoto} alt={userName} className="dp-dash-hero__avatar !m-0 !shadow-none" />
-              ) : (
-                <div className="dp-dash-hero__avatar dp-dash-hero__avatar--placeholder !m-0 !shadow-none">
-                  <User size={24} className="text-[#e52727]" />
-                </div>
-              )}
-            </div>
-            <span className="shaadi-avatar-ring__badge">{profileCompletion}%</span>
+          <div className="wow-dashboard-hero__stats">
+            {stats.map((item) => (
+              <div key={item.label} className="wow-dashboard-hero__stat">
+                <p className="wow-dashboard-hero__stat-label">{item.label}</p>
+                <p className="wow-dashboard-hero__stat-value">{item.value}</p>
+              </div>
+            ))}
           </div>
 
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="dp-dash-hero__title !text-xl sm:!text-2xl">
-                Welcome, <span>{userName}</span>
-              </h1>
-              {isVerified && (
-                <span className="shaadi-verified-badge" title="Verified profile">
-                  <BadgeCheck size={14} /> Verified
-                </span>
-              )}
-            </div>
-            {(profession || location) && (
-              <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-sm text-[#535a60]">
-                {profession && <span>{profession}</span>}
-                {location && (
-                  <span className="inline-flex items-center gap-1">
-                    <MapPin size={12} className="text-[#e52727]" />
-                    {location}
-                  </span>
-                )}
-              </p>
-            )}
-            <p className="dp-dash-hero__subtitle !mt-1">
-              Planning your perfect journey together.
-            </p>
-            <Link to="/app/profile/edit" className="shaadi-edit-link mt-1 inline-flex">
-              Edit Profile →
+          <div className="wow-dashboard-hero__actions">
+            <Link to="/app/matches" className="wow-primary-button inline-flex items-center gap-2">
+              <Search size={15} />
+              View Matches
+              <ArrowRight size={15} />
+            </Link>
+            <Link to="/app/planner" className="wow-secondary-button inline-flex items-center gap-2">
+              <Calendar size={15} />
+              Continue Planning
             </Link>
           </div>
-        </div>
 
-        <div className="dp-dash-hero__stats">
-          <div className="dp-dash-hero__stat">
-            <p className="dp-dash-hero__stat-label">Planning progress</p>
-            <p className="dp-dash-hero__stat-value is-brand">{planningPercent}%</p>
+          <div className="wow-dashboard-hero__footer">
+            <span className="inline-flex items-center gap-2">
+              <Heart size={14} fill="currentColor" />
+              Strong compatibility momentum this week
+            </span>
+            <span className="inline-flex items-center gap-2">
+              <Mail size={14} />
+              {recentInterests} interests received
+            </span>
+            <span className="inline-flex items-center gap-2">
+              <Eye size={14} />
+              {profileViews} profile visits
+            </span>
+            <span className="inline-flex items-center gap-2">
+              <Calendar size={14} />
+              Next step: {nextTask}
+            </span>
           </div>
-          <div className="dp-dash-hero__stat">
-            <p className="dp-dash-hero__stat-label">Wedding countdown</p>
-            <p className="dp-dash-hero__stat-value">
-              {daysUntilWedding}{' '}
-              <span className="text-sm font-semibold text-[#6a737c]">days</span>
-            </p>
-          </div>
-          <div className="dp-dash-hero__stat">
-            <p className="dp-dash-hero__stat-label">Next pending task</p>
-            <p className="dp-dash-hero__stat-value text-sm leading-snug">{nextTask}</p>
-          </div>
-          <div className="dp-dash-hero__stat">
-            <p className="dp-dash-hero__stat-label">Partner match status</p>
-            <p className="dp-dash-hero__stat-value is-brand flex items-center gap-1 text-sm">
-              <Heart size={12} fill="currentColor" />
-              {matchStatus}
-            </p>
-          </div>
-        </div>
-
-        <div className="dp-dash-hero__actions">
-          <Link to="/app/matches" className="dp-dash-btn dp-dash-btn--primary">
-            <Search size={14} /> View Matches <ArrowRight size={14} />
-          </Link>
-          <Link to="/app/planner" className="dp-dash-btn dp-dash-btn--outline">
-            <Calendar size={14} /> Wedding Planner
-          </Link>
         </div>
       </div>
     </section>

@@ -1,64 +1,81 @@
 import { Link } from 'react-router-dom';
-import { Camera, ChevronRight, Heart, User } from 'lucide-react';
+import { Camera, ChevronRight, Sparkles, User } from 'lucide-react';
 import CircularProgressRing from './CircularProgressRing';
 
 interface ProfileCompletionBannerProps {
   completionPercent: number;
   missingSections: string[];
   hasPhoto: boolean;
+  isVerified?: boolean;
 }
 
 export default function ProfileCompletionBanner({
   completionPercent,
   missingSections,
   hasPhoto,
+  isVerified,
 }: ProfileCompletionBannerProps) {
   if (completionPercent >= 100) return null;
 
-  const pendingItems = [
-    ...(!hasPhoto ? ['Add profile photo'] : []),
-    ...missingSections.slice(0, 3).map((s) => `Complete ${s}`),
-  ].slice(0, 4);
+  const missing = new Set(missingSections);
+  const checklist = [
+    { label: 'Basic Information', done: completionPercent >= 20 || !missing.has('Personal Details') },
+    { label: 'Photos Added', done: hasPhoto },
+    {
+      label: 'Preferences Added',
+      done: completionPercent >= 60 || !missing.has('Partner Preferences'),
+    },
+    { label: 'Family Details', done: !missing.has('Family Details') && completionPercent >= 50 },
+    {
+      label: 'Lifestyle Preferences',
+      done: !missing.has('Lifestyle Preferences') && completionPercent >= 70,
+    },
+    { label: 'Verification', done: Boolean(isVerified) },
+  ];
 
   return (
-    <div className="shaadi-completion-banner">
-      <div className="shaadi-completion-banner__inner">
-        <div className="shaadi-completion-banner__ring">
+    <div className="wow-profile-completion-card">
+      <div className="wow-profile-completion-card__inner">
+        <div className="wow-profile-completion-card__ring">
           <CircularProgressRing
             percent={completionPercent}
-            size={56}
+            size={76}
             strokeWidth={5}
-            gradientId="shaadiProgressGrad"
+            gradientId="wowProfileCompletionGrad"
           />
-          <span className="shaadi-completion-banner__pct">{completionPercent}%</span>
+          <span className="wow-profile-completion-card__pct">{completionPercent}%</span>
         </div>
-        <div className="shaadi-completion-banner__content">
-          <p className="shaadi-completion-banner__eyebrow">My WOW · Profile strength</p>
-          <h3 className="shaadi-completion-banner__title">
-            Complete your profile to get better matches
+        <div className="wow-profile-completion-card__content">
+          <p className="wow-section-kicker inline-flex items-center gap-2">
+            <Sparkles size={13} />
+            Unlock Better Matches
+          </p>
+          <h3 className="wow-section-title">
+            Profile Completion
           </h3>
-          {pendingItems.length > 0 && (
-            <ul className="shaadi-completion-banner__list">
-              {pendingItems.map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
-          )}
+          <p className="wow-section-subtitle !mb-0">
+            Complete your profile to receive 3x more compatible matches.
+          </p>
+          <ul className="wow-profile-completion-card__list">
+            {checklist.map((item) => (
+              <li key={item.label} className={item.done ? 'is-complete' : 'is-pending'}>
+                <span aria-hidden>{item.done ? '✓' : '○'}</span>
+                <span>{item.label}</span>
+              </li>
+            ))}
+          </ul>
         </div>
-        <div className="shaadi-completion-banner__actions">
+        <div className="wow-profile-completion-card__actions">
           {!hasPhoto && (
-            <Link to="/app/profile/photos" className="shaadi-btn shaadi-btn--outline">
-              <Camera size={14} /> Add Photos
+            <Link to="/app/profile/photos" className="wow-secondary-button inline-flex items-center gap-2">
+              <Camera size={14} />
+              Add Photos
             </Link>
           )}
-          <Link to="/app/profile/edit" className="shaadi-btn shaadi-btn--primary">
-            <User size={14} /> Complete Profile <ChevronRight size={14} />
-          </Link>
-          <Link
-            to="/app/profile/edit?section=partner-preferences"
-            className="shaadi-btn shaadi-btn--ghost"
-          >
-            <Heart size={14} /> Partner Preferences
+          <Link to="/app/profile/edit" className="wow-primary-button inline-flex items-center gap-2">
+            <User size={14} />
+            Complete Profile
+            <ChevronRight size={14} />
           </Link>
         </div>
       </div>

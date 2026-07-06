@@ -1,5 +1,12 @@
-import { RotateCcw, SlidersHorizontal } from 'lucide-react';
+import { useState } from 'react';
+import { Bookmark, RotateCcw, SlidersHorizontal } from 'lucide-react';
 import { getCastesForReligion, RELIGION_OPTIONS } from '../../lib/religionCasteOptions';
+import {
+  deleteSavedSearch,
+  getSavedSearches,
+  saveSearch,
+  type SavedSearch,
+} from '../../lib/savedMatchSearch';
 import { EMPTY_FILTERS, type MatchFilters } from '../../types/matchmaking';
 
 type Props = {
@@ -20,11 +27,21 @@ function countActiveFilters(filters: MatchFilters) {
 
 export default function MatchFiltersPanel({ filters, onChange, matchGenderLabel }: Props) {
   const activeCount = countActiveFilters(filters);
+  const [savedSearches, setSavedSearches] = useState<SavedSearch[]>(() => getSavedSearches());
+  const [saveName, setSaveName] = useState('');
+  const [showSaveInput, setShowSaveInput] = useState(false);
+
+  const handleSaveSearch = () => {
+    const next = saveSearch(saveName || 'My search', filters);
+    setSavedSearches(next);
+    setSaveName('');
+    setShowSaveInput(false);
+  };
 
   return (
     <aside className="dp-filter-sidebar">
       <h4 className="dp-filter-sidebar__title">Member Search</h4>
-      <div className="dp-filter-sidebar__wrapper">
+      <div className="dp-filter-sidebar__wrapper dp-glass-panel">
         <div className="dp-filter-sidebar__header">
           <span className="dp-filter-sidebar__icon">
             <SlidersHorizontal size={18} />
@@ -36,17 +53,79 @@ export default function MatchFiltersPanel({ filters, onChange, matchGenderLabel 
                 ? 'Showing all profiles'
                 : `${activeCount} filter${activeCount === 1 ? '' : 's'} applied`}
           </p>
-          {activeCount > 0 && (
+          <div className="dp-filter-sidebar__actions">
+            {activeCount > 0 && (
+              <button
+                type="button"
+                onClick={() => onChange(EMPTY_FILTERS)}
+                className="dp-filter-sidebar__clear"
+              >
+                <RotateCcw size={14} />
+                Clear all
+              </button>
+            )}
             <button
               type="button"
-              onClick={() => onChange(EMPTY_FILTERS)}
-              className="dp-filter-sidebar__clear"
+              onClick={() => setShowSaveInput((v) => !v)}
+              className="dp-filter-sidebar__save"
+              disabled={activeCount === 0}
             >
-              <RotateCcw size={14} />
-              Clear all
+              <Bookmark size={14} />
+              Save search
             </button>
-          )}
+          </div>
         </div>
+
+        {showSaveInput && (
+          <div className="dp-filter-save-row">
+            <input
+              type="text"
+              className="dp-filter-input"
+              placeholder="Search name (optional)"
+              value={saveName}
+              onChange={(e) => setSaveName(e.target.value)}
+            />
+            <button type="button" className="dp-filter-save-btn" onClick={handleSaveSearch}>
+              Save
+            </button>
+          </div>
+        )}
+
+        {savedSearches.length > 0 && (
+          <div className="dp-filter-recent">
+            <p className="dp-filter-recent__label">Saved searches</p>
+            <div className="dp-filter-recent__chips">
+              {savedSearches.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  className="dp-filter-chip"
+                  onClick={() => onChange({ ...s.filters })}
+                >
+                  {s.name}
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    className="dp-filter-chip__remove"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSavedSearches(deleteSavedSearch(s.id));
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.stopPropagation();
+                        setSavedSearches(deleteSavedSearch(s.id));
+                      }
+                    }}
+                    aria-label={`Remove ${s.name}`}
+                  >
+                    ×
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="dp-filter-field">
           <label htmlFor="match-filter-religion" className="dp-filter-label">Religion</label>

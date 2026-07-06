@@ -1,5 +1,12 @@
 export type MatchTab = 'suggestions' | 'search' | 'shortlist' | 'interests';
 
+export type InterestStatus =
+  | 'none'
+  | 'pending_sent'
+  | 'pending_received'
+  | 'accepted'
+  | 'rejected';
+
 export interface MatchInterest {
   id: string;
   senderId: string;
@@ -16,6 +23,8 @@ export interface MatchInterest {
 }
 
 export type InterestSubTab = 'received' | 'sent' | 'accepted';
+
+export type SubscriptionType = 'Free' | 'Basic' | 'Premium' | 'Platinum';
 
 export interface MatchFilters {
   religion: string;
@@ -54,6 +63,8 @@ export interface MatchProfile {
   isVerified?: boolean;
   isPremium?: boolean;
   isBoosted?: boolean;
+  subscriptionType?: SubscriptionType;
+  boostExpiresAt?: string | null;
   onlineStatus?: boolean;
   photos?: string[];
   profilePhoto?: string;
@@ -62,6 +73,12 @@ export interface MatchProfile {
   wizardProfile?: { profilePhoto?: string };
   compatibilityScore?: number;
   compatibility?: CompatibilityInfo;
+  interestStatus?: InterestStatus;
+  matchId?: string | null;
+  matchPartnerUserId?: string | null;
+  isComplete?: boolean;
+  updatedAt?: string;
+  createdAt?: string;
 }
 
 export const EMPTY_FILTERS: MatchFilters = {

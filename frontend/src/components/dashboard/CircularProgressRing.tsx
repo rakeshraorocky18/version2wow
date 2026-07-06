@@ -38,6 +38,16 @@ export default function CircularProgressRing({
           <stop offset="0%" stopColor="#e52727" />
           <stop offset="100%" stopColor="#ff6b6b" />
         </linearGradient>
+        <linearGradient id="wowProfileCompletionGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#B76E79" />
+          <stop offset="55%" stopColor="#D69BA6" />
+          <stop offset="100%" stopColor="#F4D7DF" />
+        </linearGradient>
+        <linearGradient id="wowCompatibilityRing" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#B76E79" />
+          <stop offset="45%" stopColor="#D69BA6" />
+          <stop offset="100%" stopColor="#F4C95D" />
+        </linearGradient>
       </defs>
       <circle cx={cx} cy={cx} r={r} fill="none" stroke="#F5E6EB" strokeWidth={strokeWidth} />
       <motion.circle

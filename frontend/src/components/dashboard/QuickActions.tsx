@@ -29,10 +29,11 @@ function QuickActionBtn({ icon, label, to }: QuickAction) {
 
 export default function QuickActions({ actions }: QuickActionsProps) {
   return (
-    <DashboardCard delay={2}>
+    <DashboardCard delay={2} className="wow-quick-actions-card self-start">
       <div className="dp-dash-panel-body">
-        <h2 className="dp-dash-section-title">Quick Actions</h2>
-        <p className="dp-dash-section-subtitle">Jump into your wedding journey</p>
+        <p className="wow-section-kicker">Quick Actions</p>
+        <h2 className="wow-section-title">Move faster through your journey</h2>
+        <p className="wow-section-subtitle">Essential shortcuts for matches, chat, and planning.</p>
         <motion.div
           className="dp-dash-quick-grid"
           variants={staggerContainer}

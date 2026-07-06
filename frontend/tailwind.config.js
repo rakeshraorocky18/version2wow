@@ -1,9 +1,18 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  darkMode: 'class',
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
       colors: {
+        romantic: {
+          blush: '#FFB6C1',
+          rose: '#FF5C8D',
+          lavender: '#C8A2C8',
+          champagne: '#D4AF37',
+          peach: '#FFDAB9',
+          cream: '#FFF9F5',
+        },
         wow: {
           bg: '#FAF8FB',
           card: '#FFFFFF',

@@ -30,6 +30,12 @@ export class WeddingPlan {
   @Column({ nullable: true })
   venue: string;
 
+  @Column({ nullable: true })
+  theme: string;
+
+  @Column({ type: 'int', nullable: true })
+  guestCount: number;
+
   @Column({ default: false })
   isCompleted: boolean;
 
