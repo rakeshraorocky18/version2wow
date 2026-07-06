@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 
 type ProfileRecord = Record<string, any>;
-export type ProfileTab = 'about' | 'personal' | 'family' | 'preferences';
+export type ProfileTab = 'about' | 'personal' | 'education' | 'experience' | 'family' | 'preferences';
 
 const SECTION_STYLES = {
   personal: { icon: User, color: 'text-[#A4426A]', bg: 'bg-[#FFF5F8]' },
@@ -38,6 +38,8 @@ type SectionKey = keyof typeof SECTION_STYLES;
 const TAB_SECTIONS: Record<ProfileTab, SectionKey[]> = {
   about: ['express', 'education', 'experience', 'hobbies'],
   personal: ['personal', 'horoscope', 'religion', 'marital', 'location', 'lifestyle'],
+  education: ['education'],
+  experience: ['experience'],
   family: ['family'],
   preferences: ['preferences'],
 };
@@ -141,10 +143,13 @@ function Section({
 export default function ProfileDetailsView({
   profile,
   tab,
+  visibility,
 }: {
   profile: ProfileRecord;
   tab?: ProfileTab;
+  visibility?: string;
 }) {
+  void visibility;
   const wizard = profile.wizardProfile || {};
   const pd = { ...profile, ...(wizard.personalDetails || {}) };
   const horoscope = { ...profile, ...(wizard.horoscope || {}) };
