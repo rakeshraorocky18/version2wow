@@ -51,7 +51,7 @@ export default function Register() {
             >
               <option value="bride">Bride</option>
               <option value="groom">Groom</option>
-              <option value="family">Family Member</option>
+              <option value="representative">Family Member / Friend</option>
               <option value="vendor">Vendor</option>
             </select>
           </div>

@@ -1,0 +1,260 @@
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { Phone, PhoneOff, Video, VideoOff, Mic, MicOff } from 'lucide-react';
+import { useChatSocket, type CallType } from '../../hooks/useChatSocket';
+
+const ICE_SERVERS: RTCConfiguration = {
+  iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+};
+
+interface CallModalProps {
+  callId: string;
+  peerId: string;
+  callType: CallType;
+  isIncoming?: boolean;
+  onCallLog?: (payload: { callType: CallType; status: 'missed' | 'ended' }) => void;
+  onClose: () => void;
+}
+
+export default function CallModal({
+  callId,
+  peerId,
+  callType,
+  isIncoming = false,
+  onCallLog,
+  onClose,
+}: CallModalProps) {
+  const [status, setStatus] = useState(isIncoming ? 'ringing' : 'calling');
+  const [muted, setMuted] = useState(false);
+  const [videoOff, setVideoOff] = useState(false);
+  const localVideoRef = useRef<HTMLVideoElement>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const pcRef = useRef<RTCPeerConnection | null>(null);
+  const localStreamRef = useRef<MediaStream | null>(null);
+  const remoteStreamRef = useRef<MediaStream | null>(null);
+  const mountedRef = useRef(true);
+  const setupSeqRef = useRef(0);
+  const callLoggedRef = useRef(false);
+
+  const logCall = useCallback(
+    (status: 'missed' | 'ended') => {
+      if (callLoggedRef.current) return;
+      callLoggedRef.current = true;
+      onCallLog?.({ callType, status });
+    },
+    [callType, onCallLog],
+  );
+
+  const { emit } = useChatSocket({
+    onCallAccepted: async () => {
+      setStatus('connected');
+      await startMediaAndOffer();
+    },
+    onCallRejected: () => {
+      setStatus('rejected');
+      logCall('missed');
+      setTimeout(onClose, 1500);
+    },
+    onCallEnded: () => cleanup(),
+    onCallOffer: async ({ sdp }) => {
+      if (!pcRef.current) await setupPeerConnection(false);
+      await pcRef.current!.setRemoteDescription(new RTCSessionDescription(sdp));
+      const answer = await pcRef.current!.createAnswer();
+      await pcRef.current!.setLocalDescription(answer);
+      emit('call:answer', { callId, peerId, sdp: answer });
+      setStatus('connected');
+    },
+    onCallAnswer: async ({ sdp }) => {
+      await pcRef.current?.setRemoteDescription(new RTCSessionDescription(sdp));
+      setStatus('connected');
+    },
+    onIceCandidate: async ({ candidate }) => {
+      await pcRef.current?.addIceCandidate(new RTCIceCandidate(candidate));
+    },
+  });
+
+  const setupPeerConnection = useCallback(
+    async (isCaller: boolean) => {
+      if (pcRef.current) {
+        if (isCaller) {
+          emit('call:initiate', { receiverId: peerId, callType, callId });
+        }
+        return;
+      }
+      const pc = new RTCPeerConnection(ICE_SERVERS);
+      pcRef.current = pc;
+
+      pc.onicecandidate = (e) => {
+        if (e.candidate) {
+          emit('call:ice-candidate', { callId, peerId, candidate: e.candidate });
+        }
+      };
+
+      pc.ontrack = (e) => {
+        remoteStreamRef.current = e.streams[0];
+        if (remoteVideoRef.current) {
+          remoteVideoRef.current.srcObject = e.streams[0];
+        }
+      };
+
+      const constraints: MediaStreamConstraints =
+        callType === 'video'
+          ? { audio: true, video: true }
+          : { audio: true, video: false };
+
+      const mySetupSeq = ++setupSeqRef.current;
+      const stream =
+        localStreamRef.current ||
+        (await navigator.mediaDevices.getUserMedia(constraints));
+      if (!mountedRef.current || mySetupSeq !== setupSeqRef.current) {
+        stream.getTracks().forEach((t) => t.stop());
+        return;
+      }
+      localStreamRef.current = stream;
+      if (localVideoRef.current) localVideoRef.current.srcObject = stream;
+      stream.getTracks().forEach((track) => {
+        const alreadyAdded = pc
+          .getSenders()
+          .some((sender) => sender.track?.id === track.id);
+        if (!alreadyAdded) pc.addTrack(track, stream);
+      });
+
+      if (isCaller) {
+        emit('call:initiate', { receiverId: peerId, callType, callId });
+      }
+    },
+    [callId, peerId, callType, emit],
+  );
+
+  const startMediaAndOffer = async () => {
+    if (!pcRef.current) await setupPeerConnection(true);
+    const offer = await pcRef.current!.createOffer();
+    await pcRef.current!.setLocalDescription(offer);
+    emit('call:offer', { callId, peerId, sdp: offer });
+  };
+
+  const acceptCall = async () => {
+    setStatus('connecting');
+    emit('call:accept', { callId, callerId: peerId });
+    await setupPeerConnection(false);
+  };
+
+  const rejectCall = () => {
+    logCall('missed');
+    forceStopMedia();
+    emit('call:reject', { callId, callerId: peerId });
+    onClose();
+  };
+
+  const endCall = () => {
+    logCall(status === 'connected' ? 'ended' : 'missed');
+    forceStopMedia();
+    emit('call:end', { callId, peerId });
+    onClose();
+  };
+
+  const forceStopMedia = () => {
+    setupSeqRef.current += 1;
+    localStreamRef.current?.getTracks().forEach((t) => t.stop());
+    localStreamRef.current = null;
+    remoteStreamRef.current?.getTracks().forEach((t) => t.stop());
+    remoteStreamRef.current = null;
+    pcRef.current?.getSenders().forEach((sender) => sender.track?.stop());
+    pcRef.current?.getReceivers().forEach((receiver) => receiver.track?.stop());
+    pcRef.current?.close();
+    pcRef.current = null;
+    if (localVideoRef.current) localVideoRef.current.srcObject = null;
+    if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+  };
+
+  const cleanup = () => {
+    forceStopMedia();
+    onClose();
+  };
+
+  const toggleMute = () => {
+    localStreamRef.current?.getAudioTracks().forEach((t) => {
+      t.enabled = muted;
+    });
+    setMuted(!muted);
+  };
+
+  const toggleVideo = () => {
+    localStreamRef.current?.getVideoTracks().forEach((t) => {
+      t.enabled = videoOff;
+    });
+    setVideoOff(!videoOff);
+  };
+
+  useEffect(() => {
+    mountedRef.current = true;
+    callLoggedRef.current = false;
+    if (!isIncoming) {
+      setupPeerConnection(true);
+    }
+    return () => {
+      mountedRef.current = false;
+      forceStopMedia();
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (isIncoming || status !== 'calling') return;
+    const timeoutId = window.setTimeout(() => {
+      logCall('missed');
+      forceStopMedia();
+      emit('call:end', { callId, peerId });
+      onClose();
+    }, 30000);
+    return () => window.clearTimeout(timeoutId);
+  }, [isIncoming, status, logCall, emit, callId, peerId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+      <div className="relative w-full max-w-lg rounded-2xl bg-gray-900 p-6 text-white shadow-2xl">
+        <p className="mb-4 text-center text-sm text-gray-300">
+          {status === 'ringing' && 'Incoming call...'}
+          {status === 'calling' && 'Calling...'}
+          {status === 'connecting' && 'Connecting...'}
+          {status === 'connected' && 'Connected'}
+          {status === 'rejected' && 'Call declined'}
+        </p>
+
+        <div className="mb-6 flex justify-center gap-4">
+          {callType === 'video' && (
+            <>
+              <video ref={localVideoRef} autoPlay muted playsInline className="h-32 w-24 rounded-lg bg-gray-800 object-cover" />
+              <video ref={remoteVideoRef} autoPlay playsInline className="h-32 w-24 rounded-lg bg-gray-800 object-cover" />
+            </>
+          )}
+        </div>
+
+        <div className="flex items-center justify-center gap-4">
+          {isIncoming && status === 'ringing' ? (
+            <>
+              <button type="button" onClick={acceptCall} className="rounded-full bg-green-600 p-4 hover:bg-green-700">
+                {callType === 'video' ? <Video size={24} /> : <Phone size={24} />}
+              </button>
+              <button type="button" onClick={rejectCall} className="rounded-full bg-red-600 p-4 hover:bg-red-700">
+                <PhoneOff size={24} />
+              </button>
+            </>
+          ) : (
+            <>
+              <button type="button" onClick={toggleMute} className="rounded-full bg-gray-700 p-3 hover:bg-gray-600">
+                {muted ? <MicOff size={20} /> : <Mic size={20} />}
+              </button>
+              {callType === 'video' && (
+                <button type="button" onClick={toggleVideo} className="rounded-full bg-gray-700 p-3 hover:bg-gray-600">
+                  {videoOff ? <VideoOff size={20} /> : <Video size={20} />}
+                </button>
+              )}
+              <button type="button" onClick={endCall} className="rounded-full bg-red-600 p-4 hover:bg-red-700">
+                <PhoneOff size={24} />
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

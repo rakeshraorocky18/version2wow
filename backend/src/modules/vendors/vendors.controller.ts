@@ -15,21 +15,10 @@ import { CreateVendorDto, CreateReviewDto } from './dto/vendor.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { VendorCategory } from '../../common/enums';
 
-
-
-
 @ApiTags('vendors')
 @Controller('vendors')
 export class VendorsController {
   constructor(private readonly vendorsService: VendorsServiceTypeorm) {}
-
-  @Get("me")
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: "Get my vendor profile" })
-  async getMyVendor(@Req() req: any) {
-    return this.vendorsService.getVendorByUserId(req.user.id);
-  }
 
   @Post()
   @UseGuards(JwtAuthGuard)

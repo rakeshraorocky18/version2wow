@@ -5,12 +5,7 @@ import { BookingStatus, PaymentMethod } from '../../../common/enums';
 export class CreateBookingDto {
   @ApiProperty()
   @IsString()
-  vendorId!: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  vendorName?: string;
+  vendorId: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -18,57 +13,12 @@ export class CreateBookingDto {
   serviceDescription?: string;
 
   @ApiProperty()
-  @IsString()
-  eventType!: string;
-
-  @ApiProperty()
   @IsDateString()
-  eventDate!: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  eventTime?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  venue?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  city?: string;
+  eventDate: string;
 
   @ApiProperty()
   @IsNumber()
-  guestCount!: number;
-
-  @ApiProperty()
-  @IsString()
-  customerName!: string;
-
-  @ApiProperty()
-  @IsString()
-  customerPhone!: string;
-
-  @ApiProperty()
-  @IsString()
-  customerEmail!: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  specialRequirements?: string;
-
-  @ApiProperty()
-  @IsNumber()
-  amount!: number;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsNumber()
-  advancePaid?: number;
+  amount: number;
 
   @ApiPropertyOptional()
   @IsOptional()

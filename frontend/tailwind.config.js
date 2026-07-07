@@ -1,9 +1,29 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  darkMode: 'class',
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
       colors: {
+        romantic: {
+          blush: '#FFB6C1',
+          rose: '#FF5C8D',
+          lavender: '#C8A2C8',
+          champagne: '#D4AF37',
+          peach: '#FFDAB9',
+          cream: '#FFF9F5',
+        },
+        wow: {
+          bg: '#FAF8FB',
+          card: '#FFFFFF',
+          primary: '#B76E79',
+          'primary-light': '#D69BA6',
+          secondary: '#E7C6D0',
+          success: '#8BC48A',
+          warning: '#F4C95D',
+          text: '#2C2630',
+          muted: '#6B6670',
+        },
         primary: {
           50: '#fdf2f8',
           100: '#fce7f3',

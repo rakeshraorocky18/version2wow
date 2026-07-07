@@ -7,7 +7,6 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const login = useAuthStore((state) => state.login);
-  const logout = useAuthStore((state) => state.logout);
   const isLoading = useAuthStore((state) => state.isLoading);
   const navigate = useNavigate();
 
@@ -15,20 +14,6 @@ export default function Login() {
     e.preventDefault();
     try {
       await login(email, password);
-
-      const user = JSON.parse(localStorage.getItem("user")!);
-
-      if (user.role === "vendor") {
-        toast.error("Invalid email or password");
-        logout();
-        return;
-      }
-
-      if (user.role === "admin") {
-        toast.error("Invalid email or password");
-        logout();
-        return;
-      }
       toast.success('Welcome back!');
       navigate('/app');
     } catch {

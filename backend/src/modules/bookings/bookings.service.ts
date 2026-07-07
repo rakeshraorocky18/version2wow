@@ -19,33 +19,12 @@ export class BookingsService {
   async createBooking(userId: string, dto: CreateBookingDto): Promise<BookingEntity> {
     const booking = this.bookingRepository.create({
       userId,
-
       vendorId: dto.vendorId,
-      vendorName: dto.vendorName,
-
       serviceDescription: dto.serviceDescription,
-
-      eventType: dto.eventType,
       eventDate: dto.eventDate,
-      eventTime: dto.eventTime,
-
-      venue: dto.venue,
-      city: dto.city,
-
-      guestCount: dto.guestCount,
-
-      customerName: dto.customerName,
-      customerPhone: dto.customerPhone,
-      customerEmail: dto.customerEmail,
-
-      specialRequirements: dto.specialRequirements,
-
       amount: dto.amount,
-      advancePaid: dto.advancePaid ?? 0,
-      balanceDue: dto.amount - (dto.advancePaid ?? 0),
-
+      balanceDue: dto.amount,
       userNotes: dto.userNotes,
-
       status: BookingStatus.REQUESTED,
     });
     return this.bookingRepository.save(booking);
@@ -74,15 +53,9 @@ export class BookingsService {
 
     // Validate state transitions
     const validTransitions: Record<string, string[]> = {
-      [BookingStatus.REQUESTED]: [
-        BookingStatus.CONFIRMED,
-        BookingStatus.CANCELLED,
-      ],
-
-      [BookingStatus.CONFIRMED]: [
-        BookingStatus.COMPLETED,
-        BookingStatus.CANCELLED,
-      ],
+      [BookingStatus.REQUESTED]: [BookingStatus.PENDING, BookingStatus.CANCELLED],
+      [BookingStatus.PENDING]: [BookingStatus.CONFIRMED, BookingStatus.CANCELLED],
+      [BookingStatus.CONFIRMED]: [BookingStatus.COMPLETED, BookingStatus.CANCELLED],
     };
 
     const allowed = validTransitions[booking.status];
@@ -130,6 +103,7 @@ export class BookingsService {
     const booking = await this.getBooking(payment.bookingId);
     booking.advancePaid += payment.amount;
     booking.balanceDue = booking.amount - booking.advancePaid;
+    if (booking.status === BookingStatus.REQUESTED) booking.status = BookingStatus.PENDING;
     await this.bookingRepository.save(booking);
 
     return payment;

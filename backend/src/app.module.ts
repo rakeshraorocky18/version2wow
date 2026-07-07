@@ -12,8 +12,8 @@ import { BookingsModule } from './modules/bookings/bookings.module';
 import { EventsModule } from './modules/events/events.module';
 import { HoneymoonModule } from './modules/honeymoon/honeymoon.module';
 import { FinanceModule } from './modules/finance/finance.module';
-import { VendorDashboardModule } from './modules/vendor-dashboard/vendor-dashboard.module';
-import { VendorAuthModule } from './modules/vendor-auth/vendor-auth.module';
+import { RepresentativeProfilesModule } from './modules/representative-profiles/representative-profiles.module';
+import { VendorProfilesModule } from './modules/vendor-profiles/vendor-profiles.module';
 
 @Module({
   imports: [
@@ -25,16 +25,8 @@ import { VendorAuthModule } from './modules/vendor-auth/vendor-auth.module';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
-        type: 'postgres',
-
-        host: configService.get('POSTGRES_HOST'),
-        port: Number(configService.get('POSTGRES_PORT')),
-
-        username: configService.get('POSTGRES_USER'),
-        password: configService.get('POSTGRES_PASSWORD'),
-
-        database: configService.get('POSTGRES_DB'),
-
+        type: 'better-sqlite3',
+        database: configService.get<string>('SQLITE_DATABASE', 'wow_dev.db'),
         autoLoadEntities: true,
         synchronize: true,
       }),
@@ -50,8 +42,8 @@ import { VendorAuthModule } from './modules/vendor-auth/vendor-auth.module';
     EventsModule,
     HoneymoonModule,
     FinanceModule,
-    VendorDashboardModule,
-    VendorAuthModule,
+    RepresentativeProfilesModule,
+    VendorProfilesModule,
   ],
 })
 export class AppModule {}

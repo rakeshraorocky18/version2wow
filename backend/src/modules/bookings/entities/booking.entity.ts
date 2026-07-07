@@ -10,128 +10,101 @@ import { BookingStatus, PaymentStatus, PaymentMethod } from '../../../common/enu
 @Entity('bookings')
 export class BookingEntity {
   @PrimaryGeneratedColumn('uuid')
-  id!: string;
+  id: string;
 
   @Column()
-  userId!: string;
+  userId: string;
 
   @Column()
-  vendorId!: string;
+  vendorId: string;
 
   @Column({ nullable: true })
-  vendorName!: string;
+  vendorName: string;
 
   @Column({ nullable: true })
-  serviceDescription!: string;
+  serviceDescription: string;
 
   @Column()
-  eventType!: string;
-
-  @Column({ nullable: true })
-  eventTime!: string;
-
-  @Column({ nullable: true })
-  venue!: string;
-
-  @Column({ nullable: true })
-  city!: string;
-
-  @Column({ type: 'int', default: 0 })
-  guestCount!: number;
-
-  @Column({ nullable: true })
-  customerName!: string;
-
-  @Column({ nullable: true })
-  customerPhone!: string;
-
-  @Column({ nullable: true })
-  customerEmail!: string;
-
-  @Column({ nullable: true })
-  specialRequirements!: string;
-
-  @Column()
-  eventDate!: string;
+  eventDate: string;
 
   @Column({ type: 'float' })
-  amount!: number;
+  amount: number;
 
   @Column({ type: 'float', default: 0 })
-  advancePaid!: number;
+  advancePaid: number;
 
   @Column({ type: 'float', default: 0 })
-  balanceDue!: number;
+  balanceDue: number;
 
   @Column({ type: 'varchar', default: BookingStatus.REQUESTED })
-  status!: BookingStatus;
+  status: BookingStatus;
 
   @Column({ nullable: true })
-  vendorNotes!: string;
+  vendorNotes: string;
 
   @Column({ nullable: true })
-  userNotes!: string;
+  userNotes: string;
 
   @Column({ nullable: true })
-  cancellationReason!: string;
+  cancellationReason: string;
 
   @Column({ nullable: true })
-  contractUrl!: string;
+  contractUrl: string;
 
   @CreateDateColumn()
-  createdAt!: Date;
+  createdAt: Date;
 
   @UpdateDateColumn()
-  updatedAt!: Date;
+  updatedAt: Date;
 }
 
 @Entity('payments')
 export class PaymentEntity {
   @PrimaryGeneratedColumn('uuid')
-  id!: string;
+  id: string;
 
   @Column()
-  bookingId!: string;
+  bookingId: string;
 
   @Column()
-  userId!: string;
+  userId: string;
 
   @Column()
-  vendorId!: string;
+  vendorId: string;
 
   @Column({ type: 'float' })
-  amount!: number;
+  amount: number;
 
   @Column({ type: 'varchar', default: PaymentStatus.PENDING })
-  status!: PaymentStatus;
+  status: PaymentStatus;
 
   @Column({ type: 'varchar', nullable: true })
-  method!: PaymentMethod;
+  method: PaymentMethod;
 
   @Column({ nullable: true })
-  transactionId!: string;
+  transactionId: string;
 
   @Column({ nullable: true })
-  gatewayOrderId!: string;
+  gatewayOrderId: string;
 
   @Column({ default: false })
-  isEscrow!: boolean;
+  isEscrow: boolean;
 
   @Column({ nullable: true })
-  escrowReleaseDate!: string;
+  escrowReleaseDate: string;
 
   @Column({ nullable: true })
-  refundReason!: string;
+  refundReason: string;
 
   @Column({ type: 'float', nullable: true })
-  refundAmount!: number;
+  refundAmount: number;
 
   @Column({ nullable: true })
-  receiptUrl!: string;
+  receiptUrl: string;
 
   @CreateDateColumn()
-  createdAt!: Date;
+  createdAt: Date;
 
   @UpdateDateColumn()
-  updatedAt!: Date;
+  updatedAt: Date;
 }

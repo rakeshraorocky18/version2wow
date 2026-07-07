@@ -1,10 +1,8 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Star, MapPin, IndianRupee, Search } from 'lucide-react';
+import { Star, MapPin, IndianRupee, Search, Plus } from 'lucide-react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
-import { useNavigate } from "react-router-dom";
-
 
 const categories = [
   'All', 'venue', 'catering', 'photography', 'videography',
@@ -12,7 +10,7 @@ const categories = [
 ];
 
 interface VendorCard {
-  id: string;
+  _id: string;
   businessName: string;
   category: string;
   description?: string;
@@ -59,9 +57,18 @@ export default function Vendors() {
   const [searchTerm, setSearchTerm] = useState('');
   const [city, setCity] = useState('');
   const [showCitySuggestions, setShowCitySuggestions] = useState(false);
-  const navigate = useNavigate();
+  const [showCreateVendor, setShowCreateVendor] = useState(false);
   const [selectedVendor, setSelectedVendor] = useState<VendorCard | null>(null);
-
+  const [newVendor, setNewVendor] = useState({
+    businessName: '',
+    category: 'photography',
+    city: '',
+    state: '',
+    phone: '',
+    startingPrice: '',
+    description: '',
+    servicesCsv: '',
+  });
 
   const { data, isLoading } = useQuery<VendorsSearchResponse>({
     queryKey: ['vendors', category, searchTerm, city],
@@ -90,7 +97,59 @@ export default function Vendors() {
 
   const citySuggestions = citySuggestionsData?.results || [];
 
+  const createVendor = useMutation({
+    mutationFn: async () => {
+      if (!newVendor.businessName.trim()) {
+        throw new Error('Business name is required');
+      }
 
+      const payload = {
+        businessName: newVendor.businessName.trim(),
+        category: newVendor.category,
+        description: newVendor.description.trim() || undefined,
+        phone: newVendor.phone.trim() || undefined,
+        location: {
+          city: newVendor.city.trim() || undefined,
+          state: newVendor.state.trim() || undefined,
+          address: '',
+          pincode: '',
+        },
+        pricing: newVendor.startingPrice
+          ? {
+              startingPrice: Number(newVendor.startingPrice),
+              currency: 'INR',
+              priceType: 'starting_from',
+            }
+          : undefined,
+        services: newVendor.servicesCsv
+          .split(',')
+          .map((item) => item.trim())
+          .filter(Boolean),
+      };
+
+      const { data } = await api.post('/vendors', payload);
+      return data;
+    },
+    onSuccess: () => {
+      toast.success('Vendor added successfully');
+      setShowCreateVendor(false);
+      setNewVendor({
+        businessName: '',
+        category: 'photography',
+        city: '',
+        state: '',
+        phone: '',
+        startingPrice: '',
+        description: '',
+        servicesCsv: '',
+      });
+      queryClient.invalidateQueries({ queryKey: ['vendors'] });
+    },
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : 'Unable to add vendor';
+      toast.error(message);
+    },
+  });
 
   const selectCitySuggestion = (name: string) => {
     setCity(name);
@@ -101,10 +160,89 @@ export default function Vendors() {
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-2xl font-display font-bold text-gray-900">Vendor Marketplace</h1>
-
+        <button
+          onClick={() => setShowCreateVendor((prev) => !prev)}
+          className="btn-primary flex items-center gap-2"
+        >
+          <Plus size={16} /> {showCreateVendor ? 'Close Form' : 'Add Vendor'}
+        </button>
       </div>
 
-
+      {showCreateVendor && (
+        <div className="card">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Add Vendor from Application</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <input
+              type="text"
+              value={newVendor.businessName}
+              onChange={(e) => setNewVendor({ ...newVendor, businessName: e.target.value })}
+              className="input-field"
+              placeholder="Business name"
+            />
+            <select
+              value={newVendor.category}
+              onChange={(e) => setNewVendor({ ...newVendor, category: e.target.value })}
+              className="input-field"
+            >
+              {categories.filter((cat) => cat !== 'All').map((cat) => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
+            <input
+              type="number"
+              value={newVendor.startingPrice}
+              onChange={(e) => setNewVendor({ ...newVendor, startingPrice: e.target.value })}
+              className="input-field"
+              placeholder="Starting price (INR)"
+            />
+            <input
+              type="text"
+              value={newVendor.city}
+              onChange={(e) => setNewVendor({ ...newVendor, city: e.target.value })}
+              className="input-field"
+              placeholder="City"
+            />
+            <input
+              type="text"
+              value={newVendor.state}
+              onChange={(e) => setNewVendor({ ...newVendor, state: e.target.value })}
+              className="input-field"
+              placeholder="State"
+            />
+            <input
+              type="text"
+              value={newVendor.phone}
+              onChange={(e) => setNewVendor({ ...newVendor, phone: e.target.value })}
+              className="input-field"
+              placeholder="Phone"
+            />
+            <input
+              type="text"
+              value={newVendor.servicesCsv}
+              onChange={(e) => setNewVendor({ ...newVendor, servicesCsv: e.target.value })}
+              className="input-field md:col-span-2"
+              placeholder="Services (comma separated)"
+            />
+            <button
+              onClick={() => createVendor.mutate()}
+              disabled={createVendor.isPending}
+              className="btn-primary disabled:opacity-60"
+            >
+              {createVendor.isPending ? 'Saving...' : 'Save Vendor'}
+            </button>
+            <input
+              type="text"
+              value={newVendor.description}
+              onChange={(e) => setNewVendor({ ...newVendor, description: e.target.value })}
+              className="input-field md:col-span-3"
+              placeholder="Description"
+            />
+          </div>
+          <p className="text-xs text-gray-500 mt-3">
+            Note: adding vendor requires being logged in because /vendors is a protected endpoint.
+          </p>
+        </div>
+      )}
 
       {/* Search & Filters */}
       <div className="card">
@@ -171,10 +309,12 @@ export default function Vendors() {
       {/* Results */}
       {isLoading ? (
         <div className="text-center py-12 text-gray-500">Loading vendors...</div>
-      ) : data?.vendors?.length > 0 ? (
+      ) : (data?.vendors ?? []).length > 0 ? (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {data.vendors.map((vendor) => (
-            <div key={vendor.id} className="card hover:shadow-md transition-shadow">
+          {(data?.vendors ?? []).map((vendor) => {
+            const averageRating = vendor.rating?.average ?? 0;
+            return (
+              <div key={vendor._id} className="card hover:shadow-md transition-shadow">
               <div className="w-full h-40 bg-gradient-to-br from-purple-100 to-purple-200 rounded-lg mb-4 flex items-center justify-center">
                 <span className="text-3xl">🏪</span>
               </div>
@@ -188,10 +328,10 @@ export default function Vendors() {
                     {vendor.source === 'external' ? 'OpenStreetMap' : 'Local'}
                   </span>
                 </div>
-                {vendor.rating?.average > 0 && (
+                {averageRating > 0 && (
                   <div className="flex items-center gap-1 text-gold-500">
                     <Star size={16} fill="currentColor" />
-                    <span className="text-sm font-medium">{vendor.rating.average}</span>
+                    <span className="text-sm font-medium">{averageRating}</span>
                   </div>
                 )}
               </div>
@@ -224,7 +364,8 @@ export default function Vendors() {
                 )}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <div className="text-center py-12">
@@ -316,19 +457,8 @@ export default function Vendors() {
                   View on Map
                 </a>
               )}
-
-              <button
-              className="btn-primary text-sm"
-              onClick={() => {
-                navigate(`/app/book/${selectedVendor.id}`);
-              }}
-              >
-              Book Now
-              </button>
-
-
               <button onClick={() => setSelectedVendor(null)} className="btn-primary text-sm">
-                Close
+                Done
               </button>
             </div>
           </div>

@@ -79,11 +79,9 @@ const VendorBookings = () => {
   const [statusFilter, setStatusFilter] = useState("All Status");
   const [selectedBooking, setSelectedBooking] = useState<any>(null);
   const [bookings, setBookings] = useState<Booking[]>([]);
-  const [loading, setLoading] = useState(false);
 
   const fetchBookings = async () => {
     try {
-      setLoading(true);
 
       const vendorResponse = await vendorApi.get("/vendors/me");
 
@@ -97,8 +95,6 @@ const VendorBookings = () => {
 
     } catch (error) {
       console.error("Error fetching bookings:", error);
-    } finally {
-      setLoading(false);
     }
   };
 

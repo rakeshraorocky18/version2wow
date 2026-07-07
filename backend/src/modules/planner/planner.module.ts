@@ -2,12 +2,27 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { PlannerController } from './planner.controller';
 import { PlannerService } from './planner.service';
-import { WeddingPlan, WeddingTask, WeddingEvent } from './entities/planner.entity';
+import { PlannerDashboardService } from './planner-dashboard.service';
+import { PlannerGateway } from './planner.gateway';
+import { WeddingPlan, WeddingTask, WeddingEvent, PlannerActivity } from './entities/planner.entity';
+import { FinanceModule } from '../finance/finance.module';
+import { EventsModule } from '../events/events.module';
+import { VendorsModule } from '../vendors/vendors.module';
+import { UsersModule } from '../users/users.module';
+import { MatchmakingModule } from '../matchmaking/matchmaking.module';
+import { GuestEntity } from '../events/entities/event.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([WeddingPlan, WeddingTask, WeddingEvent])],
+  imports: [
+    TypeOrmModule.forFeature([WeddingPlan, WeddingTask, WeddingEvent, PlannerActivity, GuestEntity]),
+    FinanceModule,
+    EventsModule,
+    VendorsModule,
+    UsersModule,
+    MatchmakingModule,
+  ],
   controllers: [PlannerController],
-  providers: [PlannerService],
-  exports: [PlannerService],
+  providers: [PlannerService, PlannerDashboardService, PlannerGateway],
+  exports: [PlannerService, PlannerDashboardService, PlannerGateway],
 })
 export class PlannerModule {}

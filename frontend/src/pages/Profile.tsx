@@ -1,275 +1,219 @@
-import { useState, useEffect, useRef } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { User, Camera, Save } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import {
+  User,
+  MapPin,
+  Calendar,
+  BookOpen,
+  ChevronRight,
+  Image,
+  AlertCircle,
+  UserRound,
+  Eye,
+  Pencil,
+} from 'lucide-react';
 import api from '../lib/api';
-import toast from 'react-hot-toast';
+import {
+  apiProfileToForm,
+  getMissingBySection,
+  profileCompletion,
+} from '../lib/profileEditValidation';
+import { getMainProfilePhoto, getPhotoUrl, getProfilePhotos } from '../lib/profileUtils';
+import { MAX_PROFILE_PHOTOS } from '../lib/maritalStatusOptions';
 
-export default function Profile() {
-  const queryClient = useQueryClient();
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [profile, setProfile] = useState({
-    firstName: '',
-    lastName: '',
-    gender: '',
-    dateOfBirth: '',
-    religion: '',
-    education: '',
-    occupation: '',
-    income: '',
-    bio: '',
-    city: '',
-    state: '',
-    country: 'India',
-  });
-  const [photoUrl, setPhotoUrl] = useState('');
+function getAge(dateOfBirth?: string) {
+  if (!dateOfBirth) return null;
+  const dob = new Date(dateOfBirth);
+  if (Number.isNaN(dob.getTime())) return null;
+  const today = new Date();
+  let age = today.getFullYear() - dob.getFullYear();
+  const monthDiff = today.getMonth() - dob.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) age -= 1;
+  return age;
+}
 
-  // Load existing profile on mount
-  const { data: existingProfile } = useQuery({
+export default function Profile({ managedMode = false }: { managedMode?: boolean }) {
+  const editPath = managedMode ? '/app/profile/edit/managed' : '/app/profile/edit';
+  const viewPath = managedMode ? '/app/profile/details?managed=1' : '/app/profile/details';
+  const photosPath = managedMode ? '/app/profile/photos?managed=1' : '/app/profile/photos';
+  const hubPath = '/app/profile/representative/me';
+
+  const { data: profile, isLoading } = useQuery({
     queryKey: ['myProfile'],
     queryFn: async () => {
-      try {
-        const { data } = await api.get('/users/profile');
-        return data;
-      } catch {
-        return null; // No profile yet
-      }
-    },
-  });
-
-  useEffect(() => {
-    if (existingProfile) {
-      setProfile({
-        firstName: existingProfile.firstName || '',
-        lastName: existingProfile.lastName || '',
-        gender: existingProfile.gender || '',
-        dateOfBirth: existingProfile.dateOfBirth || '',
-        religion: existingProfile.religion || '',
-        education: existingProfile.education || '',
-        occupation: existingProfile.occupation || '',
-        income: existingProfile.income || '',
-        bio: existingProfile.bio || '',
-        city: existingProfile.city || '',
-        state: existingProfile.state || '',
-        country: existingProfile.country || 'India',
-      });
-      setPhotoUrl(existingProfile.photos?.[0] || '');
-    }
-  }, [existingProfile]);
-
-  const saveProfile = useMutation({
-    mutationFn: async () => {
-      const { firstName, lastName, dateOfBirth, religion, education, occupation, income, bio, city, state, country } = profile;
-      const payload: any = {
-        firstName,
-        lastName,
-        dateOfBirth: dateOfBirth || undefined,
-        religion: religion || undefined,
-        education: education || undefined,
-        occupation: occupation || undefined,
-        income: income || undefined,
-        bio: bio || undefined,
-        location: { city, state, country, pincode: '' },
-      };
-      // Only send gender if selected
-      if (profile.gender) payload.gender = profile.gender;
-
-      const { data } = await api.post('/users/profile', payload);
+      const { data } = await api.get('/users/profile');
       return data;
     },
-    onSuccess: () => toast.success('Profile saved!'),
-    onError: () => toast.error('Failed to save profile'),
+    retry: false,
   });
 
-  const uploadPhoto = useMutation({
-    mutationFn: async (file: File) => {
-      if (!file.type.startsWith('image/')) {
-        throw new Error('Please select an image file');
-      }
-      if (file.size > 5 * 1024 * 1024) {
-        throw new Error('Image must be under 5MB');
-      }
+  if (isLoading) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="h-12 w-12 animate-spin rounded-full border-4 border-[#F4E4EC] border-t-[#B66A8A]" />
+      </div>
+    );
+  }
 
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result));
-        reader.onerror = () => reject(new Error('Unable to read image file'));
-        reader.readAsDataURL(file);
-      });
+  if (!profile) {
+    return (
+      <div className="mx-auto max-w-md py-20 text-center">
+        <User size={48} className="mx-auto text-[#D4A8BC]" />
+        <h1 className="mt-4 font-display text-xl font-bold text-[#5D2B44]">Create your profile</h1>
+        <Link
+          to={editPath}
+          className="mt-6 inline-flex items-center gap-2 rounded-xl bg-[#B66A8A] px-5 py-2.5 text-sm font-semibold text-white"
+        >
+          Get started
+        </Link>
+      </div>
+    );
+  }
 
-      const { data } = await api.put('/users/profile', { photos: [dataUrl] });
-      return data;
-    },
-    onSuccess: (data) => {
-      const nextUrl = data?.photos?.[0] || '';
-      setPhotoUrl(nextUrl);
-      queryClient.invalidateQueries({ queryKey: ['myProfile'] });
-      toast.success('Profile photo uploaded');
-    },
-    onError: (error) => {
-      const message = error instanceof Error ? error.message : 'Failed to upload photo';
-      toast.error(message);
-    },
-  });
+  const wizard = profile.wizardProfile || {};
+  const pd = wizard.personalDetails || profile;
+  const religion = wizard.religion || profile;
+  const mainPhoto = getMainProfilePhoto(profile);
+  const allPhotos = getProfilePhotos(profile);
+  const photoUrl = getPhotoUrl(mainPhoto);
+  const fullName = `${pd.firstName || profile.firstName || ''} ${pd.lastName || profile.lastName || ''}`.trim();
+  const displayName = pd.displayName || fullName || 'My Profile';
+  const location = [pd.city || profile.city, pd.state || profile.state].filter(Boolean).join(', ');
+  const age = getAge(pd.dateOfBirth || profile.dateOfBirth);
+  const religionLabel = religion.religion || profile.religion;
+  const maritalStatus = profile.maritalStatus;
 
-  const handlePhotoSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    uploadPhoto.mutate(file);
-    event.target.value = '';
-  };
+  const formSnapshot = apiProfileToForm(profile);
+  const completion = profileCompletion(formSnapshot);
+  const missingSections = getMissingBySection(formSnapshot);
+  const missingFieldCount = missingSections.reduce((n, s) => n + s.fields.length, 0);
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      <h1 className="text-2xl font-display font-bold text-gray-900">My Profile</h1>
+    <div className="mx-auto max-w-2xl pb-16">
+      {managedMode && (
+        <Link to={hubPath} className="mb-4 inline-flex items-center gap-2 text-sm text-[#B66A8A] hover:underline">
+          ← Back to hub
+        </Link>
+      )}
 
-      <div className="card">
-        {/* Avatar */}
-        <div className="flex items-center gap-4 mb-6 pb-6 border-b border-gray-100">
-          <div className="w-20 h-20 rounded-full bg-primary-100 flex items-center justify-center overflow-hidden">
+      {/* Main profile summary */}
+      <section className="overflow-hidden rounded-3xl border border-[#F0DFE7] bg-white shadow-[0_8px_32px_rgba(182,106,138,0.08)]">
+        <div className="bg-gradient-to-r from-[#FCE8EF] via-[#F6E8FF] to-[#FFF5EF] px-6 py-8 text-center">
+          <div className="relative mx-auto mb-4 h-28 w-28 overflow-hidden rounded-full border-4 border-white bg-[#F7ECFF] shadow-lg ring-2 ring-[#F4D8E4]">
             {photoUrl ? (
-              <img src={photoUrl} alt="Profile" className="w-full h-full object-cover" />
+              <img src={photoUrl} alt={displayName} className="h-full w-full object-cover" />
             ) : (
-              <User size={32} className="text-primary-500" />
+              <div className="flex h-full w-full items-center justify-center">
+                <UserRound size={48} className="text-[#C4899F]" />
+              </div>
             )}
           </div>
-          <div>
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploadPhoto.isPending}
-              className="text-sm text-primary-600 font-medium flex items-center gap-1 disabled:opacity-60"
-            >
-              <Camera size={14} /> {uploadPhoto.isPending ? 'Uploading...' : 'Upload Photo'}
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/png,image/jpeg,image/jpg"
-              className="hidden"
-              onChange={handlePhotoSelect}
-            />
-            <p className="text-xs text-gray-400 mt-1">JPG, PNG. Max 5MB</p>
+          <h1 className="font-display text-2xl font-bold text-[#4A2236]">{displayName}</h1>
+          {location && (
+            <p className="mt-1 flex items-center justify-center gap-1 text-sm text-[#7B4A62]">
+              <MapPin size={14} className="text-[#B66A8A]" /> {location}
+            </p>
+          )}
+          <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-white/80 px-4 py-1.5 text-xs font-semibold text-[#B66A8A] shadow-sm backdrop-blur-sm">
+            {completion}% profile complete
           </div>
         </div>
 
-        {/* Form */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 divide-x divide-[#F0DFE7] border-t border-[#F0DFE7]">
+          {age != null && (
+            <div className="px-4 py-4 text-center">
+              <p className="flex items-center justify-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-[#B0889A]">
+                <Calendar size={11} /> Age
+              </p>
+              <p className="mt-1 text-sm font-semibold text-[#5D2B44]">{age} yrs</p>
+            </div>
+          )}
+          {pd.gender && (
+            <div className="px-4 py-4 text-center">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-[#B0889A]">Gender</p>
+              <p className="mt-1 text-sm font-semibold capitalize text-[#5D2B44]">{pd.gender}</p>
+            </div>
+          )}
+          {religionLabel && (
+            <div className="px-4 py-4 text-center">
+              <p className="flex items-center justify-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-[#B0889A]">
+                <BookOpen size={11} /> Religion
+              </p>
+              <p className="mt-1 truncate text-sm font-semibold text-[#5D2B44]">{religionLabel}</p>
+            </div>
+          )}
+          {maritalStatus && (
+            <div className="px-4 py-4 text-center">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-[#B0889A]">Marital</p>
+              <p className="mt-1 truncate text-sm font-semibold text-[#5D2B44]">{maritalStatus}</p>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {missingFieldCount > 0 && (
+        <div className="mt-4 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+          <AlertCircle size={18} className="mt-0.5 shrink-0 text-amber-600" />
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
-            <input
-              type="text"
-              value={profile.firstName}
-              onChange={(e) => setProfile({ ...profile, firstName: e.target.value })}
-              className="input-field"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
-            <input
-              type="text"
-              value={profile.lastName}
-              onChange={(e) => setProfile({ ...profile, lastName: e.target.value })}
-              className="input-field"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
-            <select
-              value={profile.gender}
-              onChange={(e) => setProfile({ ...profile, gender: e.target.value })}
-              className="input-field"
-            >
-              <option value="">Select</option>
-              <option value="male">Male</option>
-              <option value="female">Female</option>
-              <option value="other">Other</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
-            <input
-              type="date"
-              value={profile.dateOfBirth}
-              onChange={(e) => setProfile({ ...profile, dateOfBirth: e.target.value })}
-              className="input-field"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Religion</label>
-            <input
-              type="text"
-              value={profile.religion}
-              onChange={(e) => setProfile({ ...profile, religion: e.target.value })}
-              className="input-field"
-              placeholder="e.g. Hindu, Muslim, Christian"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Education</label>
-            <input
-              type="text"
-              value={profile.education}
-              onChange={(e) => setProfile({ ...profile, education: e.target.value })}
-              className="input-field"
-              placeholder="e.g. B.Tech, MBA"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Occupation</label>
-            <input
-              type="text"
-              value={profile.occupation}
-              onChange={(e) => setProfile({ ...profile, occupation: e.target.value })}
-              className="input-field"
-              placeholder="e.g. Software Engineer"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Annual Income</label>
-            <input
-              type="text"
-              value={profile.income}
-              onChange={(e) => setProfile({ ...profile, income: e.target.value })}
-              className="input-field"
-              placeholder="e.g. 10-15 LPA"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
-            <input
-              type="text"
-              value={profile.city}
-              onChange={(e) => setProfile({ ...profile, city: e.target.value })}
-              className="input-field"
-              placeholder="e.g. Mumbai"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">State</label>
-            <input
-              type="text"
-              value={profile.state}
-              onChange={(e) => setProfile({ ...profile, state: e.target.value })}
-              className="input-field"
-              placeholder="e.g. Maharashtra"
-            />
-          </div>
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1">About Me</label>
-            <textarea
-              value={profile.bio}
-              onChange={(e) => setProfile({ ...profile, bio: e.target.value })}
-              className="input-field min-h-[100px] resize-none"
-              placeholder="Tell us about yourself..."
-            />
+            <p className="text-sm font-semibold text-amber-900">
+              {missingFieldCount} required field{missingFieldCount !== 1 ? 's' : ''} missing
+            </p>
+            <p className="mt-0.5 text-xs text-amber-800">Use Edit profile to complete your information.</p>
           </div>
         </div>
+      )}
 
-        <button
-          onClick={() => saveProfile.mutate()}
-          className="btn-primary mt-6 flex items-center gap-2"
+      {/* Navigation cards */}
+      <div className="mt-6 space-y-3">
+        <Link
+          to={viewPath}
+          className="group flex items-center gap-4 rounded-2xl border border-[#F0DFE7] bg-white p-5 shadow-sm transition hover:border-[#E5C8D5] hover:shadow-md"
         >
-          <Save size={18} /> Save Profile
-        </button>
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#FFF0F5] text-[#B66A8A] transition group-hover:bg-[#B66A8A] group-hover:text-white">
+            <Eye size={22} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="font-display text-base font-semibold text-[#4A2236]">View Profile</p>
+            <p className="mt-0.5 text-sm text-[#9A5776]">See all your details — personal, education, work & more</p>
+          </div>
+          <ChevronRight size={20} className="shrink-0 text-[#C4A0B0] transition group-hover:text-[#B66A8A]" />
+        </Link>
+
+        <Link
+          to={editPath}
+          className="group flex items-center gap-4 rounded-2xl border border-[#F0DFE7] bg-white p-5 shadow-sm transition hover:border-[#E5C8D5] hover:shadow-md"
+        >
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#F3EEFF] text-[#9B8FD4] transition group-hover:bg-[#9B8FD4] group-hover:text-white">
+            <Pencil size={22} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="font-display text-base font-semibold text-[#4A2236]">Edit Profile</p>
+            <p className="mt-0.5 text-sm text-[#9A5776]">
+              {missingFieldCount > 0
+                ? `${missingFieldCount} field${missingFieldCount !== 1 ? 's' : ''} need attention`
+                : 'Update your information section by section'}
+            </p>
+          </div>
+          <ChevronRight size={20} className="shrink-0 text-[#C4A0B0] transition group-hover:text-[#B66A8A]" />
+        </Link>
+
+        <Link
+          to={photosPath}
+          className="group flex items-center gap-4 rounded-2xl border border-[#F0DFE7] bg-white p-5 shadow-sm transition hover:border-[#E5C8D5] hover:shadow-md"
+        >
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#E8F8EF] text-[#3D8B5F] transition group-hover:bg-[#3D8B5F] group-hover:text-white">
+            <Image size={22} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="font-display text-base font-semibold text-[#4A2236]">Photos</p>
+            <p className="mt-0.5 text-sm text-[#9A5776]">
+              {allPhotos.length > 0
+                ? `${allPhotos.length} of ${MAX_PROFILE_PHOTOS} profile photos`
+                : `Add up to ${MAX_PROFILE_PHOTOS} profile photos`}
+            </p>
+          </div>
+          <ChevronRight size={20} className="shrink-0 text-[#C4A0B0] transition group-hover:text-[#B66A8A]" />
+        </Link>
       </div>
     </div>
   );

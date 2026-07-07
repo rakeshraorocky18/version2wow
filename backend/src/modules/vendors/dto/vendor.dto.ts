@@ -1,3 +1,4 @@
+
 import { IsString, IsOptional, IsEnum, IsObject, IsArray, IsNumber } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { VendorCategory } from '../../../common/enums';
