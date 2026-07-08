@@ -25,7 +25,7 @@ import {
   AIAssistant,
   ProfileCompletionBanner,
   ShaadiQuickLinks,
-  CompatibilityInsightsCard,
+  // CompatibilityInsightsCard,
 } from '../components/dashboard';
 import DashboardCard from '../components/dashboard/DashboardCard';
 import FeaturedMatchCard from '../components/dashboard/FeaturedMatchCard';
@@ -79,6 +79,7 @@ export default function Dashboard() {
     recommendedMatches,
     featuredMatches,
     featuredMatch,
+    ownProfileCard,
     profileVisitors,
     profileVisitorsGrowth,
     compatibilityScore,
@@ -226,12 +227,7 @@ export default function Dashboard() {
               recentInterests={pendingRequests}
               nextTask={nextTask}
             />
-            <FeaturedMatchCard
-              matches={featuredMatches}
-              onSendInterest={handleSendInterest}
-              sentInterestUserIds={sentInterestUserIds}
-              connectedUserIds={connectedUserIds}
-            />
+            <FeaturedMatchCard profile={ownProfileCard} />
           </section>
 
           <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -259,10 +255,6 @@ export default function Dashboard() {
               missingSections={missingSections}
               hasPhoto={hasPhoto}
               isVerified={myProfile?.isVerified}
-            />
-            <CompatibilityInsightsCard
-              overallScore={compatibilityScore}
-              insights={compatibilityInsights}
             />
             <ProfileVisitorsCard
               viewsCount={profileViewsCount}

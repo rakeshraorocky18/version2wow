@@ -1,110 +1,62 @@
-import { useState } from 'react';
 import {
   BadgeCheck,
-  ChevronLeft,
-  ChevronRight,
-  Heart,
+  Camera,
   MapPin,
-  MessageCircle,
-  Sparkles,
+  Pencil,
+  User,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import DashboardCard from './DashboardCard';
-import type { DashboardProfileCardData } from '../../hooks/useDashboard';
+import type { DashboardOwnProfileCardData } from '../../hooks/useDashboard';
 
 interface FeaturedMatchCardProps {
-  matches: DashboardProfileCardData[];
-  onSendInterest?: (match: DashboardProfileCardData) => void;
-  sentInterestUserIds: Set<string>;
-  connectedUserIds: Set<string>;
+  profile: DashboardOwnProfileCardData | null;
 }
 
-const FALLBACK_MATCH: DashboardProfileCardData = {
-  id: 'featured-fallback',
-  name: 'Ananya Sharma',
-  firstName: 'Ananya',
-  age: 27,
-  city: 'Bangalore',
-  location: 'Bangalore',
-  profession: 'Brand Strategist',
-  compatibilityScore: 92,
+const FALLBACK_PROFILE: DashboardOwnProfileCardData = {
+  name: 'Your Profile',
+  firstName: 'You',
+  age: undefined,
+  location: 'Add your city',
+  profession: 'Add your profession',
   photoUrl:
     'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=900&q=80',
-  isVerified: true,
-  highlights: ['Travel', 'Music', 'Fitness', 'Family Values'],
-  compatibilityInsights: [
-    { label: 'Family Values', score: 95 },
-    { label: 'Lifestyle', score: 90 },
-    { label: 'Religion/Culture', score: 88 },
-    { label: 'Career Alignment', score: 92 },
+  isVerified: false,
+  completionPercent: 0,
+  interests: ['Travel', 'Music', 'Fitness', 'Family Values'],
+  sectionProgress: [
+    { label: 'Personal Details', score: 45 },
+    { label: 'Religion/Culture', score: 45 },
+    { label: 'Family Values', score: 45 },
+    { label: 'Partner Preferences', score: 45 },
   ],
-  profilePath: '/app/matches',
-  chatPath: '/app/chat',
+  aboutPoints: [
+    'Complete your profile to help us find better matches for you.',
+  ],
 };
 
-export default function FeaturedMatchCard({
-  matches,
-  onSendInterest,
-  sentInterestUserIds,
-  connectedUserIds,
-}: FeaturedMatchCardProps) {
-  const [activeIndex, setActiveIndex] = useState(0);
-  const curatedMatches = matches.length > 0 ? matches : [FALLBACK_MATCH];
-  const profile = curatedMatches[activeIndex] ?? curatedMatches[0];
-  const isFallback = matches.length === 0;
-  const interestSent =
-    sentInterestUserIds.has(profile.id) ||
-    (profile.userId ? sentInterestUserIds.has(profile.userId) : false);
-  const connected =
-    connectedUserIds.has(profile.id) ||
-    (profile.userId ? connectedUserIds.has(profile.userId) : false);
-  const interestDisabled = isFallback || interestSent || connected;
-  const whyRecommended = profile.highlights.slice(0, 4);
+export default function FeaturedMatchCard({ profile }: FeaturedMatchCardProps) {
+  const data = profile ?? FALLBACK_PROFILE;
+  const aboutPoints =
+    data.aboutPoints.length > 0
+      ? data.aboutPoints
+      : ['Add a short bio to tell others more about yourself.'];
 
   return (
     <DashboardCard className="wow-featured-match-card" delay={1} noHover>
       <div className="wow-featured-match-card__media">
         <img
-          src={profile.photoUrl || FALLBACK_MATCH.photoUrl}
-          alt={profile.name}
+          src={data.photoUrl || FALLBACK_PROFILE.photoUrl}
+          alt={data.name}
           className="h-full w-full object-cover"
         />
         <div className="wow-featured-match-card__overlay" />
         <div className="wow-featured-match-card__badge">
-          <Sparkles size={14} />
-          Featured Match
+          <User size={14} />
+          My Profile
         </div>
-        {curatedMatches.length > 1 && (
-          <div className="wow-featured-match-card__nav">
-            <button
-              type="button"
-              onClick={() =>
-                setActiveIndex((current) =>
-                  current === 0 ? curatedMatches.length - 1 : current - 1,
-                )
-              }
-              className="wow-featured-match-card__arrow"
-              aria-label="Previous featured match"
-            >
-              <ChevronLeft size={16} />
-            </button>
-            <button
-              type="button"
-              onClick={() =>
-                setActiveIndex((current) =>
-                  current === curatedMatches.length - 1 ? 0 : current + 1,
-                )
-              }
-              className="wow-featured-match-card__arrow"
-              aria-label="Next featured match"
-            >
-              <ChevronRight size={16} />
-            </button>
-          </div>
-        )}
         <div className="wow-featured-match-card__compatibility">
-          <Heart size={14} fill="currentColor" />
-          {profile.compatibilityScore}% Match
+          {data.completionPercent}% Complete
         </div>
       </div>
 
@@ -113,10 +65,10 @@ export default function FeaturedMatchCard({
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-[1.1rem] font-semibold text-[#2C2630]">
-                {profile.name}
-                {profile.age ? `, ${profile.age}` : ''}
+                {data.name}
+                {data.age ? `, ${data.age}` : ''}
               </h2>
-              {profile.isVerified && (
+              {data.isVerified && (
                 <span className="wow-verified-pill">
                   <BadgeCheck size={13} />
                   Verified
@@ -124,33 +76,39 @@ export default function FeaturedMatchCard({
               )}
             </div>
             <div className="mt-1.5 flex flex-wrap items-center gap-2.5 text-xs text-[#6B6670]">
-              {profile.location && (
+              {data.location && (
                 <span className="inline-flex items-center gap-1.5">
                   <MapPin size={13} />
-                  {profile.location}
+                  {data.location}
                 </span>
               )}
-              <span>{profile.profession}</span>
+              <span>{data.profession}</span>
             </div>
           </div>
           <div className="wow-featured-match-score-ring">
-            <span>{profile.compatibilityScore}%</span>
+            <span>{data.completionPercent}%</span>
           </div>
         </div>
 
         <div className="mt-4">
-          <p className="wow-section-kicker">Shared Signals</p>
+          <p className="wow-section-kicker">My Interests</p>
           <div className="mt-2.5 flex flex-wrap gap-1.5">
-            {profile.highlights.slice(0, 4).map((highlight) => (
-              <span key={highlight} className="wow-soft-chip">
-                {highlight}
+            {data.interests.length > 0 ? (
+              data.interests.slice(0, 4).map((interest) => (
+                <span key={interest} className="wow-soft-chip">
+                  {interest}
+                </span>
+              ))
+            ) : (
+              <span className="text-xs text-[#6B6670]">
+                Add interests in your profile to stand out.
               </span>
-            ))}
+            )}
           </div>
         </div>
 
         <div className="wow-featured-match-card__insights">
-          {profile.compatibilityInsights.slice(0, 4).map((item) => (
+          {data.sectionProgress.slice(0, 4).map((item) => (
             <div key={item.label} className="wow-featured-match-card__insight">
               <span>{item.label}</span>
               <strong>{item.score}%</strong>
@@ -159,50 +117,33 @@ export default function FeaturedMatchCard({
         </div>
 
         <div className="mt-4">
-          <p className="wow-section-kicker">Why We Recommended This Match</p>
+          <p className="wow-section-kicker">About Me</p>
           <ul className="wow-featured-match-card__reasons">
-            {whyRecommended.map((reason) => (
-              <li key={reason}>{reason}</li>
+            {aboutPoints.map((point) => (
+              <li key={point}>{point}</li>
             ))}
           </ul>
         </div>
 
         <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
-          <Link to={profile.profilePath} className="wow-secondary-button text-center">
+          <Link to="/app/profile/details" className="wow-secondary-button text-center">
             View Profile
           </Link>
-          <button
-            type="button"
-            onClick={() => {
-              if (!isFallback && onSendInterest && !interestDisabled) onSendInterest(profile);
-            }}
-            disabled={!onSendInterest || interestDisabled}
-            className="wow-primary-button disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {connected ? 'Connected' : interestSent ? 'Interest Sent' : 'Send Interest'}
-          </button>
           <Link
-            to={profile.chatPath || '/app/chat'}
+            to="/app/profile/edit"
+            className="wow-primary-button inline-flex items-center justify-center gap-2"
+          >
+            <Pencil size={14} />
+            {data.completionPercent < 100 ? 'Complete Profile' : 'Edit Profile'}
+          </Link>
+          <Link
+            to="/app/profile/photos"
             className="wow-ghost-button inline-flex items-center justify-center gap-2"
           >
-            <MessageCircle size={14} />
-            Start Chat
+            <Camera size={14} />
+            Upload Photos
           </Link>
         </div>
-
-        {curatedMatches.length > 1 && (
-          <div className="wow-featured-match-card__dots">
-            {curatedMatches.map((item, index) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => setActiveIndex(index)}
-                className={index === activeIndex ? 'is-active' : ''}
-                aria-label={`Show featured match ${index + 1}`}
-              />
-            ))}
-          </div>
-        )}
       </div>
     </DashboardCard>
   );

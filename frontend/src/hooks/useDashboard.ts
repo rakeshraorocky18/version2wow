@@ -16,6 +16,9 @@ import {
   apiProfileToForm,
   profileCompletion,
   getMissingBySection,
+  isSectionValid,
+  EDIT_SECTIONS,
+  type ProfileForm,
 } from '../lib/profileEditValidation';
 import { getMainProfilePhoto, getPhotoUrl } from '../lib/profileUtils';
 import type { BudgetCategory } from '../components/dashboard/BudgetCard';
@@ -90,6 +93,21 @@ export interface DashboardProfileCardData {
 export interface DashboardCompatibilityInsight {
   label: string;
   score: number;
+}
+
+export interface DashboardOwnProfileCardData {
+  id?: string;
+  name: string;
+  firstName: string;
+  age?: number;
+  location?: string;
+  profession?: string;
+  photoUrl: string;
+  isVerified: boolean;
+  completionPercent: number;
+  interests: string[];
+  sectionProgress: DashboardCompatibilityInsight[];
+  aboutPoints: string[];
 }
 
 export interface DashboardRecentMoment {
@@ -204,6 +222,101 @@ function formatRelativeTime(dateStr?: string): string {
   if (absSeconds < 3600) return rtf.format(Math.round(diffSeconds / 60), 'minute');
   if (absSeconds < 86400) return rtf.format(Math.round(diffSeconds / 3600), 'hour');
   return rtf.format(Math.round(diffSeconds / 86400), 'day');
+}
+
+function getOwnProfileInterests(
+  profile: Record<string, unknown> | null | undefined,
+  form: ProfileForm,
+): string[] {
+  const wizard = (profile?.wizardProfile as Record<string, unknown>) || {};
+  const religion = (wizard.religion as Record<string, unknown>) || {};
+  const signals = [
+    form.occupation || profile?.occupation || profile?.education,
+    religion.religion || profile?.religion,
+    profile?.maritalStatus,
+    form.gender ? capitalizeFirst(String(form.gender)) : profile?.gender,
+    profile?.city ? `${profile.city} lifestyle` : null,
+  ].filter(Boolean) as string[];
+
+  return Array.from(new Set(signals.map((value) => String(value).trim()))).slice(0, 4);
+}
+
+function getOwnProfileAboutPoints(
+  profile: Record<string, unknown> | null | undefined,
+  form: ProfileForm,
+): string[] {
+  const bio = String(form.bio ?? '').trim();
+  if (bio) {
+    return bio
+      .split(/[.!?]\s+/)
+      .map((sentence) => sentence.trim())
+      .filter(Boolean)
+      .slice(0, 4);
+  }
+
+  const points = [
+    form.occupation ? `Works as ${form.occupation}` : null,
+    form.religion ? `${form.religion} background` : null,
+    form.city ? `Based in ${form.city}` : null,
+    form.maritalStatus ? `${form.maritalStatus}` : null,
+  ].filter(Boolean) as string[];
+
+  return points.slice(0, 4);
+}
+
+function buildOwnProfileSectionProgress(form: ProfileForm): DashboardCompatibilityInsight[] {
+  const sectionLabels: Record<string, string> = {
+    'Personal Details': 'Personal Details',
+    'Religion Details': 'Religion/Culture',
+    'Family Background': 'Family Values',
+    'Partner Preferences': 'Partner Preferences',
+    Lifestyle: 'Lifestyle',
+  };
+
+  return EDIT_SECTIONS.filter((section) => sectionLabels[section])
+    .map((section) => {
+      const sectionIndex = EDIT_SECTIONS.indexOf(section);
+      const isComplete = isSectionValid(sectionIndex, form);
+      return {
+        label: sectionLabels[section],
+        score: isComplete ? 100 : 45,
+      };
+    })
+    .slice(0, 4);
+}
+
+function mapOwnProfileCardData(
+  profile: Record<string, unknown> | null | undefined,
+  completionPercent: number,
+  photoUrl: string,
+): DashboardOwnProfileCardData | null {
+  if (!profile) return null;
+
+  const form = apiProfileToForm(profile);
+  const wizard = (profile.wizardProfile as Record<string, unknown>) || {};
+  const pd = (wizard.personalDetails as Record<string, unknown>) || {};
+  const firstName = String(pd.firstName || profile.firstName || 'Member').trim();
+  const lastName = String(pd.lastName || profile.lastName || '').trim();
+  const location = [pd.city || profile.city, pd.state || profile.state]
+    .filter(Boolean)
+    .join(', ');
+
+  return {
+    id: String(profile.id || profile.userId || ''),
+    name: [firstName, lastName].filter(Boolean).join(' ').trim(),
+    firstName,
+    age: getAge(profile as Partial<MatchProfile>),
+    location,
+    profession:
+      String(form.occupation || profile.occupation || profile.education || '').trim() ||
+      'Add your profession',
+    photoUrl,
+    isVerified: Boolean(profile.isVerified),
+    completionPercent,
+    interests: getOwnProfileInterests(profile, form),
+    sectionProgress: buildOwnProfileSectionProgress(form),
+    aboutPoints: getOwnProfileAboutPoints(profile, form),
+  };
 }
 
 function getProfileHighlights(profile: Partial<MatchProfile>): string[] {
@@ -631,6 +744,11 @@ export function useDashboard() {
   const mainPhoto = myProfile ? getMainProfilePhoto(myProfile) : '';
   const photoUrl = mainPhoto ? getPhotoUrl(mainPhoto) : '';
 
+  const ownProfileCard = useMemo(
+    () => mapOwnProfileCardData(myProfile, completionPct, photoUrl),
+    [myProfile, completionPct, photoUrl],
+  );
+
   const hasPreferences =
     completionPct >= 40 ||
     missingSections.every(
@@ -941,6 +1059,7 @@ export function useDashboard() {
     recommendedMatches,
     featuredMatches,
     featuredMatch,
+    ownProfileCard,
     activeConnections,
     profileVisitors,
     profileVisitorsGrowth: 12,
