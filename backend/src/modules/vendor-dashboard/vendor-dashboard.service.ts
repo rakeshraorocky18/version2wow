@@ -38,11 +38,22 @@ export class VendorDashboardService {
       },
     });
 
+    const recentBookings = await this.bookingRepository.find({
+      where: {
+        vendorId: vendor.id,
+      },
+      order: {
+        createdAt: 'DESC',
+      },
+      take: 10,
+    });
+
     return {
       pendingBookings,
       confirmedBookings,
       averageRating: vendor.ratingAverage,
       reviews: vendor.ratingCount,
+      recentBookings,
     };
   }
-}
+  }

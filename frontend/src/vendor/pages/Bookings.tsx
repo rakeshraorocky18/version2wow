@@ -80,32 +80,18 @@ const VendorBookings = () => {
   const [selectedBooking, setSelectedBooking] = useState<any>(null);
   const [bookings, setBookings] = useState<Booking[]>([]);
 
-  const fetchBookings = async () => {
-    try {
-
-      const vendorResponse = await vendorApi.get("/vendors/me");
-
-      const vendorId = vendorResponse.data.id;
-
-      const response = await vendorApi.get(
-        `/bookings/vendor/${vendorId}`
-      );
-
-      setBookings(response.data);
-
-    } catch (error) {
-      console.error("Error fetching bookings:", error);
-    }
-  };
 
   useEffect(() => {
     fetchBookings();
   }, []);
 
   const filteredBookings = bookings.filter((booking) => {
+    const customer = booking.customerName || "";
+    const id = booking.id || "";
+
     const matchesSearch =
-      booking.customerName.toLowerCase().includes(search.toLowerCase()) ||
-      booking.id.toLowerCase().includes(search.toLowerCase());
+      customer.toLowerCase().includes(search.toLowerCase()) ||
+      id.toLowerCase().includes(search.toLowerCase());
 
     const matchesStatus =
       statusFilter === "All Status" ||
@@ -167,6 +153,26 @@ const VendorBookings = () => {
     }
   };
 
+  const [loading, setLoading] = useState(true);
+
+  const fetchBookings = async () => {
+    try {
+      const vendorResponse = await vendorApi.get("/vendors/me");
+
+      const vendorId = vendorResponse.data.id;
+
+      const response = await vendorApi.get(
+        `/bookings/vendor/${vendorId}`
+      );
+
+      setBookings(response.data || []);
+    } catch (error) {
+      console.error("Error fetching bookings:", error);
+    } finally {
+      setLoading(false);
+    }
+  }; 
+
   return (
     <>
     <div>
@@ -216,7 +222,7 @@ const VendorBookings = () => {
     className="border rounded-lg px-4 py-2 w-full md:w-56"
   >
     <option value="All Status">All Status</option>
-    <option value="requested">Requested</option>
+    <option value="requested">Pending</option>
     <option value="confirmed">Confirmed</option>
     <option value="completed">Completed</option>
     <option value="cancelled">Cancelled</option>
@@ -243,9 +249,9 @@ const VendorBookings = () => {
       {filteredBookings.map((booking) => (
         <tr key={booking.id} className="border-b hover:bg-gray-50">
           <td className="p-3">{booking.id}</td>
-          <td className="p-3">{booking.customerName}</td>
-          <td className="p-3">{booking.eventType}</td>
-          <td className="p-3">{booking.eventDate}</td>
+          <td className="p-3">{booking.customerName || "-"}</td>
+          <td className="p-3">{booking.eventType || "-"}</td>
+          <td className="p-3">{booking.eventDate || "-"}</td>
           <td className="p-3">{booking.guestCount}</td>
           <td className="p-3">₹{booking.amount.toLocaleString()}</td>
           <td className="p-3">
@@ -260,7 +266,15 @@ const VendorBookings = () => {
                   : "bg-red-100 text-red-700"
               }`}
             >
-              {booking.status}
+              {
+                booking.status === "requested"
+                  ? "Pending"
+                  : booking.status === "confirmed"
+                  ? "Confirmed"
+                  : booking.status === "completed"
+                  ? "Completed"
+                  : "Cancelled"
+              }
             </span>
           </td>
           <td className="p-3">
@@ -268,24 +282,37 @@ const VendorBookings = () => {
 
               <button
                 onClick={() => setSelectedBooking(booking)}
-                className="bg-pink-600 text-white px-3 py-2 rounded hover:bg-pink-700"
+                className="bg-pink-600 text-white px-3 py-2 rounded"
               >
                 View
               </button>
 
-              <button
-                onClick={() => confirmBooking(booking.id)}
-                className="bg-green-600 text-white px-3 py-2 rounded hover:bg-green-700"
-              >
-                Accept
-              </button>
+              {booking.status === "requested" && (
+                <>
+                  <button
+                    onClick={() => confirmBooking(booking.id)}
+                    className="bg-green-600 text-white px-3 py-2 rounded"
+                  >
+                    Accept
+                  </button>
 
-              <button
-                onClick={() => cancelBooking(booking.id)}
-                className="bg-red-600 text-white px-3 py-2 rounded hover:bg-red-700"
-              >
-                Reject
-              </button>
+                  <button
+                    onClick={() => cancelBooking(booking.id)}
+                    className="bg-red-600 text-white px-3 py-2 rounded"
+                  >
+                    Reject
+                  </button>
+                </>
+              )}
+
+              {booking.status === "confirmed" && (
+                <button
+                  onClick={() => completeBooking(booking.id)}
+                  className="bg-blue-600 text-white px-3 py-2 rounded"
+                >
+                  Complete
+                </button>
+              )}
 
             </div>
           </td>
@@ -307,7 +334,7 @@ const VendorBookings = () => {
 
         <div>
           <h3 className="font-semibold text-lg border-b pb-2">Customer Details</h3>
-          <p><strong>Name:</strong> {selectedBooking.customerName}</p>
+          <p><strong>Name:</strong> {selectedBooking?.customerName || "-"}</p>
           <p><strong>Phone:</strong> {selectedBooking.customerPhone}</p>
           <p><strong>Email:</strong> {selectedBooking.customerEmail}</p>
         </div>
@@ -338,7 +365,7 @@ const VendorBookings = () => {
             onClick={() => confirmBooking(selectedBooking.id)}
             className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded"
           >
-            Confirm
+            Accept
           </button>
         )}
 
