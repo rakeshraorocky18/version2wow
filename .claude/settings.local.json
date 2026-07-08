@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(/events\\\\|events/\" /Users/pavannaidu/Downloads/version2wow-dev/frontend/src --include=\"*.ts\" --include=\"*.tsx\" | head -30)",
+      "Bash(grep -rn \"'/events\\\\|\\\\\"/events\\\\|`/events\\\\|events/\" /Users/pavannaidu/Downloads/version2wow-dev/frontend/src --include=\"*.ts\" --include=\"*.tsx\" | head -30)",
+      "Bash(npm install *)",
+      "Bash(npm run *)",
+      "Bash(PORT=3459 npm run start:prod)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3459/api/docs)",
+      "Bash(PORT=3459 JWT_SECRET=dev-test-secret npm run start:prod)"
+    ]
+  }
+}
