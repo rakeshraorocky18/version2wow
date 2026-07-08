@@ -19,14 +19,14 @@ import { VendorProfilesModule } from './modules/vendor-profiles/vendor-profiles.
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: '../.env',
+      envFilePath: ['.env', '../.env'],
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
         type: 'better-sqlite3',
-        database: configService.get<string>('SQLITE_DATABASE', 'wow_dev.db'),
+        database: configService.get<string>('SQLITE_DATABASE', './data/wow_dev.db'),
         autoLoadEntities: true,
         synchronize: true,
       }),
