@@ -14,6 +14,8 @@ import { HoneymoonModule } from './modules/honeymoon/honeymoon.module';
 import { FinanceModule } from './modules/finance/finance.module';
 import { RepresentativeProfilesModule } from './modules/representative-profiles/representative-profiles.module';
 import { VendorProfilesModule } from './modules/vendor-profiles/vendor-profiles.module';
+import { VendorAuthModule } from './modules/vendor-auth/vendor-auth.module';
+import { VendorDashboardModule } from './modules/vendor-dashboard/vendor-dashboard.module';
 
 @Module({
   imports: [
@@ -32,6 +34,8 @@ import { VendorProfilesModule } from './modules/vendor-profiles/vendor-profiles.
       }),
     }),
     AuthModule,
+    VendorAuthModule,
+    VendorDashboardModule,
     UsersModule,
     MatchmakingModule,
     ChatModule,

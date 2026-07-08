@@ -56,6 +56,14 @@ export class VendorsController {
     return this.vendorsService.getFeaturedVendors(category);
   }
 
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get my vendor profile' })
+  async getMyVendor(@Req() req: any) {
+    return this.vendorsService.getVendorByUserId(req.user.id);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get vendor details' })
   async getVendor(@Param('id') id: string) {

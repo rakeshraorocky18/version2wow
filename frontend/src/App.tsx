@@ -27,6 +27,8 @@ import EventDetails from './pages/EventDetails';
 import EventEdit from './pages/EventEdit';
 import Honeymoon from './pages/Honeymoon';
 import Finance from './pages/Finance';
+import VendorRoutes from './vendor/routes/VendorRoutes';
+import BookingForm from './pages/BookingForm';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -52,6 +54,7 @@ function App() {
         <Route path="matches" element={<Matches />} />
         <Route path="matches/:id" element={<MatchProfile />} />
         <Route path="chat" element={<Chat />} />
+        <Route path="book/:vendorId" element={<BookingForm />} />
         <Route path="vendors" element={<Vendors />} />
         <Route path="planner" element={<Planner />} />
         <Route path="events/new" element={<EventCreate />} />
@@ -71,6 +74,7 @@ function App() {
         <Route path="profile/photos" element={<ProfilePhotos />} />
         <Route path="profile" element={<ProfileRouter />} />
       </Route>
+      <Route path="/vendor/*" element={<VendorRoutes />} />
     </Routes>
   );
 }

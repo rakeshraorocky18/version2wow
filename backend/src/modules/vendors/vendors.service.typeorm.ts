@@ -77,6 +77,18 @@ export class VendorsServiceTypeorm {
     return this.vendorRepository.save(vendor);
   }
 
+  async getVendorByUserId(userId: string) {
+    const vendor = await this.vendorRepository.findOne({
+      where: { userId },
+    });
+
+    if (!vendor) {
+      throw new NotFoundException('Vendor not found');
+    }
+
+    return vendor;
+  }
+
   async getVendorById(id: string): Promise<VendorEntity> {
     const vendor = await this.vendorRepository.findOne({ where: { id } });
     if (!vendor) throw new NotFoundException('Vendor not found');
