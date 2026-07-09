@@ -1,24 +1,93 @@
-import { IsString, IsNumber, IsOptional, IsEnum, IsDateString } from 'class-validator';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { BookingStatus, PaymentMethod } from '../../../common/enums';
+import {
+  IsString,
+  IsNumber,
+  IsOptional,
+  IsEnum,
+  IsDateString,
+} from 'class-validator';
+
+import {
+  ApiProperty,
+  ApiPropertyOptional,
+} from '@nestjs/swagger';
+
+import {
+  BookingStatus,
+  PaymentMethod,
+} from '../../../common/enums';
 
 export class CreateBookingDto {
   @ApiProperty()
   @IsString()
-  vendorId: string;
+  vendorId!: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  vendorName?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  customerName?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  customerPhone?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  customerEmail?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  eventType?: string;
+
+  @ApiProperty()
+  @IsDateString()
+  eventDate!: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  eventTime?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  venue?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  city?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  guestCount?: number;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   serviceDescription?: string;
 
-  @ApiProperty()
-  @IsDateString()
-  eventDate: string;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  specialRequirements?: string;
 
   @ApiProperty()
   @IsNumber()
-  amount: number;
+  amount!: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  advancePaid?: number;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -29,7 +98,7 @@ export class CreateBookingDto {
 export class UpdateBookingStatusDto {
   @ApiProperty({ enum: BookingStatus })
   @IsEnum(BookingStatus)
-  status: BookingStatus;
+  status!: BookingStatus;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -45,15 +114,15 @@ export class UpdateBookingStatusDto {
 export class InitiatePaymentDto {
   @ApiProperty()
   @IsString()
-  bookingId: string;
+  bookingId!: string;
 
   @ApiProperty()
   @IsNumber()
-  amount: number;
+  amount!: number;
 
   @ApiProperty({ enum: PaymentMethod })
   @IsEnum(PaymentMethod)
-  method: PaymentMethod;
+  method!: PaymentMethod;
 
   @ApiPropertyOptional({ default: false })
   @IsOptional()
@@ -63,7 +132,7 @@ export class InitiatePaymentDto {
 export class ConfirmPaymentDto {
   @ApiProperty()
   @IsString()
-  transactionId: string;
+  transactionId!: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -74,9 +143,9 @@ export class ConfirmPaymentDto {
 export class RefundDto {
   @ApiProperty()
   @IsNumber()
-  amount: number;
+  amount!: number;
 
   @ApiProperty()
   @IsString()
-  reason: string;
+  reason!: string;
 }

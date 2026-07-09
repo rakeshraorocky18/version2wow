@@ -15,12 +15,14 @@ import { FinanceModule } from './modules/finance/finance.module';
 import { RepresentativeProfilesModule } from './modules/representative-profiles/representative-profiles.module';
 import { VendorProfilesModule } from './modules/vendor-profiles/vendor-profiles.module';
 import { MailModule } from './common/mail/mail.module';
+import { VendorAuthModule } from './modules/vendor-auth/vendor-auth.module';
+import { VendorDashboardModule } from './modules/vendor-dashboard/vendor-dashboard.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: '.env',
+      envFilePath: ['.env', '../.env'],
     }),
 
     MailModule,
@@ -32,7 +34,7 @@ import { MailModule } from './common/mail/mail.module';
         type: 'better-sqlite3',
         database: configService.get<string>(
           'SQLITE_DATABASE',
-          'wow_dev.db',
+          './data/wow_dev.db',
         ),
         autoLoadEntities: true,
         synchronize: true,
@@ -52,6 +54,8 @@ import { MailModule } from './common/mail/mail.module';
     FinanceModule,
     RepresentativeProfilesModule,
     VendorProfilesModule,
+    VendorAuthModule,
+    VendorDashboardModule,
   ],
 })
 export class AppModule {}

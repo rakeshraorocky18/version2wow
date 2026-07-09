@@ -18,7 +18,8 @@ import {
   getMissingBySection,
   profileCompletion,
 } from '../lib/profileEditValidation';
-import { getGalleryPhotos, getMainProfilePhoto, getPhotoUrl } from '../lib/profileUtils';
+import { getMainProfilePhoto, getPhotoUrl, getProfilePhotos } from '../lib/profileUtils';
+import { MAX_PROFILE_PHOTOS } from '../lib/maritalStatusOptions';
 
 function getAge(dateOfBirth?: string) {
   if (!dateOfBirth) return null;
@@ -73,7 +74,7 @@ export default function Profile({ managedMode = false }: { managedMode?: boolean
   const pd = wizard.personalDetails || profile;
   const religion = wizard.religion || profile;
   const mainPhoto = getMainProfilePhoto(profile);
-  const galleryPhotos = getGalleryPhotos(profile);
+  const allPhotos = getProfilePhotos(profile);
   const photoUrl = getPhotoUrl(mainPhoto);
   const fullName = `${pd.firstName || profile.firstName || ''} ${pd.lastName || profile.lastName || ''}`.trim();
   const displayName = pd.displayName || fullName || 'My Profile';
@@ -206,8 +207,9 @@ export default function Profile({ managedMode = false }: { managedMode?: boolean
           <div className="min-w-0 flex-1">
             <p className="font-display text-base font-semibold text-[#4A2236]">Photos</p>
             <p className="mt-0.5 text-sm text-[#9A5776]">
-              {mainPhoto ? '1 profile photo' : 'No profile photo yet'}
-              {galleryPhotos.length > 0 ? ` · ${galleryPhotos.length} album photo${galleryPhotos.length !== 1 ? 's' : ''}` : ''}
+              {allPhotos.length > 0
+                ? `${allPhotos.length} of ${MAX_PROFILE_PHOTOS} profile photos`
+                : `Add up to ${MAX_PROFILE_PHOTOS} profile photos`}
             </p>
           </div>
           <ChevronRight size={20} className="shrink-0 text-[#C4A0B0] transition group-hover:text-[#B66A8A]" />

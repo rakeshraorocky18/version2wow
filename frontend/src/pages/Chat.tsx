@@ -127,31 +127,37 @@ type ChatContact = {
 
 function buildContactsFromAccepted(
   acceptedMatches: Array<{
-    partnerUserId?: string;
+    partnerUserId?: string | null;
     partnerProfile?: {
+      id?: string;
+      userId?: string;
       firstName?: string;
       lastName?: string;
       profilePhoto?: string;
       photos?: string[];
       wizardProfile?: { profilePhoto?: string; personalDetails?: { firstName?: string; lastName?: string } };
-    };
+    } | null;
   }>,
 ): ChatContact[] {
-  return acceptedMatches
-    .filter((m) => m.partnerUserId)
-    .map((m) => {
-      const p = m.partnerProfile;
-      const pd = p?.wizardProfile?.personalDetails;
-      const name = p
-        ? `${pd?.firstName || p.firstName || ''} ${pd?.lastName || p.lastName || ''}`.trim()
-        : '';
-      return {
-        userId: m.partnerUserId!,
+  return acceptedMatches.flatMap((m) => {
+    const userId = m.partnerUserId ?? undefined;
+    if (!userId) return [];
+
+    const p = m.partnerProfile;
+    const pd = p?.wizardProfile?.personalDetails;
+    const name = p
+      ? `${pd?.firstName || p.firstName || ''} ${pd?.lastName || p.lastName || ''}`.trim()
+      : '';
+
+    return [
+      {
+        userId,
         name: name || 'Mutual match',
         subtitle: 'Mutual match — say hello!',
         photo: p?.profilePhoto || p?.wizardProfile?.profilePhoto || p?.photos?.[0],
-      };
-    });
+      },
+    ];
+  });
 }
 
 export default function Chat() {

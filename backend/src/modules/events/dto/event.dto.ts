@@ -38,7 +38,12 @@ export class CreateEventDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  dressCode?: string;
+  status?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  cancellationReason?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

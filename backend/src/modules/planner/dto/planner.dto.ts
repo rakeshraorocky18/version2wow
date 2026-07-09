@@ -20,6 +20,16 @@ export class CreatePlanDto {
   @IsOptional()
   @IsString()
   venue?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  theme?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  guestCount?: number;
 }
 
 export class CreateTaskDto {

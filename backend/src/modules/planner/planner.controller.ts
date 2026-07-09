@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { PlannerService } from './planner.service';
+import { PlannerDashboardService } from './planner-dashboard.service';
 import {
   CreatePlanDto,
   CreateTaskDto,
@@ -26,7 +27,74 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class PlannerController {
-  constructor(private readonly plannerService: PlannerService) {}
+  constructor(
+    private readonly plannerService: PlannerService,
+    private readonly dashboardService: PlannerDashboardService,
+  ) {}
+
+  // ─── Dashboard API (specific routes before parameterized) ───
+
+  @Get()
+  @ApiOperation({ summary: 'Get planner dashboard overview' })
+  async getDashboard(@Req() req: any, @Query('planId') planId?: string) {
+    return this.dashboardService.getDashboard(req.user.id, planId);
+  }
+
+  @Get('tasks')
+  @ApiOperation({ summary: 'Get planner tasks' })
+  async getDashboardTasks(@Req() req: any, @Query('planId') planId?: string) {
+    return this.dashboardService.getTasks(req.user.id, planId);
+  }
+
+  @Get('budget')
+  @ApiOperation({ summary: 'Get planner budget summary' })
+  async getDashboardBudget(@Req() req: any, @Query('planId') planId?: string) {
+    return this.dashboardService.getBudget(req.user.id, planId);
+  }
+
+  @Get('countdown')
+  @ApiOperation({ summary: 'Get wedding countdown' })
+  async getCountdown(@Req() req: any, @Query('planId') planId?: string) {
+    return this.dashboardService.getCountdown(req.user.id, planId);
+  }
+
+  @Get('vendors')
+  @ApiOperation({ summary: 'Get vendor recommendations' })
+  async getVendorRecommendations(@Req() req: any, @Query('planId') planId?: string) {
+    return this.dashboardService.getVendors(req.user.id, planId);
+  }
+
+  @Get('guests')
+  @ApiOperation({ summary: 'Get guest management stats' })
+  async getGuests(@Req() req: any) {
+    return this.dashboardService.getGuests(req.user.id);
+  }
+
+  @Get('rsvp')
+  @ApiOperation({ summary: 'Get RSVP dashboard data' })
+  async getRsvp(@Req() req: any) {
+    return this.dashboardService.getRsvp(req.user.id);
+  }
+
+  @Get('notifications')
+  @ApiOperation({ summary: 'Get planner notifications' })
+  async getNotifications(@Req() req: any, @Query('planId') planId?: string) {
+    return this.dashboardService.getNotifications(req.user.id, planId);
+  }
+
+  @Get('activity')
+  @ApiOperation({ summary: 'Get recent planner activity' })
+  async getActivity(@Req() req: any, @Query('planId') planId?: string) {
+    return this.dashboardService.getActivity(req.user.id, planId);
+  }
+
+  @Get('inspiration')
+  @ApiOperation({ summary: 'Get wedding inspiration themes' })
+  async getInspiration() {
+    return this.dashboardService.getInspiration();
+  }
+
+  // ─── Plan CRUD ───
 
   @Post('plan')
   @ApiOperation({ summary: 'Create wedding plan' })

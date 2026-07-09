@@ -39,8 +39,11 @@ export class EventEntity {
   @Column({ nullable: true })
   description: string;
 
+  @Column({ type: 'varchar', default: 'upcoming' })
+  status: string;
+
   @Column({ nullable: true })
-  dressCode: string;
+  cancellationReason: string;
 
   @Column({ type: 'float', nullable: true })
   budget: number;

@@ -13,7 +13,16 @@ import { ProfileSearchQueryDto, SendInterestDto } from './dto/matchmaking.dto';
 import { UsersService } from '../users/users.service.typeorm';
 import { calculateCompatibility } from './engines/compatibility.engine';
 import { buildSuggestionFilters, mergeFilters, resolveOppositeGenderFilter } from './engines/filter.engine';
-import { applyPremiumMatchBoost, enrichWithPremiumBoost, isPremiumSubscriber } from './engines/premium.engine';
+import {
+  applyPremiumMatchBoost,
+  enrichWithPremiumBoost,
+  sortProfilesByListingPriority,
+  SUBSCRIPTION_PLANS,
+  BOOST_DURATION_HOURS,
+  getPlanById,
+  isActiveBoost,
+  resolveSubscriptionType,
+} from './engines/premium.engine';
 import { isHoroscopeCompatible } from './engines/horoscope.engine';
 import { Neo4jMatchService } from './services/neo4j-match.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -180,39 +189,75 @@ export class MatchmakingService {
       return profiles as Record<string, unknown>[];
     }
     const viewerRecord = viewer as Record<string, unknown>;
-    return profiles
-      .map((candidate) => {
-        const candidateRecord = candidate as Record<string, unknown>;
-        const compatibility = calculateCompatibility(viewerRecord, candidateRecord, { includeHoroscope });
-        let score = compatibility.score;
-        if (graphBoostIds.includes(candidateRecord.id as string)) score = Math.min(100, score + 8);
-        score = applyPremiumMatchBoost(score, candidateRecord);
-        return enrichWithPremiumBoost(
-          {
-            ...candidateRecord,
-            compatibility,
-          },
-          score,
-        );
-      })
-      .sort((a, b) => {
-        const scoreDiff = (b.compatibilityScore as number) - (a.compatibilityScore as number);
-        if (scoreDiff !== 0) return scoreDiff;
-        return (isPremiumSubscriber(b) ? 1 : 0) - (isPremiumSubscriber(a) ? 1 : 0);
-      });
+    const scored = profiles.map((candidate) => {
+      const candidateRecord = candidate as Record<string, unknown>;
+      const compatibility = calculateCompatibility(viewerRecord, candidateRecord, { includeHoroscope });
+      let score = compatibility.score;
+      if (graphBoostIds.includes(candidateRecord.id as string)) score = Math.min(100, score + 8);
+      score = applyPremiumMatchBoost(score, candidateRecord);
+      return enrichWithPremiumBoost(
+        {
+          ...candidateRecord,
+          compatibility,
+        },
+        score,
+      );
+    });
+    return sortProfilesByListingPriority(scored as Record<string, unknown>[]);
   }
 
   async getPremiumStatus(userId: string) {
+    await this.usersService.clearExpiredBoost(userId);
     const profile = await this.usersService.getProfileOrNull(userId);
-    const isPremium = profile?.isPremium === true;
+    const subscriptionType = profile
+      ? resolveSubscriptionType(profile as unknown as Record<string, unknown>)
+      : 'Free';
+    const isPremium = subscriptionType !== 'Free';
+    const isBoosted = profile
+      ? isActiveBoost(profile as unknown as Record<string, unknown>)
+      : false;
+    const boostExpiresAt = profile?.boostExpiresAt || null;
+
     return {
+      subscriptionType,
       isPremium,
+      isBoosted,
+      boostExpiresAt,
       hasActiveSubscription: isPremium,
       paymentIntegrationEnabled: false,
       benefits: {
         boostedProfile: isPremium,
         priorityInMatchListings: isPremium,
+        profileBoost: isPremium || isBoosted,
       },
+    };
+  }
+
+  getPremiumPlans() {
+    return {
+      plans: SUBSCRIPTION_PLANS,
+      boostDurationHours: BOOST_DURATION_HOURS,
+      paymentIntegrationEnabled: false,
+    };
+  }
+
+  async subscribeToPlan(userId: string, planId: string) {
+    const plan = getPlanById(planId);
+    if (!plan) throw new BadRequestException('Invalid subscription plan');
+    await this.usersService.setSubscription(userId, plan.subscriptionType);
+    return this.getPremiumStatus(userId);
+  }
+
+  async activateProfileBoost(userId: string) {
+    const status = await this.getPremiumStatus(userId);
+    if (!status.hasActiveSubscription && process.env.NODE_ENV === 'production') {
+      throw new BadRequestException('Upgrade to a premium plan to boost your profile');
+    }
+    const profile = await this.usersService.activateProfileBoost(userId, BOOST_DURATION_HOURS);
+    return {
+      isBoosted: isActiveBoost(profile as unknown as Record<string, unknown>),
+      boostExpiresAt: profile.boostExpiresAt,
+      durationHours: BOOST_DURATION_HOURS,
     };
   }
 
@@ -288,23 +333,127 @@ export class MatchmakingService {
   }
 
   async rejectInterest(userId: string, matchId: string): Promise<Match> {
-    const match = await this.matchRepository.findOne({
-      where: { id: matchId, receiverId: userId },
-    });
-
+    const match = await this.matchRepository.findOne({ where: { id: matchId } });
     if (!match) throw new NotFoundException('Match request not found');
 
+    const normalizedUser = await this.resolveUserId(userId);
+    const receiverUserId = await this.resolveUserId(match.receiverId);
+    const userProfile = await this.usersService.getProfileOrNull(normalizedUser);
+    const isReceiver =
+      receiverUserId === normalizedUser ||
+      match.receiverId === userId ||
+      match.receiverId === normalizedUser ||
+      (userProfile?.id != null && match.receiverId === userProfile.id);
+
+    if (!isReceiver) throw new NotFoundException('Match request not found');
+
     match.status = MatchStatus.REJECTED;
+    match.senderId = await this.resolveUserId(match.senderId);
+    match.receiverId = receiverUserId;
     return this.matchRepository.save(match);
+  }
+
+  private async receiverIdVariants(userId: string): Promise<string[]> {
+    const normalizedUser = await this.resolveUserId(userId);
+    const profile = await this.usersService.getProfileOrNull(normalizedUser);
+    return Array.from(
+      new Set([userId, normalizedUser, ...(profile?.id ? [profile.id] : [])]),
+    );
   }
 
   async getReceivedInterests(userId: string) {
     await this.cleanupStaleInterestRecords(userId);
-    const matches = await this.matchRepository.find({
-      where: { receiverId: userId, status: MatchStatus.PENDING },
+    const normalizedUser = await this.resolveUserId(userId);
+    const receiverIds = await this.receiverIdVariants(userId);
+    const raw = await this.matchRepository.find({
+      where: receiverIds.map((receiverId) => ({
+        receiverId,
+        status: MatchStatus.PENDING,
+      })),
       order: { createdAt: 'DESC' },
     });
-    return this.attachProfilesToMatches(matches, userId);
+    const matches = Array.from(new Map(raw.map((m) => [m.id, m])).values());
+    return this.attachProfilesToMatches(matches, normalizedUser);
+  }
+
+  /** Map profile/user ids to relationship status for the current viewer. */
+  private async buildInterestStatusMap(userId: string) {
+    type Status = 'none' | 'pending_sent' | 'pending_received' | 'accepted' | 'rejected';
+    type Entry = { interestStatus: Status; matchId: string; partnerUserId: string };
+    const priority = (s: Status) =>
+      ({ accepted: 5, pending_sent: 4, pending_received: 4, rejected: 2, none: 0 })[s];
+
+    const viewerId = await this.resolveUserId(userId);
+    const viewerProfile = await this.usersService.getProfileOrNull(viewerId);
+    const lookupIds = [...new Set([userId, viewerId, viewerProfile?.id].filter(Boolean))] as string[];
+
+    const rawMatches = await this.matchRepository.find({
+      where: lookupIds.flatMap((uid) => [{ senderId: uid }, { receiverId: uid }]),
+    });
+
+    const map = new Map<string, Entry>();
+
+    for (const match of rawMatches) {
+      const senderId = await this.resolveUserId(match.senderId);
+      const receiverId = await this.resolveUserId(match.receiverId);
+      if (senderId !== viewerId && receiverId !== viewerId) continue;
+
+      let interestStatus: Status;
+      if (match.status === MatchStatus.ACCEPTED) interestStatus = 'accepted';
+      else if (match.status === MatchStatus.REJECTED || match.status === MatchStatus.BLOCKED) {
+        interestStatus = 'rejected';
+      } else if (match.status === MatchStatus.PENDING) {
+        interestStatus = senderId === viewerId ? 'pending_sent' : 'pending_received';
+      } else continue;
+
+      const partnerUserId = senderId === viewerId ? receiverId : senderId;
+      const partnerProfile = await this.usersService.getProfileOrNull(partnerUserId);
+      const entry: Entry = { interestStatus, matchId: match.id, partnerUserId };
+      const keys = [partnerUserId, partnerProfile?.id].filter(Boolean) as string[];
+
+      for (const key of keys) {
+        const existing = map.get(key);
+        if (!existing || priority(interestStatus) > priority(existing.interestStatus)) {
+          map.set(key, entry);
+        }
+      }
+    }
+
+    return map;
+  }
+
+  private attachInterestStatusToProfiles(
+    profiles: Record<string, unknown>[],
+    statusMap: Map<
+      string,
+      { interestStatus: string; matchId: string; partnerUserId: string }
+    >,
+  ) {
+    return profiles.map((profile) => {
+      const userKey = String(profile.userId || '');
+      const idKey = String(profile.id || '');
+      const rel = statusMap.get(userKey) || statusMap.get(idKey);
+      return {
+        ...profile,
+        interestStatus: rel?.interestStatus ?? 'none',
+        matchId: rel?.matchId ?? null,
+        matchPartnerUserId: rel?.partnerUserId ?? null,
+      };
+    });
+  }
+
+  async getRelationshipForProfile(viewerUserId: string, profileIdOrUserId: string) {
+    const profile = await this.usersService.getProfileByIdOrUserId(profileIdOrUserId);
+    const targetUserId = profile.userId;
+    const statusMap = await this.buildInterestStatusMap(viewerUserId);
+    return (
+      statusMap.get(targetUserId) ||
+      statusMap.get(profile.id) || {
+        interestStatus: 'none' as const,
+        matchId: null,
+        partnerUserId: targetUserId,
+      }
+    );
   }
 
   async getSentInterests(userId: string) {
@@ -431,7 +580,10 @@ export class MatchmakingService {
     );
     scored = this.applyHoroscopeMatchFilter(viewer, scored as Record<string, unknown>[], query);
 
-    return { profiles: scored, total: scored.length, page, limit };
+    const statusMap = await this.buildInterestStatusMap(userId);
+    scored = this.attachInterestStatusToProfiles(scored as Record<string, unknown>[], statusMap);
+
+    return { profiles: scored, total: result.total, page, limit };
   }
 
   async getSuggestedMatches(userId: string, query: ProfileSearchQueryDto = {}, userRole?: string) {
@@ -467,9 +619,12 @@ export class MatchmakingService {
     );
     scored = this.applyHoroscopeMatchFilter(viewer, scored as Record<string, unknown>[], query).slice(0, limit);
 
+    const statusMap = await this.buildInterestStatusMap(userId);
+    scored = this.attachInterestStatusToProfiles(scored as Record<string, unknown>[], statusMap);
+
     return {
       profiles: scored,
-      total: scored.length,
+      total: result.total,
       page,
       limit,
       recommendationEngine: this.neo4jMatchService.isEnabled() ? 'graph+rules' : 'rules',
@@ -529,7 +684,10 @@ export class MatchmakingService {
       this.scoreProfiles(viewer, eligible, true) as Record<string, unknown>[],
     );
 
-    return { profiles: scored, total: scored.length };
+    const statusMap = await this.buildInterestStatusMap(userId);
+    const withStatus = this.attachInterestStatusToProfiles(scored, statusMap);
+
+    return { profiles: withStatus, total: withStatus.length };
   }
 
   async isShortlisted(userId: string, profileIds: string[]) {
@@ -648,18 +806,34 @@ export class MatchmakingService {
     const targetUserId = String(profileRecord.userId || '');
     const viewerId = await this.resolveUserId(viewerUserId);
 
+    const relationship = await this.getRelationshipForProfile(viewerUserId, profileIdOrUserId);
+    const rel = relationship as {
+      interestStatus: string;
+      matchId: string | null;
+      partnerUserId: string;
+    };
+
     if (targetUserId === viewerId || profileIdOrUserId === viewerId) {
-      return { profile: profileRecord, visibility: 'full' as const };
+      return {
+        profile: profileRecord,
+        visibility: 'full' as const,
+        relationship: { ...rel, interestStatus: 'none' },
+      };
     }
 
-    const accepted = await this.hasAcceptedMatch(viewerId, targetUserId);
+    const accepted = rel.interestStatus === 'accepted';
     if (accepted) {
-      return { profile: this.applyGalleryPrivacy(profileRecord, true), visibility: 'full' as const };
+      return {
+        profile: this.applyGalleryPrivacy(profileRecord, true),
+        visibility: 'full' as const,
+        relationship: rel,
+      };
     }
 
     return {
       profile: this.toLimitedProfileView(profileRecord),
       visibility: 'limited' as const,
+      relationship: rel,
     };
   }
 }

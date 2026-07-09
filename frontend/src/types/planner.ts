@@ -16,6 +16,9 @@ export interface WeddingPlan {
   partnerName: string;
   weddingDate: string;
   totalBudget?: number;
+  venue?: string;
+  theme?: string;
+  guestCount?: number;
   createdAt?: string;
 }
 

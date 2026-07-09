@@ -22,11 +22,16 @@ import RepresentativeProfileView from './pages/representative/RepresentativeProf
 import EditVendorProfile from './pages/vendor/EditVendorProfile';
 import VendorProfileView from './pages/vendor/VendorProfileView';
 import Events from './pages/Events';
+import EventCreate from './pages/EventCreate';
+import EventDetails from './pages/EventDetails';
+import EventEdit from './pages/EventEdit';
 import Honeymoon from './pages/Honeymoon';
 import Finance from './pages/Finance';
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 
+import VendorRoutes from './vendor/routes/VendorRoutes';
+import BookingForm from './pages/BookingForm';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -54,8 +59,12 @@ function App() {
         <Route path="matches" element={<Matches />} />
         <Route path="matches/:id" element={<MatchProfile />} />
         <Route path="chat" element={<Chat />} />
+        <Route path="book/:vendorId" element={<BookingForm />} />
         <Route path="vendors" element={<Vendors />} />
         <Route path="planner" element={<Planner />} />
+        <Route path="events/new" element={<EventCreate />} />
+        <Route path="events/:id/edit" element={<EventEdit />} />
+        <Route path="events/:id" element={<EventDetails />} />
         <Route path="events" element={<Events />} />
         <Route path="honeymoon" element={<Honeymoon />} />
         <Route path="finance" element={<Finance />} />
@@ -71,6 +80,7 @@ function App() {
         <Route path="profile" element={<ProfileRouter />} />
        
       </Route>
+      <Route path="/vendor/*" element={<VendorRoutes />} />
     </Routes>
   );
 }

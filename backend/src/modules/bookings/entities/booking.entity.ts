@@ -22,6 +22,33 @@ export class BookingEntity {
   vendorName: string;
 
   @Column({ nullable: true })
+  customerName: string;
+
+  @Column({ nullable: true })
+  customerPhone: string;
+
+  @Column({ nullable: true })
+  customerEmail: string;
+
+  @Column({ nullable: true })
+  eventType: string;
+
+  @Column({ nullable: true })
+  eventTime: string;
+
+  @Column({ nullable:true })
+  venue: string;
+
+  @Column({ nullable:true })
+  city: string;
+
+  @Column({ type: 'int', default: 0 })
+  guestCount: number;
+
+  @Column({ nullable:true })
+  specialRequirements: string;
+
+  @Column({ nullable: true })
   serviceDescription: string;
 
   @Column()

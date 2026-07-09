@@ -1,10 +1,12 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
+import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '../store/authStore';
 import AppFooter from './AppFooter';
 import { FooterPaginationProvider, useFooterPagination } from '../context/FooterPaginationContext';
-import { useReceivedInterests, useAcceptedInterests } from '../hooks/useMatchmaking';
+import { useAcceptedInterests, useReceivedInterests, useShortlist } from '../hooks/useMatchmaking';
+import api from '../lib/api';
 import {
   Heart,
   MessageCircle,
@@ -27,10 +29,10 @@ const navItems = [
   { path: '/app/chat', icon: MessageCircle, label: 'Chat', badge: 'chat' },
   { path: '/app/vendors', icon: Store, label: 'Vendors' },
   { path: '/app/planner', icon: Calendar, label: 'Planner' },
-  { path: '/app/events', icon: PartyPopper, label: 'Events' },
+  { path: '/app/events', icon: PartyPopper, label: 'Events', badge: 'events' },
   { path: '/app/honeymoon', icon: Palmtree, label: 'Honeymoon' },
   { path: '/app/finance', icon: Wallet, label: 'Finance' },
-  { path: '/app/profile', icon: User, label: 'Profile' },
+  { path: '/app/profile', icon: User, label: 'Profile', badge: 'saved' },
 ];
 
 function FooterPaginationReset() {
@@ -56,8 +58,18 @@ export default function Layout() {
   // Notification counts from existing hooks
   const { data: receivedInterests = [] } = useReceivedInterests();
   const { data: acceptedInterests = [] } = useAcceptedInterests();
-  const pendingMatchCount = receivedInterests.length;
+  const pendingMatchCount = receivedInterests.filter((m) => m.status === 'pending').length;
+  const { data: shortlistData } = useShortlist();
   const acceptedCount = acceptedInterests.length;
+  const shortlistCount = shortlistData?.profiles?.length ?? 0;
+  const { data: events = [] } = useQuery({
+    queryKey: ['layout-events-count'],
+    queryFn: async () => {
+      const { data } = await api.get('/events');
+      return data as Array<{ id: string }>;
+    },
+  });
+  const eventCount = events.length;
 
   useEffect(() => {
     const handleScroll = () => {
@@ -83,22 +95,27 @@ export default function Layout() {
   function getBadgeCount(badge?: string): number {
     if (badge === 'matches') return pendingMatchCount;
     if (badge === 'chat') return acceptedCount;
+    if (badge === 'events') return eventCount;
+    if (badge === 'saved') return shortlistCount;
     return 0;
   }
 
   return (
     <div
-      className={`min-h-screen flex flex-col ${isMatchesPage || isDashboardPage ? 'bg-white' : 'bg-[#FAF8FB]'}`}
+      className={`min-h-screen flex flex-col ${
+        isMatchesPage ? 'bg-transparent' : isDashboardPage ? 'bg-[#FAF7F2]' : 'bg-[#FFF8FB]'
+      }`}
     >
-      {/* Ambient background blobs */}
+      {/* Ambient background blobs stay off pages with custom full-bleed backgrounds. */}
       {!isMatchesPage && !isDashboardPage && (
-        <>
-          <div className="pointer-events-none fixed left-[-120px] top-16 h-72 w-72 rounded-full bg-[#F5DCE8]/60 blur-3xl" />
-          <div className="pointer-events-none fixed bottom-6 right-[-120px] h-80 w-80 rounded-full bg-[#EAE5FF]/60 blur-3xl" />
-        </>
+        <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden" aria-hidden>
+          <div className="absolute -left-24 top-20 h-80 w-80 rounded-full bg-[#FCEEEF]/70 blur-3xl" />
+          <div className="absolute -right-24 top-1/3 h-96 w-96 rounded-full bg-[#F5EBDD]/65 blur-3xl" />
+          <div className="absolute bottom-0 left-1/3 h-72 w-72 rounded-full bg-[#EAF6FF]/45 blur-3xl" />
+        </div>
       )}
 
-      <main className="flex flex-1 flex-col w-full px-4 sm:px-6 lg:px-8 py-6">
+      <main className="relative z-10 flex flex-1 flex-col w-full px-4 sm:px-6 lg:px-8 py-6">
 
         {/* ── Navbar ─────────────────────────────────────── */}
         <header

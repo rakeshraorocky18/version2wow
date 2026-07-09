@@ -12,7 +12,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { MatchmakingService } from './matchmaking.service';
-import { ProfileSearchQueryDto, SendInterestDto, ShortlistDto } from './dto/matchmaking.dto';
+import { ProfileSearchQueryDto, SendInterestDto, ShortlistDto, SubscribePlanDto } from './dto/matchmaking.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @ApiTags('matches')
@@ -33,6 +33,37 @@ export class MatchmakingController {
   async toggleDevPremium(@Req() req: { user: { id: string } }) {
     const current = await this.matchmakingService.getPremiumStatus(req.user.id);
     return this.matchmakingService.setDevPremiumStatus(req.user.id, !current.isPremium);
+  }
+
+  @Get('premium/plans')
+  @ApiOperation({ summary: 'List available premium subscription plans' })
+  getPremiumPlans() {
+    return this.matchmakingService.getPremiumPlans();
+  }
+
+  @Post('premium/subscribe')
+  @ApiOperation({ summary: 'Subscribe to a premium plan (payment stub until Razorpay)' })
+  async subscribeToPlan(
+    @Req() req: { user: { id: string } },
+    @Body() dto: SubscribePlanDto,
+  ) {
+    return this.matchmakingService.subscribeToPlan(req.user.id, dto.planId);
+  }
+
+  @Post('boost/activate')
+  @ApiOperation({ summary: 'Activate a profile boost for 24 hours' })
+  async activateBoost(@Req() req: { user: { id: string } }) {
+    return this.matchmakingService.activateProfileBoost(req.user.id);
+  }
+
+  @Get('boost/status')
+  @ApiOperation({ summary: 'Get current profile boost status' })
+  async getBoostStatus(@Req() req: { user: { id: string } }) {
+    const status = await this.matchmakingService.getPremiumStatus(req.user.id);
+    return {
+      isBoosted: status.isBoosted,
+      boostExpiresAt: status.boostExpiresAt,
+    };
   }
 
   @Get('search')
