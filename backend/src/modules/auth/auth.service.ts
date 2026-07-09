@@ -9,16 +9,29 @@ import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { User } from './entities/user.entity';
-import { RegisterDto, LoginDto } from './dto/auth.dto';
-
+import {PasswordReset } from './entities/password-reset.entity';
+import { MailService } from '../../common/mail/mail.service';
+import {
+  RegisterDto,
+  LoginDto,
+  ForgotPasswordDto,
+  VerifyOtpDto,
+  ResetPasswordDto,
+} from './dto/auth.dto';
+import { generateOTP } from '../../common/utils/otp';
 @Injectable()
 export class AuthService {
   constructor(
-    @InjectRepository(User)
-    private usersRepository: Repository<User>,
-    private jwtService: JwtService,
-    private configService: ConfigService,
-  ) {}
+  @InjectRepository(User)
+  private usersRepository: Repository<User>,
+
+  @InjectRepository(PasswordReset)
+  private passwordResetRepository: Repository<PasswordReset>,
+
+  private jwtService: JwtService,
+  private configService: ConfigService,
+   private readonly mailService: MailService,
+) {}
 
   async register(registerDto: RegisterDto) {
     const existingUser = await this.usersRepository.findOne({
@@ -48,31 +61,31 @@ export class AuthService {
   }
 
   async login(loginDto: LoginDto) {
-    const user = await this.usersRepository.findOne({
-      where: { email: loginDto.email },
-    });
+  const user = await this.usersRepository.findOne({
+    where: { email: loginDto.email },
+  });
 
-    if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
-
-    const isPasswordValid = await bcrypt.compare(
-      loginDto.password,
-      user.password,
-    );
-
-    if (!isPasswordValid) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
-
-    const tokens = await this.generateTokens(user);
-    await this.updateRefreshToken(user.id, tokens.refreshToken);
-
-    return {
-      user: { id: user.id, email: user.email, role: user.role },
-      ...tokens,
-    };
+  if (!user) {
+    throw new UnauthorizedException('Invalid credentials');
   }
+
+  const isPasswordValid = await bcrypt.compare(
+    loginDto.password,
+    user.password,
+  );
+
+  if (!isPasswordValid) {
+    throw new UnauthorizedException('Invalid credentials');
+  }
+
+  const tokens = await this.generateTokens(user);
+  await this.updateRefreshToken(user.id, tokens.refreshToken);
+
+  return {
+    user: { id: user.id, email: user.email, role: user.role },
+    ...tokens,
+  };
+}
 
   async refreshTokens(userId: string, refreshToken: string) {
     const user = await this.usersRepository.findOne({
@@ -97,8 +110,137 @@ export class AuthService {
   async logout(userId: string) {
     await this.usersRepository.update(userId, { refreshToken: '' });
   }
+  
+  async forgotPassword(forgotPasswordDto: ForgotPasswordDto) {
+  const user = await this.usersRepository.findOne({
+    where: { email: forgotPasswordDto.email },
+  });
 
+  if (!user) {
+    throw new UnauthorizedException('User not found');
+  }
+
+  const otp = generateOTP();
+  console.log("================================");
+  console.log("Generated OTP:", otp);
+  console.log("Email:", forgotPasswordDto.email);
+  console.log("================================");
+
+  await this.passwordResetRepository.delete({
+    email: forgotPasswordDto.email,
+  });
+
+  const reset = this.passwordResetRepository.create({
+    email: forgotPasswordDto.email,
+    otp,
+    verified: false,
+  });
+
+  await this.passwordResetRepository.save(reset);
+
+await this.mailService.sendOtp(
+  forgotPasswordDto.email,
+  otp,
+);
+
+return {
+  message: 'OTP sent successfully',
+};
+  }
+
+async sendLoginOtp(dto: ForgotPasswordDto) {
+  const user = await this.usersRepository.findOne({
+    where: { email: dto.email },
+  });
+
+  if (!user) {
+    throw new UnauthorizedException('User not found');
+  }
+
+  const otp = generateOTP();
+
+  await this.passwordResetRepository.delete({
+    email: dto.email,
+  });
+
+  const reset = this.passwordResetRepository.create({
+    email: dto.email,
+    otp,
+    verified: false,
+  });
+
+  await this.passwordResetRepository.save(reset);
+
+  await this.mailService.sendOtp(dto.email, otp);
+
+  return {
+    message: 'Login OTP sent successfully',
+  };
+}
+
+async verifyOtp(verifyOtpDto: VerifyOtpDto) {
+
+  console.log("Verify OTP request:");
+  console.log(verifyOtpDto);
+
+  const reset = await this.passwordResetRepository.findOne({
+    where: {
+      email: verifyOtpDto.email,
+      otp: verifyOtpDto.otp,
+    },
+  });
+
+  console.log("Database result:", reset);
+
+  if (!reset) {
+    throw new UnauthorizedException("Invalid OTP");
+  }
+
+
+  reset.verified = true;
+
+  await this.passwordResetRepository.save(reset);
+
+  return {
+    message: 'OTP verified successfully',
+  };
+}
+
+async resetPassword(resetPasswordDto: ResetPasswordDto) {
+  const reset = await this.passwordResetRepository.findOne({
+    where: {
+      email: resetPasswordDto.email,
+      otp: resetPasswordDto.otp,
+      verified: true,
+    },
+  });
+
+  if (!reset) {
+    throw new UnauthorizedException('OTP not verified');
+  }
+
+  const user = await this.usersRepository.findOne({
+    where: { email: resetPasswordDto.email },
+  });
+
+  if (!user) {
+    throw new UnauthorizedException('User not found');
+  }
+
+  user.password = await bcrypt.hash(resetPasswordDto.newPassword, 12);
+
+  await this.usersRepository.save(user);
+
+  await this.passwordResetRepository.delete({
+    email: resetPasswordDto.email,
+  });
+
+  return {
+    message: 'Password reset successfully',
+  };
+}
   private async generateTokens(user: User) {
+
     const payload = { sub: user.id, email: user.email, role: user.role };
 
     const [accessToken, refreshToken] = await Promise.all([
@@ -119,4 +261,49 @@ export class AuthService {
     const hashedToken = await bcrypt.hash(refreshToken, 12);
     await this.usersRepository.update(userId, { refreshToken: hashedToken });
   }
+  async loginWithOtp(verifyOtpDto: VerifyOtpDto) {
+  const reset = await this.passwordResetRepository.findOne({
+    where: {
+      email: verifyOtpDto.email,
+      otp: verifyOtpDto.otp,
+      verified: false,
+    },
+  });
+
+  if (!reset) {
+    throw new UnauthorizedException('Invalid OTP');
+  }
+
+  reset.verified = true;
+  await this.passwordResetRepository.save(reset);
+
+  const user = await this.usersRepository.findOne({
+    where: { email: verifyOtpDto.email },
+  });
+
+  if (!user) {
+    throw new UnauthorizedException('User not found');
+  }
+
+  const tokens = await this.generateTokens(user);
+
+  await this.updateRefreshToken(
+    user.id,
+    tokens.refreshToken,
+  );
+
+  await this.passwordResetRepository.delete({
+    email: verifyOtpDto.email,
+  });
+
+  return {
+    message: 'Login successful',
+    user: {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+    },
+    ...tokens,
+  };
+}
 }
