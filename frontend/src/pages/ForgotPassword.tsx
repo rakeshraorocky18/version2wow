@@ -1,21 +1,36 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import api from '../lib/api';
 
-export default function RecoverPassword() {
+
+export default function ForgotPassword() {
   const [email, setEmail] = useState('');
+  const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+     console.log("Forgot Password button clicked");
     setIsSubmitting(true);
 
     try {
-      await api.post('/auth/recover-password', { email });
-      setIsSubmitted(true);
-      toast.success('Recovery instructions sent to your email');
+         const response = await api.post('/auth/forgot-password', {
+          email,
+         });
+         console.log(response.data);
+
+         setIsSubmitted(true);
+
+        toast.success(response.data.message);
+         navigate('/verify-otp', {
+         state: {
+         email
+        }
+        });
+
     } catch {
       // Keep response generic to avoid account enumeration.
       setIsSubmitted(true);
@@ -30,7 +45,9 @@ export default function RecoverPassword() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <Link to="/" className="text-3xl font-display font-bold text-primary-600">WOW</Link>
-          <h1 className="mt-4 text-2xl font-semibold text-gray-900">Recover Password</h1>
+         <h1 className="mt-4 text-2xl font-semibold text-red-600">
+        Forgot Password
+</h1>
           <p className="mt-2 text-gray-600">Enter your email to receive reset instructions</p>
         </div>
 

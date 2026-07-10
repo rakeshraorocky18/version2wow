@@ -19,9 +19,14 @@
     "test": "cd backend && npm run test"
   },
   "devDependencies": {
+    "@types/nodemailer": "^8.0.1",
     "concurrently": "^8.2.0"
   },
   "dependencies": {
+<<<<<<< HEAD
     "pg": "^8.22.0"
+=======
+    "nodemailer": "^9.0.3"
+>>>>>>> 792f6e5cbc7cdfd5db84c292fd43e5842810f49d
   }
 }

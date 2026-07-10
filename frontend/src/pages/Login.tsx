@@ -53,8 +53,8 @@ export default function Login() {
               required
             />
             <div className="mt-2 text-right">
-              <Link to="/recover-password" className="text-sm text-primary-600 font-medium hover:underline">
-                Recover password
+              <Link to="/forgot-password" className="text-sm text-primary-600 font-medium hover:underline">
+                Forgot password?
               </Link>
             </div>
           </div>
