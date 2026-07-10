@@ -6,10 +6,11 @@ import { PlannerService } from './planner.service';
 import { FinanceService } from '../finance/finance.service';
 import { EventsService } from '../events/events.service';
 import { VendorsServiceTypeorm } from '../vendors/vendors.service.typeorm';
-import { UsersService } from '../users/users.service.typeorm';
+import { UsersService } from '../users/users.service.mongodb';
 import { MatchmakingService } from '../matchmaking/matchmaking.service';
 import { TaskStatus, RsvpStatus, VendorCategory } from '../../common/enums';
 import { GuestEntity } from '../events/entities/event.entity';
+import { POSTGRES_CONNECTION } from '../../config/database.constants';
 
 const ROMANTIC_QUOTES: Record<string, string> = {
   early: 'Every love story is beautiful, but yours is our favorite. Begin your magical journey.',
@@ -45,9 +46,9 @@ export class PlannerDashboardService {
     private readonly vendorsService: VendorsServiceTypeorm,
     private readonly usersService: UsersService,
     private readonly matchmakingService: MatchmakingService,
-    @InjectRepository(GuestEntity)
+    @InjectRepository(GuestEntity, POSTGRES_CONNECTION)
     private readonly guestRepository: Repository<GuestEntity>,
-    @InjectRepository(PlannerActivity)
+    @InjectRepository(PlannerActivity, POSTGRES_CONNECTION)
     private readonly activityRepository: Repository<PlannerActivity>,
   ) {}
 
@@ -257,7 +258,7 @@ export class PlannerDashboardService {
 
   private async getVendorRecommendations(userId: string, plan: WeddingPlan | null) {
     const profile = await this.usersService.getProfileOrNull(userId);
-    const city = profile?.city;
+    const city = typeof profile?.city === 'string' ? profile.city : undefined;
     const maxPrice = plan?.totalBudget ? Math.round(plan.totalBudget * 0.2) : undefined;
 
     const results: Record<string, unknown[]> = {};
@@ -398,7 +399,10 @@ export class PlannerDashboardService {
   async getDashboard(userId: string, planId?: string) {
     const plan = await this.resolvePlan(userId, planId);
     const profile = await this.usersService.getProfileOrNull(userId);
-    const userName = profile?.firstName || profile?.displayName?.split(' ')[0] || 'Beautiful Soul';
+    const userName =
+      (profile?.firstName as string | undefined) ||
+      (typeof profile?.displayName === 'string' ? profile.displayName.split(' ')[0] : undefined) ||
+      'Beautiful Soul';
 
     if (!plan) {
       return {

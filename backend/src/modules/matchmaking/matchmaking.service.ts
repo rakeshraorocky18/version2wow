@@ -10,7 +10,7 @@ import { Match } from './entities/match.entity';
 import { Shortlist } from './entities/shortlist.entity';
 import { MatchStatus } from '../../common/enums';
 import { ProfileSearchQueryDto, SendInterestDto } from './dto/matchmaking.dto';
-import { UsersService } from '../users/users.service.typeorm';
+import { UsersService } from '../users/users.service.mongodb';
 import { calculateCompatibility } from './engines/compatibility.engine';
 import { buildSuggestionFilters, mergeFilters, resolveOppositeGenderFilter } from './engines/filter.engine';
 import {
@@ -26,13 +26,14 @@ import {
 import { isHoroscopeCompatible } from './engines/horoscope.engine';
 import { Neo4jMatchService } from './services/neo4j-match.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { SQLITE_CONNECTION } from '../../config/database.constants';
 
 @Injectable()
 export class MatchmakingService {
   constructor(
-    @InjectRepository(Match)
+    @InjectRepository(Match, SQLITE_CONNECTION)
     private matchRepository: Repository<Match>,
-    @InjectRepository(Shortlist)
+    @InjectRepository(Shortlist, SQLITE_CONNECTION)
     private shortlistRepository: Repository<Shortlist>,
     private usersService: UsersService,
     private neo4jMatchService: Neo4jMatchService,

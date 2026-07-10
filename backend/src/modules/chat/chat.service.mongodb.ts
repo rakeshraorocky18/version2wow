@@ -4,16 +4,24 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { Model } from 'mongoose';
+import { Repository } from 'typeorm';
 import {
-  MessageEntity,
-  ConversationEntity,
-  ChatPrivacySettingsEntity,
-  ChatMeetingEntity,
-  ChatHiddenContactEntity,
-  ChatHistoryClearEntity,
-} from './entities/chat.entity';
+  Message,
+  MessageDocument,
+  Conversation,
+  ConversationDocument,
+  ChatPrivacySettings,
+  ChatPrivacySettingsDocument,
+  ChatMeeting,
+  ChatMeetingDocument,
+  ChatHiddenContact,
+  ChatHiddenContactDocument,
+  ChatHistoryClear,
+  ChatHistoryClearDocument,
+} from './schemas/message.schema';
 import {
   SendMessageDto,
   UpdateChatPrivacyDto,
@@ -21,33 +29,45 @@ import {
 } from './dto/chat.dto';
 import { Match } from '../matchmaking/entities/match.entity';
 import { MatchStatus, ChatRestrictionMode, ChatMeetingStatus } from '../../common/enums';
-import { UsersService } from '../users/users.service.typeorm';
+import { UsersService } from '../users/users.service.mongodb';
 import { SQLITE_CONNECTION } from '../../config/database.constants';
 
+type ConversationRecord = Conversation & Record<string, unknown>;
+type MessageRecord = Message & Record<string, unknown>;
+type PrivacyRecord = ChatPrivacySettings & Record<string, unknown>;
+type MeetingRecord = ChatMeeting & Record<string, unknown>;
+
 @Injectable()
-export class ChatServiceTypeorm {
+export class ChatServiceMongodb {
   constructor(
-    @InjectRepository(MessageEntity, SQLITE_CONNECTION)
-    private messageRepository: Repository<MessageEntity>,
-    @InjectRepository(ConversationEntity, SQLITE_CONNECTION)
-    private conversationRepository: Repository<ConversationEntity>,
-    @InjectRepository(ChatPrivacySettingsEntity, SQLITE_CONNECTION)
-    private privacyRepository: Repository<ChatPrivacySettingsEntity>,
-    @InjectRepository(ChatMeetingEntity, SQLITE_CONNECTION)
-    private meetingRepository: Repository<ChatMeetingEntity>,
-    @InjectRepository(ChatHiddenContactEntity, SQLITE_CONNECTION)
-    private hiddenContactRepository: Repository<ChatHiddenContactEntity>,
-    @InjectRepository(ChatHistoryClearEntity, SQLITE_CONNECTION)
-    private historyClearRepository: Repository<ChatHistoryClearEntity>,
+    @InjectModel(Message.name)
+    private messageModel: Model<MessageDocument>,
+    @InjectModel(Conversation.name)
+    private conversationModel: Model<ConversationDocument>,
+    @InjectModel(ChatPrivacySettings.name)
+    private privacyModel: Model<ChatPrivacySettingsDocument>,
+    @InjectModel(ChatMeeting.name)
+    private meetingModel: Model<ChatMeetingDocument>,
+    @InjectModel(ChatHiddenContact.name)
+    private hiddenContactModel: Model<ChatHiddenContactDocument>,
+    @InjectModel(ChatHistoryClear.name)
+    private historyClearModel: Model<ChatHistoryClearDocument>,
     @InjectRepository(Match, SQLITE_CONNECTION)
     private matchRepository: Repository<Match>,
     private usersService: UsersService,
   ) {}
 
+  private toPlain<T>(doc: T | { toObject(): T }): T {
+    if (doc && typeof (doc as { toObject?: () => T }).toObject === 'function') {
+      return (doc as { toObject(): T }).toObject();
+    }
+    return doc as T;
+  }
+
   private async resolveUserId(idOrUserId: string): Promise<string> {
     try {
       const profile = await this.usersService.getProfileByIdOrUserId(idOrUserId);
-      return profile.userId;
+      return profile.userId as string;
     } catch {
       return idOrUserId;
     }
@@ -56,16 +76,17 @@ export class ChatServiceTypeorm {
   private async getHiddenUserIds(userId: string): Promise<Set<string>> {
     try {
       const resolvedUserId = await this.resolveUserId(userId);
-      const rows = await this.hiddenContactRepository.find({
-        where: [{ userId: resolvedUserId }, { userId }],
-      });
+      const rows = await this.hiddenContactModel
+        .find({ $or: [{ userId: resolvedUserId }, { userId }] })
+        .exec();
       const hidden = new Set<string>();
       for (const row of rows) {
-        hidden.add(row.otherUserId);
-        const resolvedOther = await this.resolveUserId(row.otherUserId);
+        const plain = this.toPlain(row);
+        hidden.add(plain.otherUserId as string);
+        const resolvedOther = await this.resolveUserId(plain.otherUserId as string);
         hidden.add(resolvedOther);
         const profile = await this.usersService.getProfileOrNull(resolvedOther);
-        if (profile?.id) hidden.add(profile.id);
+        if (profile?.id) hidden.add(profile.id as string);
       }
       return hidden;
     } catch {
@@ -81,7 +102,7 @@ export class ChatServiceTypeorm {
     const resolvedUserId = await this.resolveUserId(userId);
     const profile = await this.usersService.getProfileOrNull(resolvedUserId);
     const selfIds = new Set([userId, resolvedUserId]);
-    if (profile?.id) selfIds.add(profile.id);
+    if (profile?.id) selfIds.add(profile.id as string);
 
     const accepted = await this.matchRepository.find({
       where: { status: MatchStatus.ACCEPTED },
@@ -99,7 +120,7 @@ export class ChatServiceTypeorm {
     const resolved = await this.resolveUserId(userId);
     const profile = await this.usersService.getProfileOrNull(resolved);
     const ids = new Set([userId, resolved]);
-    if (profile?.id) ids.add(profile.id);
+    if (profile?.id) ids.add(profile.id as string);
     return ids;
   }
 
@@ -112,23 +133,24 @@ export class ChatServiceTypeorm {
   private async findConversation(
     userId: string,
     otherUserId: string,
-  ): Promise<ConversationEntity | null> {
+  ): Promise<ConversationRecord | null> {
     const selfIds = await this.getSelfIds(userId);
     const otherIds = await this.getSelfIds(otherUserId);
     const selfIdList = Array.from(selfIds);
-    const conversations = await this.conversationRepository.find({
-      where: [
-        { participant1: In(selfIdList) },
-        { participant2: In(selfIdList) },
-      ],
-    });
-    return (
-      conversations.find(
-        (c) =>
-          (selfIds.has(c.participant1) && otherIds.has(c.participant2)) ||
-          (selfIds.has(c.participant2) && otherIds.has(c.participant1)),
-      ) || null
-    );
+    const conversations = await this.conversationModel
+      .find({
+        $or: [{ participant1: { $in: selfIdList } }, { participant2: { $in: selfIdList } }],
+      })
+      .exec();
+    const found =
+      conversations.find((c) => {
+        const plain = this.toPlain(c);
+        return (
+          (selfIds.has(plain.participant1 as string) && otherIds.has(plain.participant2 as string)) ||
+          (selfIds.has(plain.participant2 as string) && otherIds.has(plain.participant1 as string))
+        );
+      }) || null;
+    return found ? this.toPlain<ConversationRecord>(found) : null;
   }
 
   private latestClearDate(...dates: Array<Date | null | undefined>): Date | null {
@@ -140,9 +162,9 @@ export class ChatServiceTypeorm {
   private async getHistoryClearedAt(userId: string, otherUserId: string): Promise<Date | null> {
     const resolvedUser = await this.resolveUserId(userId);
     const resolvedOther = await this.resolveUserId(otherUserId);
-    const row = await this.historyClearRepository.findOne({
-      where: { userId: resolvedUser, otherUserId: resolvedOther },
-    });
+    const row = await this.historyClearModel
+      .findOne({ userId: resolvedUser, otherUserId: resolvedOther })
+      .exec();
     return row?.clearedAt ?? null;
   }
 
@@ -150,49 +172,37 @@ export class ChatServiceTypeorm {
     const resolvedUser = await this.resolveUserId(userId);
     const resolvedOther = await this.resolveUserId(otherUserId);
     const now = new Date();
-    let row = await this.historyClearRepository.findOne({
-      where: { userId: resolvedUser, otherUserId: resolvedOther },
-    });
-    if (row) {
-      row.clearedAt = now;
-    } else {
-      row = this.historyClearRepository.create({
-        userId: resolvedUser,
-        otherUserId: resolvedOther,
-        clearedAt: now,
-      });
-    }
-    await this.historyClearRepository.save(row);
+    await this.historyClearModel
+      .findOneAndUpdate(
+        { userId: resolvedUser, otherUserId: resolvedOther },
+        { $set: { clearedAt: now } },
+        { upsert: true, new: true },
+      )
+      .exec();
   }
 
   private async getEffectiveClearedAt(
     userId: string,
     otherUserId: string,
-    conv: ConversationEntity | null,
+    conv: ConversationRecord | null,
   ): Promise<Date | null> {
     const historyClearedAt = await this.getHistoryClearedAt(userId, otherUserId);
     const convClearedAt = conv ? await this.getClearedAtForUser(conv, userId) : null;
     return this.latestClearDate(historyClearedAt, convClearedAt);
   }
 
-  private async isParticipantSlot1(
-    conv: ConversationEntity,
-    userId: string,
-  ): Promise<boolean> {
+  private async isParticipantSlot1(conv: ConversationRecord, userId: string): Promise<boolean> {
     const selfIds = await this.getSelfIds(userId);
-    return selfIds.has(conv.participant1);
+    return selfIds.has(conv.participant1 as string);
   }
 
-  private async getClearedAtForUser(
-    conv: ConversationEntity,
-    userId: string,
-  ): Promise<Date | null> {
+  private async getClearedAtForUser(conv: ConversationRecord, userId: string): Promise<Date | null> {
     return (await this.isParticipantSlot1(conv, userId))
-      ? conv.clearedAtParticipant1
-      : conv.clearedAtParticipant2;
+      ? (conv.clearedAtParticipant1 as Date | null)
+      : (conv.clearedAtParticipant2 as Date | null);
   }
 
-  private async setClearedAtForUser(conv: ConversationEntity, userId: string): Promise<void> {
+  private async setClearedAtForUser(conv: ConversationRecord, userId: string): Promise<void> {
     const now = new Date();
     if (await this.isParticipantSlot1(conv, userId)) {
       conv.clearedAtParticipant1 = now;
@@ -204,38 +214,36 @@ export class ChatServiceTypeorm {
   private async hideContact(userId: string, otherUserId: string): Promise<void> {
     const resolvedUserId = await this.resolveUserId(userId);
     const resolvedOther = await this.resolveUserId(otherUserId);
-    const existing = await this.hiddenContactRepository.findOne({
-      where: { userId: resolvedUserId, otherUserId: resolvedOther },
-    });
+    const existing = await this.hiddenContactModel
+      .findOne({ userId: resolvedUserId, otherUserId: resolvedOther })
+      .exec();
     if (!existing) {
-      await this.hiddenContactRepository.save(
-        this.hiddenContactRepository.create({
-          userId: resolvedUserId,
-          otherUserId: resolvedOther,
-        }),
-      );
+      await this.hiddenContactModel.create({
+        userId: resolvedUserId,
+        otherUserId: resolvedOther,
+      });
     }
   }
 
   private async unhideContact(userId: string, otherUserId: string): Promise<void> {
     const resolvedUserId = await this.resolveUserId(userId);
     const resolvedOther = await this.resolveUserId(otherUserId);
-    await this.hiddenContactRepository.delete({
-      userId: resolvedUserId,
-      otherUserId: resolvedOther,
-    });
+    await this.hiddenContactModel
+      .deleteOne({ userId: resolvedUserId, otherUserId: resolvedOther })
+      .exec();
   }
+
   async hasAcceptedMatch(userA: string, userB: string): Promise<boolean> {
     const resolvedB = await this.resolveUserId(userB);
     const profileB = await this.usersService.getProfileOrNull(resolvedB);
     const bIds = new Set([userB, resolvedB]);
-    if (profileB?.id) bIds.add(profileB.id);
+    if (profileB?.id) bIds.add(profileB.id as string);
 
     const matches = await this.findAcceptedMatchesForUser(userA);
     const resolvedA = await this.resolveUserId(userA);
     const profileA = await this.usersService.getProfileOrNull(resolvedA);
     const aIds = new Set([userA, resolvedA]);
-    if (profileA?.id) aIds.add(profileA.id);
+    if (profileA?.id) aIds.add(profileA.id as string);
 
     for (const match of matches) {
       const rawPartner = this.partnerIdFromMatch(match, aIds);
@@ -266,7 +274,7 @@ export class ChatServiceTypeorm {
     }
   }
 
-  async sendMessage(senderId: string, dto: SendMessageDto): Promise<MessageEntity> {
+  async sendMessage(senderId: string, dto: SendMessageDto): Promise<MessageRecord> {
     await this.assertCanChat(senderId, dto.receiverId);
 
     if (dto.type && dto.type !== 'text') {
@@ -280,10 +288,6 @@ export class ChatServiceTypeorm {
 
     let conversation = await this.findConversation(senderId, dto.receiverId);
 
-    if (conversation && !conversation.isActive) {
-      conversation.isActive = true;
-    }
-
     const preview =
       dto.type === 'image'
         ? '📷 Photo'
@@ -294,21 +298,26 @@ export class ChatServiceTypeorm {
             : dto.content;
 
     if (!conversation) {
-      conversation = this.conversationRepository.create({
+      const created = await this.conversationModel.create({
         participant1: resolvedSender,
         participant2: resolvedReceiver,
         lastMessage: preview,
         lastMessageAt: new Date(),
         isActive: true,
       });
-      await this.conversationRepository.save(conversation);
+      conversation = this.toPlain<ConversationRecord>(created);
     } else {
+      if (!conversation.isActive) {
+        conversation.isActive = true;
+      }
       conversation.lastMessage = preview;
       conversation.lastMessageAt = new Date();
-      await this.conversationRepository.save(conversation);
+      await this.conversationModel
+        .updateOne({ id: conversation.id }, { $set: conversation })
+        .exec();
     }
 
-    const message = this.messageRepository.create({
+    const message = await this.messageModel.create({
       senderId: resolvedSender,
       receiverId: resolvedReceiver,
       content: dto.content,
@@ -316,7 +325,7 @@ export class ChatServiceTypeorm {
       mediaUrl: dto.mediaUrl,
     });
 
-    return this.messageRepository.save(message);
+    return this.toPlain<MessageRecord>(message);
   }
 
   async getConversations(userId: string) {
@@ -327,24 +336,26 @@ export class ChatServiceTypeorm {
     const resolvedUserId = await this.resolveUserId(userId);
     const profile = await this.usersService.getProfileOrNull(resolvedUserId);
     const selfIds = new Set([userId, resolvedUserId]);
-    if (profile?.id) selfIds.add(profile.id);
+    if (profile?.id) selfIds.add(profile.id as string);
 
     const matches = await this.findAcceptedMatchesForUser(userId);
 
     const selfIdList = Array.from(selfIds);
-    const conversations = await this.conversationRepository.find({
-      where: [
-        { participant1: In(selfIdList) },
-        { participant2: In(selfIdList) },
-      ],
-    });
+    const conversations = await this.conversationModel
+      .find({
+        $or: [{ participant1: { $in: selfIdList } }, { participant2: { $in: selfIdList } }],
+      })
+      .exec();
 
-    const convByOther = new Map<string, ConversationEntity>();
+    const convByOther = new Map<string, ConversationRecord>();
     for (const conv of conversations) {
-      const rawOther = selfIds.has(conv.participant1) ? conv.participant2 : conv.participant1;
+      const plain = this.toPlain<ConversationRecord>(conv);
+      const rawOther = selfIds.has(plain.participant1 as string)
+        ? (plain.participant2 as string)
+        : (plain.participant1 as string);
       const otherId = await this.resolveUserId(rawOther);
-      convByOther.set(otherId, conv);
-      convByOther.set(rawOther, conv);
+      convByOther.set(otherId, plain);
+      convByOther.set(rawOther, plain);
     }
 
     const contacts: Array<{
@@ -371,7 +382,7 @@ export class ChatServiceTypeorm {
       const name = `${firstName} ${lastName}`.trim() || 'Mutual match';
       const photo =
         (wizard.profilePhoto as string) ||
-        partnerProfile?.photos?.[0] ||
+        (partnerProfile?.photos as string[])?.[0] ||
         '';
 
       const conv = convByOther.get(partnerUserId) || convByOther.get(rawPartner);
@@ -409,46 +420,49 @@ export class ChatServiceTypeorm {
     const otherIds = await this.getSelfIds(otherUserId);
 
     const skip = (page - 1) * limit;
-    const rawMessages = await this.messageRepository.find({
-      order: { createdAt: 'DESC' },
-    });
+    const rawMessages = await this.messageModel.find().sort({ createdAt: -1 }).exec();
 
-    const messages = rawMessages.filter((m) => {
-      const senderOk = selfIds.has(m.senderId);
-      const receiverOk = otherIds.has(m.receiverId);
-      const senderOkRev = otherIds.has(m.senderId);
-      const receiverOkRev = selfIds.has(m.receiverId);
-      const isPair = (senderOk && receiverOk) || (senderOkRev && receiverOkRev);
-      if (!isPair) return false;
-      if (clearedAfter && new Date(m.createdAt).getTime() <= clearedAfter.getTime()) return false;
-      return true;
-    });
+    const messages = rawMessages
+      .map((m) => this.toPlain(m))
+      .filter((m) => {
+        const senderOk = selfIds.has(m.senderId as string);
+        const receiverOk = otherIds.has(m.receiverId as string);
+        const senderOkRev = otherIds.has(m.senderId as string);
+        const receiverOkRev = selfIds.has(m.receiverId as string);
+        const isPair = (senderOk && receiverOk) || (senderOkRev && receiverOkRev);
+        if (!isPair) return false;
+        if (clearedAfter && new Date(m.createdAt as Date).getTime() <= clearedAfter.getTime()) {
+          return false;
+        }
+        return true;
+      });
 
     const pageMessages = messages.slice(skip, skip + limit);
     return { messages: pageMessages, total: messages.length, cleared: !!clearedAfter };
   }
 
-  private messagePreview(message: MessageEntity | null): string | null {
+  private messagePreview(message: MessageRecord | null): string | null {
     if (!message) return null;
     if (message.type === 'image') return '📷 Photo';
     if (message.type === 'video') return '🎬 Video';
     if (message.type === 'file') return '📎 File';
-    return message.content;
+    return message.content as string;
   }
 
   async deleteMessage(userId: string, messageId: string): Promise<{ success: boolean }> {
-    const message = await this.messageRepository.findOne({ where: { id: messageId } });
+    const message = await this.messageModel.findOne({ id: messageId }).exec();
     if (!message) {
       throw new NotFoundException('Message not found');
     }
 
+    const plain = this.toPlain(message);
     const resolvedUser = await this.resolveUserId(userId);
-    if (message.senderId !== userId && message.senderId !== resolvedUser) {
+    if (plain.senderId !== userId && plain.senderId !== resolvedUser) {
       throw new ForbiddenException('You can only delete your own messages');
     }
 
-    const senderResolved = await this.resolveUserId(message.senderId);
-    const receiverResolved = await this.resolveUserId(message.receiverId);
+    const senderResolved = await this.resolveUserId(plain.senderId as string);
+    const receiverResolved = await this.resolveUserId(plain.receiverId as string);
     const canDeleteInChat =
       (await this.hasAcceptedMatch(userId, senderResolved)) ||
       (await this.hasAcceptedMatch(userId, receiverResolved));
@@ -456,20 +470,31 @@ export class ChatServiceTypeorm {
       throw new ForbiddenException('You can only delete messages from matched chats');
     }
 
-    await this.messageRepository.delete({ id: message.id });
+    await this.messageModel.deleteOne({ id: plain.id }).exec();
 
     const conversation = await this.findConversation(senderResolved, receiverResolved);
     if (conversation) {
-      const latest = await this.messageRepository.findOne({
-        where: [
-          { senderId: senderResolved, receiverId: receiverResolved },
-          { senderId: receiverResolved, receiverId: senderResolved },
-        ],
-        order: { createdAt: 'DESC' },
-      });
-      conversation.lastMessage = this.messagePreview(latest) ?? '';
-      conversation.lastMessageAt = latest?.createdAt ?? new Date(0);
-      await this.conversationRepository.save(conversation);
+      const latest = await this.messageModel
+        .findOne({
+          $or: [
+            { senderId: senderResolved, receiverId: receiverResolved },
+            { senderId: receiverResolved, receiverId: senderResolved },
+          ],
+        })
+        .sort({ createdAt: -1 })
+        .exec();
+      const latestPlain = latest ? this.toPlain<MessageRecord>(latest) : null;
+      await this.conversationModel
+        .updateOne(
+          { id: conversation.id },
+          {
+            $set: {
+              lastMessage: this.messagePreview(latestPlain) ?? '',
+              lastMessageAt: latestPlain?.createdAt ?? new Date(0),
+            },
+          },
+        )
+        .exec();
     }
 
     return { success: true };
@@ -490,58 +515,53 @@ export class ChatServiceTypeorm {
     let conversation = await this.findConversation(userId, otherUserId);
 
     if (!conversation) {
-      conversation = this.conversationRepository.create({
+      const created = await this.conversationModel.create({
         participant1: resolvedUser,
         participant2: resolvedOther,
         isActive: false,
         clearedAtParticipant1: new Date(),
       });
+      conversation = this.toPlain<ConversationRecord>(created);
     } else {
       await this.setClearedAtForUser(conversation, userId);
       conversation.isActive = false;
+      await this.conversationModel
+        .updateOne({ id: conversation.id }, { $set: conversation })
+        .exec();
     }
 
-    await this.conversationRepository.save(conversation);
     return { success: true };
   }
 
   async getUnreadCount(userId: string): Promise<number> {
-    return this.messageRepository.count({
-      where: { receiverId: userId, isRead: false },
-    });
+    return this.messageModel.countDocuments({ receiverId: userId, isRead: false }).exec();
   }
 
-  async getPrivacySettings(userId: string): Promise<ChatPrivacySettingsEntity> {
-    let settings = await this.privacyRepository.findOne({ where: { userId } });
+  async getPrivacySettings(userId: string): Promise<PrivacyRecord> {
+    let settings = await this.privacyModel.findOne({ userId }).exec();
     if (!settings) {
-      settings = this.privacyRepository.create({
+      settings = await this.privacyModel.create({
         userId,
         chatRestriction: ChatRestrictionMode.POST_MATCH,
       });
-      await this.privacyRepository.save(settings);
     }
-    return settings;
+    return this.toPlain<PrivacyRecord>(settings);
   }
 
-  async updatePrivacySettings(
-    userId: string,
-    dto: UpdateChatPrivacyDto,
-  ): Promise<ChatPrivacySettingsEntity> {
+  async updatePrivacySettings(userId: string, dto: UpdateChatPrivacyDto): Promise<PrivacyRecord> {
     const settings = await this.getPrivacySettings(userId);
     if (dto.chatRestriction === ChatRestrictionMode.PRE_MATCH) {
       throw new BadRequestException('Pre-match chat is not enabled yet. Only post-match chat is available.');
     }
     Object.assign(settings, dto);
-    return this.privacyRepository.save(settings);
+    await this.privacyModel.updateOne({ userId }, { $set: settings }).exec();
+    return settings;
   }
 
-  async scheduleMeeting(
-    organizerId: string,
-    dto: ScheduleMeetingDto,
-  ): Promise<ChatMeetingEntity> {
+  async scheduleMeeting(organizerId: string, dto: ScheduleMeetingDto): Promise<MeetingRecord> {
     await this.assertCanChat(organizerId, dto.participantId);
 
-    const meeting = this.meetingRepository.create({
+    const meeting = await this.meetingModel.create({
       organizerId,
       participantId: dto.participantId,
       title: dto.title,
@@ -551,30 +571,33 @@ export class ChatServiceTypeorm {
       status: ChatMeetingStatus.PENDING,
     });
 
-    return this.meetingRepository.save(meeting);
+    return this.toPlain<MeetingRecord>(meeting);
   }
 
-  async getMeetings(userId: string): Promise<ChatMeetingEntity[]> {
-    return this.meetingRepository.find({
-      where: [{ organizerId: userId }, { participantId: userId }],
-      order: { scheduledAt: 'ASC' },
-    });
+  async getMeetings(userId: string): Promise<MeetingRecord[]> {
+    const meetings = await this.meetingModel
+      .find({ $or: [{ organizerId: userId }, { participantId: userId }] })
+      .sort({ scheduledAt: 1 })
+      .exec();
+    return meetings.map((m) => this.toPlain<MeetingRecord>(m));
   }
 
   async updateMeetingStatus(
     userId: string,
     meetingId: string,
     status: ChatMeetingStatus,
-  ): Promise<ChatMeetingEntity> {
-    const meeting = await this.meetingRepository.findOne({ where: { id: meetingId } });
+  ): Promise<MeetingRecord> {
+    const meeting = await this.meetingModel.findOne({ id: meetingId }).exec();
     if (!meeting) {
       throw new NotFoundException('Meeting not found');
     }
-    if (meeting.organizerId !== userId && meeting.participantId !== userId) {
+    const plain = this.toPlain<MeetingRecord>(meeting);
+    if (plain.organizerId !== userId && plain.participantId !== userId) {
       throw new ForbiddenException('You are not part of this meeting');
     }
-    meeting.status = status;
-    return this.meetingRepository.save(meeting);
+    plain.status = status;
+    await this.meetingModel.updateOne({ id: meetingId }, { $set: { status } }).exec();
+    return plain;
   }
 
   async canInitiateCall(

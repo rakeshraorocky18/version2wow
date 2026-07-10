@@ -139,8 +139,24 @@ export function getMaxUnlockedStep(form: ProfileForm): number {
   return EDIT_SECTIONS.length - 1;
 }
 
+/** True only when the user has progressed past this section (or finished the final one). */
+export function isSectionCompleted(sectionIndex: number, form: ProfileForm): boolean {
+  const firstIncomplete = getMaxUnlockedStep(form);
+  if (sectionIndex < firstIncomplete) {
+    return isSectionValid(sectionIndex, form);
+  }
+  if (
+    sectionIndex === firstIncomplete &&
+    firstIncomplete === EDIT_SECTIONS.length - 1 &&
+    isSectionValid(sectionIndex, form)
+  ) {
+    return true;
+  }
+  return false;
+}
+
 export function profileCompletion(form: ProfileForm): number {
-  const done = EDIT_SECTIONS.filter((_, i) => isSectionValid(i, form)).length;
+  const done = EDIT_SECTIONS.filter((_, i) => isSectionCompleted(i, form)).length;
   return Math.round((done / EDIT_SECTIONS.length) * 100);
 }
 

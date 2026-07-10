@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { VendorEntity, VendorReviewEntity } from './entities/vendor.entity';
 import { CreateVendorDto, CreateReviewDto } from './dto/vendor.dto';
 import { VendorCategory } from '../../common/enums';
+import { SQLITE_CONNECTION } from '../../config/database.constants';
 
 type SearchFilters = {
   category?: VendorCategory;
@@ -53,9 +54,9 @@ type OverpassElement = {
 @Injectable()
 export class VendorsServiceTypeorm {
   constructor(
-    @InjectRepository(VendorEntity)
+    @InjectRepository(VendorEntity, SQLITE_CONNECTION)
     private vendorRepository: Repository<VendorEntity>,
-    @InjectRepository(VendorReviewEntity)
+    @InjectRepository(VendorReviewEntity, SQLITE_CONNECTION)
     private reviewRepository: Repository<VendorReviewEntity>,
   ) {}
 

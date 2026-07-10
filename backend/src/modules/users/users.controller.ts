@@ -18,7 +18,7 @@ import { FileFieldsInterceptor, FileInterceptor } from '@nestjs/platform-express
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
-import { UsersService } from './users.service.typeorm';
+import { UsersService } from './users.service.mongodb';
 import { CreateProfileDto, UpdateProfileDto } from './dto/profile.dto';
 import { WizardProfileDto } from './dto/wizard-profile.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';

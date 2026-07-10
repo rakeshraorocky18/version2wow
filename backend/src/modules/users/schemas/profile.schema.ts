@@ -1,10 +1,16 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
+import { HydratedDocument } from 'mongoose';
+import { v4 as uuidv4 } from 'uuid';
 import { Gender } from '../../../common/enums';
 
-@Schema({ timestamps: true })
-export class Profile extends Document {
-  @Prop({ required: true, index: true })
+export type ProfileDocument = HydratedDocument<Profile>;
+
+@Schema({ timestamps: true, strict: false, collection: 'profiles' })
+export class Profile {
+  @Prop({ type: String, default: () => uuidv4(), unique: true, index: true })
+  id: string;
+
+  @Prop({ required: true, unique: true, index: true })
   userId: string;
 
   @Prop({ required: true })
@@ -14,7 +20,7 @@ export class Profile extends Document {
   lastName: string;
 
   @Prop()
-  dateOfBirth: Date;
+  dateOfBirth: string;
 
   @Prop({ type: String, enum: Gender })
   gender: Gender;
@@ -40,39 +46,13 @@ export class Profile extends Document {
   @Prop()
   height: number;
 
-  @Prop({ type: Object })
-  location: {
-    city: string;
-    state: string;
-    country: string;
-    pincode: string;
-  };
-
-  @Prop({ type: Object })
-  familyDetails: {
-    fatherName: string;
-    motherName: string;
-    siblings: number;
-    familyType: string;
-    familyStatus: string;
-  };
-
-  @Prop([String])
+  @Prop({ type: [String], default: [] })
   photos: string[];
 
   @Prop()
   bio: string;
 
-  @Prop({ type: Object })
-  preferences: {
-    ageRange: { min: number; max: number };
-    heightRange: { min: number; max: number };
-    religions: string[];
-    education: string[];
-    locations: string[];
-  };
-
-  @Prop([String])
+  @Prop({ type: [String], default: [] })
   interests: string[];
 
   @Prop({ default: false })

@@ -5,6 +5,7 @@ import { WeddingPlan, WeddingTask, WeddingEvent, PlannerActivity } from './entit
 import { CreatePlanDto, CreateTaskDto, UpdateTaskStatusDto, CreateEventDto, CreateSubtaskDto } from './dto/planner.dto';
 import { TaskStatus, TaskPriorityLevel, PlannerActivityAction } from '../../common/enums';
 import { PlannerGateway } from './planner.gateway';
+import { POSTGRES_CONNECTION } from '../../config/database.constants';
 
 type DefaultTaskTemplate = {
   title: string;
@@ -94,13 +95,13 @@ export class PlannerService {
   ];
 
   constructor(
-    @InjectRepository(WeddingPlan)
+    @InjectRepository(WeddingPlan, POSTGRES_CONNECTION)
     private planRepository: Repository<WeddingPlan>,
-    @InjectRepository(WeddingTask)
+    @InjectRepository(WeddingTask, POSTGRES_CONNECTION)
     private taskRepository: Repository<WeddingTask>,
-    @InjectRepository(WeddingEvent)
+    @InjectRepository(WeddingEvent, POSTGRES_CONNECTION)
     private eventRepository: Repository<WeddingEvent>,
-    @InjectRepository(PlannerActivity)
+    @InjectRepository(PlannerActivity, POSTGRES_CONNECTION)
     private activityRepository: Repository<PlannerActivity>,
     @Inject(forwardRef(() => PlannerGateway))
     private plannerGateway: PlannerGateway,

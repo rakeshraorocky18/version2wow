@@ -10,11 +10,12 @@ import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { User } from './entities/user.entity';
 import { RegisterDto, LoginDto } from './dto/auth.dto';
+import { POSTGRES_CONNECTION } from '../../config/database.constants';
 
 @Injectable()
 export class AuthService {
   constructor(
-    @InjectRepository(User)
+    @InjectRepository(User, POSTGRES_CONNECTION)
     private usersRepository: Repository<User>,
     private jwtService: JwtService,
     private configService: ConfigService,

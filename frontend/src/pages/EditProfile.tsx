@@ -23,7 +23,6 @@ import {
   Briefcase,
   Lock,
   ArrowLeft,
-  AlertCircle,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../lib/api';
@@ -45,7 +44,7 @@ import {
   EDIT_SECTIONS as SECTIONS,
   SECTION_ERROR_FIELDS,
   getMaxUnlockedStep,
-  getMissingBySection,
+  isSectionCompleted,
   isSectionValid,
   profileCompletion,
   sectionHasErrors,
@@ -711,7 +710,6 @@ export default function EditProfile({ managedMode = false }: { managedMode?: boo
   }
 
   const pct = profileCompletion(form);
-  const missingBySection = useMemo(() => getMissingBySection(form), [form]);
   const SectionIcon = SECTION_META[sectionTitle].icon;
   const selectedPrefReligion = form.prefReligions?.[0] || '';
   const selectedPrefCaste = form.prefCastes?.[0] || '';
@@ -751,33 +749,11 @@ export default function EditProfile({ managedMode = false }: { managedMode?: boo
               </div>
             </div>
 
-            {missingBySection.length > 0 && (
-              <div className="border-t border-[#F2DFE8] px-4 py-4">
-                <p className="mb-3 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-amber-700">
-                  <AlertCircle size={12} /> Missing fields
-                </p>
-                <ul className="max-h-52 space-y-2 overflow-y-auto">
-                  {missingBySection.map(({ sectionIndex, section, fields }) => (
-                    <li key={section}>
-                      <button
-                        type="button"
-                        onClick={() => goToStep(sectionIndex)}
-                        className="w-full rounded-lg bg-amber-50/80 px-3 py-2 text-left ring-1 ring-amber-100 transition hover:bg-amber-50 hover:ring-amber-200"
-                      >
-                        <p className="text-xs font-semibold text-[#5D2B44]">{section}</p>
-                        <p className="mt-0.5 text-[11px] leading-snug text-amber-800">{fields.join(' · ')}</p>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
             <nav className="p-2">
               {SECTIONS.map((label, i) => {
                 const Icon = SECTION_META[label].icon;
                 const isActive = step === i;
-                const isDone = isSectionValid(i, form);
+                const isDone = isSectionCompleted(i, form);
                 const isAccessible = i <= maxUnlockedStep;
                 return (
                   <button
