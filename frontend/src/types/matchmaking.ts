@@ -77,6 +77,7 @@ export interface MatchProfile {
   matchId?: string | null;
   matchPartnerUserId?: string | null;
   isComplete?: boolean;
+  profileCompleted?: boolean;
   updatedAt?: string;
   createdAt?: string;
 }

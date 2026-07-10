@@ -9,22 +9,13 @@ import { AuthService } from './auth.service';
 import { User } from './entities/user.entity';
 import { PasswordReset } from './entities/password-reset.entity';
 import { JwtStrategy } from './strategies/jwt.strategy';
-<<<<<<< HEAD
 import { POSTGRES_CONNECTION } from '../../config/database.constants';
+import { MailModule } from '../../common/mail/mail.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User], POSTGRES_CONNECTION),
-=======
-import { MailModule } from '../../common/mail/mail.module';
-@Module({
-  imports: [
     MailModule,
-    TypeOrmModule.forFeature([
-      User,
-      PasswordReset,
-    ]),
->>>>>>> 792f6e5cbc7cdfd5db84c292fd43e5842810f49d
+    TypeOrmModule.forFeature([User, PasswordReset], POSTGRES_CONNECTION),
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],

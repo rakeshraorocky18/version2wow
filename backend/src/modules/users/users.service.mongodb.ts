@@ -767,6 +767,8 @@ export class UsersService implements OnModuleInit {
       isPremium: profile.isPremium || profile.subscriptionType !== 'Free',
       isBoosted,
       boostExpiresAt: isBoosted ? boostExpiresAt : null,
+      isComplete: Boolean(profile.isComplete),
+      profileCompleted: Boolean(profile.isComplete),
       wizardProfile,
     }) as ProfileRecord & { wizardProfile: Record<string, unknown> };
   }
@@ -798,7 +800,10 @@ export class UsersService implements OnModuleInit {
     limit = 20,
     options?: { excludeUserIds?: string[] },
   ) {
-    const query: Record<string, unknown> = { isVisible: true };
+    const query: Record<string, unknown> = {
+      isVisible: true,
+      isComplete: true,
+    };
 
     if (options?.excludeUserIds?.length) {
       query.userId = { $nin: options.excludeUserIds };

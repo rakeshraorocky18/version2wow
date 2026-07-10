@@ -9,20 +9,7 @@ import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { User } from './entities/user.entity';
-<<<<<<< HEAD
-import { RegisterDto, LoginDto } from './dto/auth.dto';
-import { POSTGRES_CONNECTION } from '../../config/database.constants';
-
-@Injectable()
-export class AuthService {
-  constructor(
-    @InjectRepository(User, POSTGRES_CONNECTION)
-    private usersRepository: Repository<User>,
-    private jwtService: JwtService,
-    private configService: ConfigService,
-  ) {}
-=======
-import {PasswordReset } from './entities/password-reset.entity';
+import { PasswordReset } from './entities/password-reset.entity';
 import { MailService } from '../../common/mail/mail.service';
 import {
   RegisterDto,
@@ -32,20 +19,19 @@ import {
   ResetPasswordDto,
 } from './dto/auth.dto';
 import { generateOTP } from '../../common/utils/otp';
+import { POSTGRES_CONNECTION } from '../../config/database.constants';
+
 @Injectable()
 export class AuthService {
   constructor(
-  @InjectRepository(User)
-  private usersRepository: Repository<User>,
-
-  @InjectRepository(PasswordReset)
-  private passwordResetRepository: Repository<PasswordReset>,
-
-  private jwtService: JwtService,
-  private configService: ConfigService,
-   private readonly mailService: MailService,
-) {}
->>>>>>> 792f6e5cbc7cdfd5db84c292fd43e5842810f49d
+    @InjectRepository(User, POSTGRES_CONNECTION)
+    private usersRepository: Repository<User>,
+    @InjectRepository(PasswordReset, POSTGRES_CONNECTION)
+    private passwordResetRepository: Repository<PasswordReset>,
+    private jwtService: JwtService,
+    private configService: ConfigService,
+    private readonly mailService: MailService,
+  ) {}
 
   async register(registerDto: RegisterDto) {
     const existingUser = await this.usersRepository.findOne({

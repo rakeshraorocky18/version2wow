@@ -60,8 +60,8 @@ const SECTION_META: Record<(typeof SECTIONS)[number], { icon: typeof User; desc:
   Location: { icon: MapPin, desc: 'Where you live and grew up' },
   'Family Background': { icon: Users, desc: 'Parents, siblings, and family values' },
   'Express Yourself': { icon: Quote, desc: 'Tell your story in your own words' },
-  'Partner Preferences': { icon: HeartHandshake, desc: 'What you look for in a partner' },
   Lifestyle: { icon: Leaf, desc: 'Diet, drinking, and smoking habits' },
+  'Partner Preferences': { icon: HeartHandshake, desc: 'What you look for in a partner' },
 };
 
 const FIELD_LABEL =
@@ -1206,8 +1206,8 @@ export default function EditProfile({ managedMode = false }: { managedMode?: boo
 
               {step === 5 && (
                 <>
-                  <FormField label="Family Type" htmlFor="familyType">
-                    <select id="familyType" className={inputClass()} value={form.familyType || ''} onChange={(e) => update('familyType', e.target.value)}>
+                  <FormField label="Family Type" htmlFor="familyType" error={errors.familyType} required>
+                    <select id="familyType" className={inputClass(errors.familyType)} value={form.familyType || ''} onChange={(e) => update('familyType', e.target.value)}>
                       <option value="">Select type</option>{FAMILY_TYPES.map((v) => <option key={v}>{v}</option>)}
                     </select>
                   </FormField>
@@ -1266,10 +1266,10 @@ export default function EditProfile({ managedMode = false }: { managedMode?: boo
               )}
 
               {step === 6 && (
-                <FormField label="About Me" htmlFor="bio" colSpan={2} error={errors.bio}>
+                <FormField label="About Me" htmlFor="bio" colSpan={2} error={errors.bio} required>
                   <textarea
                     id="bio"
-                    className={`${inputClass()} min-h-[200px] resize-y leading-relaxed`}
+                    className={`${inputClass(errors.bio)} min-h-[200px] resize-y leading-relaxed`}
                     placeholder="Tell us about yourself, your personality, career, hobbies, family values, lifestyle, and what kind of life partner you are looking for."
                     value={form.bio || ''}
                     onChange={(e) => update('bio', e.target.value.slice(0, 1000))}
@@ -1279,6 +1279,26 @@ export default function EditProfile({ managedMode = false }: { managedMode?: boo
               )}
 
               {step === 7 && (
+                <>
+                  <FormField label="Eating Habit" htmlFor="diet" error={errors.diet} required>
+                    <select id="diet" className={inputClass(errors.diet)} value={form.diet || ''} onChange={(e) => update('diet', e.target.value)}>
+                      <option value="">Select</option>{EATING.map((v) => <option key={v}>{v}</option>)}
+                    </select>
+                  </FormField>
+                  <FormField label="Drinking Habit" htmlFor="drinking">
+                    <select id="drinking" className={inputClass()} value={form.drinking || ''} onChange={(e) => update('drinking', e.target.value)}>
+                      <option value="">Select</option>{HABIT.map((v) => <option key={v}>{v}</option>)}
+                    </select>
+                  </FormField>
+                  <FormField label="Smoking Habit" htmlFor="smoking">
+                    <select id="smoking" className={inputClass()} value={form.smoking || ''} onChange={(e) => update('smoking', e.target.value)}>
+                      <option value="">Select</option>{HABIT.map((v) => <option key={v}>{v}</option>)}
+                    </select>
+                  </FormField>
+                </>
+              )}
+
+              {step === 8 && (
                 <>
                   <FormField label="Preferred Min Age" htmlFor="prefAgeMin">
                     <select id="prefAgeMin" className={inputClass()} value={form.prefAgeMin} onChange={(e) => update('prefAgeMin', Number(e.target.value))}>
@@ -1351,26 +1371,6 @@ export default function EditProfile({ managedMode = false }: { managedMode?: boo
                   <FormField label="Preferred Family Type" htmlFor="prefFamilyType">
                     <select id="prefFamilyType" className={inputClass()} value={form.prefFamilyType || ''} onChange={(e) => update('prefFamilyType', e.target.value)}>
                       <option value="">Any</option><option>Nuclear Family</option><option>Joint Family</option><option>Doesn't Matter</option>
-                    </select>
-                  </FormField>
-                </>
-              )}
-
-              {step === 8 && (
-                <>
-                  <FormField label="Eating Habit" htmlFor="diet">
-                    <select id="diet" className={inputClass()} value={form.diet || ''} onChange={(e) => update('diet', e.target.value)}>
-                      <option value="">Select</option>{EATING.map((v) => <option key={v}>{v}</option>)}
-                    </select>
-                  </FormField>
-                  <FormField label="Drinking Habit" htmlFor="drinking">
-                    <select id="drinking" className={inputClass()} value={form.drinking || ''} onChange={(e) => update('drinking', e.target.value)}>
-                      <option value="">Select</option>{HABIT.map((v) => <option key={v}>{v}</option>)}
-                    </select>
-                  </FormField>
-                  <FormField label="Smoking Habit" htmlFor="smoking">
-                    <select id="smoking" className={inputClass()} value={form.smoking || ''} onChange={(e) => update('smoking', e.target.value)}>
-                      <option value="">Select</option>{HABIT.map((v) => <option key={v}>{v}</option>)}
                     </select>
                   </FormField>
                 </>

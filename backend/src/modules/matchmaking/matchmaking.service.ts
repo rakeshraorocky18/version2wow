@@ -27,6 +27,11 @@ import { isHoroscopeCompatible } from './engines/horoscope.engine';
 import { Neo4jMatchService } from './services/neo4j-match.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { SQLITE_CONNECTION } from '../../config/database.constants';
+import {
+  maskProfilesForDiscovery,
+  stripGalleryFromProfile,
+  toLimitedProfileView,
+} from './utils/profile-privacy';
 
 @Injectable()
 export class MatchmakingService {
@@ -156,25 +161,40 @@ export class MatchmakingService {
     return profile;
   }
 
-  /** Hide self and users with rejected/blocked interest only — pending/sent profiles stay in discovery. */
+  /**
+   * Hide self and anyone not available for a new connection:
+   * accepted matches, pending requests, rejected, and blocked.
+   */
   private async excludeUserIds(userId: string): Promise<string[]> {
     const excluded = new Set<string>();
     const selfUserId = await this.resolveUserId(userId);
     excluded.add(selfUserId);
     if (userId !== selfUserId) excluded.add(userId);
 
+    const selfProfile = await this.usersService.getProfileOrNull(selfUserId);
+    const lookupIds = [
+      ...new Set([selfUserId, userId, ...(selfProfile?.id ? [selfProfile.id] : [])]),
+    ];
+
     const matches = await this.matchRepository.find({
-      where: [{ senderId: selfUserId }, { receiverId: selfUserId }],
+      where: lookupIds.flatMap((uid) => [{ senderId: uid }, { receiverId: uid }]),
     });
 
     for (const match of matches) {
-      if (match.status !== MatchStatus.REJECTED && match.status !== MatchStatus.BLOCKED) {
+      if (
+        match.status !== MatchStatus.ACCEPTED &&
+        match.status !== MatchStatus.PENDING &&
+        match.status !== MatchStatus.REJECTED &&
+        match.status !== MatchStatus.BLOCKED
+      ) {
         continue;
       }
       const senderId = await this.resolveUserId(match.senderId);
       const receiverId = await this.resolveUserId(match.receiverId);
-      excluded.add(senderId);
-      excluded.add(receiverId);
+      const partnerId = senderId === selfUserId ? receiverId : senderId;
+      if (partnerId && partnerId !== selfUserId) {
+        excluded.add(partnerId);
+      }
     }
 
     return Array.from(excluded);
@@ -284,12 +304,20 @@ export class MatchmakingService {
     }
 
     const viewer = await this.getViewerProfile(senderId);
+    if (!(viewer as { isComplete?: boolean }).isComplete) {
+      throw new BadRequestException('Complete your profile before sending interest');
+    }
+
     let receiverProfile: Record<string, unknown>;
     try {
       receiverProfile = (await this.usersService.getProfileById(dto.receiverId)) as unknown as Record<string, unknown>;
     } catch {
       const receiver = await this.usersService.getProfile(receiverUserId);
       receiverProfile = receiver as unknown as Record<string, unknown>;
+    }
+
+    if (!receiverProfile.isComplete) {
+      throw new BadRequestException('This profile is not available for match requests yet');
     }
 
     const compatibility = calculateCompatibility(viewer, receiverProfile, { includeHoroscope: true });
@@ -330,7 +358,22 @@ export class MatchmakingService {
     match.status = MatchStatus.ACCEPTED;
     match.senderId = await this.resolveUserId(match.senderId);
     match.receiverId = receiverUserId;
-    return this.matchRepository.save(match);
+    const saved = await this.matchRepository.save(match);
+
+    const accepter = await this.usersService.getProfileOrNull(normalizedUser);
+    const accepterName =
+      [(accepter as { firstName?: string } | null)?.firstName, (accepter as { lastName?: string } | null)?.lastName]
+        .filter(Boolean)
+        .join(' ') || 'Someone';
+    await this.notificationsService.sendNotification({
+      userId: match.senderId,
+      title: 'Interest Accepted!',
+      body: `${accepterName} accepted your interest. You can now view their full profile and chat.`,
+      type: 'match',
+      data: { matchId: saved.id, status: MatchStatus.ACCEPTED },
+    });
+
+    return saved;
   }
 
   async rejectInterest(userId: string, matchId: string): Promise<Match> {
@@ -514,27 +557,19 @@ export class MatchmakingService {
       const partnerProfile =
         forUserId && match.senderId === forUserId ? receiverProfile : senderProfile;
 
+      const limitOrFull = (p: object | null) => {
+        if (!p) return null;
+        const record = p as unknown as Record<string, unknown>;
+        return match.status === MatchStatus.ACCEPTED
+          ? this.applyGalleryPrivacy(record, true)
+          : toLimitedProfileView(record);
+      };
+
       return {
         ...match,
-        senderProfile:
-          match.status === MatchStatus.ACCEPTED
-            ? senderProfile
-            : senderProfile
-              ? this.stripGalleryFromProfile(senderProfile as unknown as Record<string, unknown>)
-              : null,
-        receiverProfile:
-          match.status === MatchStatus.ACCEPTED
-            ? receiverProfile
-            : receiverProfile
-              ? this.stripGalleryFromProfile(receiverProfile as unknown as Record<string, unknown>)
-              : null,
-        partnerProfile: forUserId
-          ? match.status === MatchStatus.ACCEPTED
-            ? partnerProfile
-            : partnerProfile
-              ? this.stripGalleryFromProfile(partnerProfile as unknown as Record<string, unknown>)
-              : null
-          : null,
+        senderProfile: limitOrFull(senderProfile),
+        receiverProfile: limitOrFull(receiverProfile),
+        partnerProfile: forUserId ? limitOrFull(partnerProfile) : null,
         partnerUserId: forUserId ? partnerUserId : null,
       };
     });
@@ -677,12 +712,21 @@ export class MatchmakingService {
       }),
     );
 
-    const eligible = profiles.filter(Boolean).filter(
-      (p) => !oppositeGender || (p as { gender?: string }).gender === oppositeGender,
-    ) as object[];
+    const eligible = profiles.filter(Boolean).filter((p) => {
+      const record = p as { gender?: string; isComplete?: boolean; userId?: string };
+      if (oppositeGender && record.gender !== oppositeGender) return false;
+      if (!record.isComplete) return false;
+      return true;
+    }) as object[];
+
+    const excludeIds = new Set(await this.excludeUserIds(userId));
+    const available = eligible.filter((p) => {
+      const uid = String((p as { userId?: string }).userId || '');
+      return uid && !excludeIds.has(uid);
+    });
 
     const scored = this.maskProfilesForDiscovery(
-      this.scoreProfiles(viewer, eligible, true) as Record<string, unknown>[],
+      this.scoreProfiles(viewer, available, true) as Record<string, unknown>[],
     );
 
     const statusMap = await this.buildInterestStatusMap(userId);
@@ -727,22 +771,6 @@ export class MatchmakingService {
     return false;
   }
 
-  private stripGalleryFromProfile(profile: Record<string, unknown>): Record<string, unknown> {
-    const wizard = (profile.wizardProfile || {}) as Record<string, unknown>;
-    const mainPhoto = profile.profilePhoto || wizard.profilePhoto;
-    return {
-      ...profile,
-      photos: [],
-      galleryHidden: true,
-      wizardProfile: wizard
-        ? {
-            ...wizard,
-            profilePhoto: mainPhoto,
-          }
-        : { profilePhoto: mainPhoto },
-    };
-  }
-
   private applyGalleryPrivacy(
     profile: Record<string, unknown>,
     hasMatchAccess: boolean,
@@ -750,55 +778,15 @@ export class MatchmakingService {
     const visibility = (profile.galleryVisibility as string) || 'matched_only';
     const canViewGallery = hasMatchAccess || visibility === 'public';
     if (canViewGallery) return profile;
-    return this.stripGalleryFromProfile(profile);
+    return stripGalleryFromProfile(profile);
   }
 
   private maskProfilesForDiscovery(profiles: Record<string, unknown>[]) {
-    return profiles.map((profile) => this.stripGalleryFromProfile(profile));
+    return maskProfilesForDiscovery(profiles);
   }
 
   private toLimitedProfileView(profile: Record<string, unknown>): Record<string, unknown> {
-    const wizard = (profile.wizardProfile || {}) as Record<string, unknown>;
-    const pd = { ...((wizard.personalDetails || {}) as Record<string, unknown>) };
-    delete pd.email;
-    delete pd.phone;
-    delete pd.address;
-    delete pd.pincode;
-    const mainPhoto = profile.profilePhoto || wizard.profilePhoto;
-
-    const base = {
-      ...profile,
-      email: undefined,
-      phone: undefined,
-      address: undefined,
-      pincode: undefined,
-      income: undefined,
-      annualIncome: undefined,
-      occupation: undefined,
-      jobTitle: undefined,
-      companyName: undefined,
-      industry: undefined,
-      experience: undefined,
-      interests: undefined,
-      prefAgeMin: undefined,
-      prefAgeMax: undefined,
-      prefHeightMin: undefined,
-      prefHeightMax: undefined,
-      prefMaritalStatuses: undefined,
-      prefReligions: undefined,
-      prefCastes: undefined,
-      prefFamilyType: undefined,
-      profilePhoto: mainPhoto,
-      wizardProfile: {
-        profilePhoto: mainPhoto,
-        personalDetails: pd,
-        religion: wizard.religion,
-        education: wizard.education,
-        expressYourself: wizard.expressYourself,
-      },
-    };
-
-    return this.applyGalleryPrivacy(base, false);
+    return toLimitedProfileView(profile);
   }
 
   async getMatchProfile(viewerUserId: string, profileIdOrUserId: string) {
@@ -820,6 +808,16 @@ export class MatchmakingService {
         visibility: 'full' as const,
         relationship: { ...rel, interestStatus: 'none' },
       };
+    }
+
+    const isComplete = Boolean(profileRecord.isComplete ?? profileRecord.profileCompleted);
+    const hasRelationship =
+      rel.interestStatus === 'accepted' ||
+      rel.interestStatus === 'pending_sent' ||
+      rel.interestStatus === 'pending_received';
+
+    if (!isComplete && !hasRelationship) {
+      throw new NotFoundException('Profile not found');
     }
 
     const accepted = rel.interestStatus === 'accepted';
