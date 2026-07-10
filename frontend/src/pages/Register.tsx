@@ -17,6 +17,7 @@ export default function Register() {
     e.preventDefault();
     if (password !== confirmPassword) {
       toast.error('Passwords do not match');
+      
       return;
     }
     if (password.length < 8) {

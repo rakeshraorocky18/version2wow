@@ -14,6 +14,7 @@ import { HoneymoonModule } from './modules/honeymoon/honeymoon.module';
 import { FinanceModule } from './modules/finance/finance.module';
 import { RepresentativeProfilesModule } from './modules/representative-profiles/representative-profiles.module';
 import { VendorProfilesModule } from './modules/vendor-profiles/vendor-profiles.module';
+import { MailModule } from './common/mail/mail.module';
 import { VendorAuthModule } from './modules/vendor-auth/vendor-auth.module';
 import { VendorDashboardModule } from './modules/vendor-dashboard/vendor-dashboard.module';
 
@@ -23,16 +24,23 @@ import { VendorDashboardModule } from './modules/vendor-dashboard/vendor-dashboa
       isGlobal: true,
       envFilePath: ['.env', '../.env'],
     }),
+
+    MailModule,
+
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
         type: 'better-sqlite3',
-        database: configService.get<string>('SQLITE_DATABASE', './data/wow_dev.db'),
+        database: configService.get<string>(
+          'SQLITE_DATABASE',
+          './data/wow_dev.db',
+        ),
         autoLoadEntities: true,
         synchronize: true,
       }),
     }),
+
     AuthModule,
     UsersModule,
     MatchmakingModule,

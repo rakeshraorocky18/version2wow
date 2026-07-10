@@ -39,3 +39,27 @@ export class RefreshTokenDto {
   @IsNotEmpty()
   refreshToken: string;
 }
+export class ForgotPasswordDto {
+  @IsEmail()
+  email: string;
+}
+
+export class VerifyOtpDto {
+  @IsEmail()
+  email: string;
+
+  @IsString()
+  otp: string;
+}
+
+export class ResetPasswordDto {
+  @IsEmail()
+  email: string;
+
+  @IsString()
+  otp: string;
+
+  @IsString()
+  @MinLength(8)
+  newPassword: string;
+}

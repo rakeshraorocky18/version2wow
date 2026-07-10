@@ -3,7 +3,7 @@ import { useAuthStore } from './store/authStore';
 import Layout from './components/Layout';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
-import RecoverPassword from './pages/RecoverPassword';
+import VerifyOtp from './pages/VerifyOtp';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Matches from './pages/Matches';
@@ -27,6 +27,9 @@ import EventDetails from './pages/EventDetails';
 import EventEdit from './pages/EventEdit';
 import Honeymoon from './pages/Honeymoon';
 import Finance from './pages/Finance';
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
+
 import VendorRoutes from './vendor/routes/VendorRoutes';
 import BookingForm from './pages/BookingForm';
 
@@ -38,10 +41,12 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 function App() {
   return (
     <Routes>
-      <Route path="/" element={<Landing />} />
-      <Route path="/login" element={<Login />} />
-      <Route path="/recover-password" element={<RecoverPassword />} />
-      <Route path="/register" element={<Register />} />
+     <Route path="/" element={<Landing />} />
+     <Route path="/login" element={<Login />} />
+     <Route path="/verify-otp" element={<VerifyOtp />} />
+     <Route path="/forgot-password" element={<ForgotPassword />} />
+     <Route path="/register" element={<Register />} />
+     <Route path="/reset-password" element={<ResetPassword />} />
       <Route
         path="/app"
         element={
@@ -73,6 +78,7 @@ function App() {
         <Route path="profile/details" element={<ProfileDetails />} />
         <Route path="profile/photos" element={<ProfilePhotos />} />
         <Route path="profile" element={<ProfileRouter />} />
+       
       </Route>
       <Route path="/vendor/*" element={<VendorRoutes />} />
     </Routes>
