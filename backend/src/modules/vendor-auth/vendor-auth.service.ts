@@ -55,9 +55,21 @@ export class VendorAuthService {
       category: dto.category,
     });
 
+    const accessToken = this.jwtService.sign({
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+    });
+
     return {
       message: 'Vendor registered successfully',
-      vendor,
+      accessToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        businessName: vendor.businessName,
+      },
     };
   }
 

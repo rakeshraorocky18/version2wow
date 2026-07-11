@@ -78,7 +78,11 @@ export class VendorsServiceTypeorm {
     return this.vendorRepository.save(vendor);
   }
 
+<<<<<<< HEAD
   async getVendorByUserId(userId: string): Promise<VendorEntity> {
+=======
+  async getVendorByUserId(userId: string) {
+>>>>>>> manoj
     const vendor = await this.vendorRepository.findOne({
       where: { userId },
     });
