@@ -27,12 +27,9 @@ import EventDetails from './pages/EventDetails';
 import EventEdit from './pages/EventEdit';
 import Honeymoon from './pages/Honeymoon';
 import Finance from './pages/Finance';
-<<<<<<< HEAD
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 
-=======
->>>>>>> manoj
 import VendorRoutes from './vendor/routes/VendorRoutes';
 import BookingForm from './pages/BookingForm';
 
