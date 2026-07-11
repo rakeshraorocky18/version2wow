@@ -97,7 +97,7 @@ export const useVendorAuthStore = create<VendorAuthState>((set) => ({
     set({ isLoading: true });
 
     try {
-      await vendorApi.post("/vendor-auth/register", {
+      const { data } = await vendorApi.post("/vendor-auth/register", {
         businessName,
         category,
         email,
@@ -105,7 +105,21 @@ export const useVendorAuthStore = create<VendorAuthState>((set) => ({
         phone,
       });
 
-      set({ isLoading: false });
+      localStorage.setItem(
+        "vendorAccessToken",
+        data.accessToken
+      );
+
+      localStorage.setItem(
+        "vendorUser",
+        JSON.stringify(data.user)
+      );
+
+      set({
+        user: data.user,
+        isAuthenticated: true,
+        isLoading: false,
+      });
     } catch (error) {
       set({ isLoading: false });
       throw error;
