@@ -36,6 +36,14 @@ export class Message {
   @Prop({ type: Date })
   readAt: Date;
 
+  /** User IDs who deleted this message for themselves only */
+  @Prop({ type: [String], default: [] })
+  deletedFor: string[];
+
+  /** When set, message disappears after this time */
+  @Prop({ type: Date })
+  expiresAt: Date;
+
   createdAt?: Date;
 }
 
@@ -154,9 +162,31 @@ export class ChatHistoryClear {
   clearedAt: Date;
 }
 
+@Schema({ timestamps: true, strict: false, collection: 'chat_thread_settings' })
+export class ChatThreadSettings {
+  @Prop({ type: String, default: () => uuidv4(), unique: true, index: true })
+  id: string;
+
+  @Prop({ required: true, index: true })
+  userId: string;
+
+  @Prop({ required: true, index: true })
+  otherUserId: string;
+
+  @Prop({ default: false })
+  muted: boolean;
+
+  /** 0 = off; otherwise seconds until messages expire for new sends */
+  @Prop({ type: Number, default: 0 })
+  disappearingSeconds: number;
+}
+
+export type ChatThreadSettingsDocument = HydratedDocument<ChatThreadSettings>;
+
 export const MessageSchema = SchemaFactory.createForClass(Message);
 export const ConversationSchema = SchemaFactory.createForClass(Conversation);
 export const ChatPrivacySettingsSchema = SchemaFactory.createForClass(ChatPrivacySettings);
 export const ChatMeetingSchema = SchemaFactory.createForClass(ChatMeeting);
 export const ChatHiddenContactSchema = SchemaFactory.createForClass(ChatHiddenContact);
 export const ChatHistoryClearSchema = SchemaFactory.createForClass(ChatHistoryClear);
+export const ChatThreadSettingsSchema = SchemaFactory.createForClass(ChatThreadSettings);
