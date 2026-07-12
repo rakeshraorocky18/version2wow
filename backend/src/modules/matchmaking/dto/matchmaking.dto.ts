@@ -69,6 +69,11 @@ export class ProfileSearchQueryDto {
   @IsString()
   occupation?: string;
 
+  @ApiPropertyOptional({ description: 'Income / salary text match (e.g. 5-10 Lakh)' })
+  @IsOptional()
+  @IsString()
+  income?: string;
+
   @ApiPropertyOptional({ description: "working | not_working" })
   @IsOptional()
   @IsString()
@@ -141,6 +146,12 @@ export class ShortlistDto {
   @ApiProperty({ description: 'Profile ID to shortlist' })
   @IsString()
   profileId: string;
+}
+
+export class BlockUserDto {
+  @ApiProperty({ description: 'Auth user ID or profile ID of the user to block' })
+  @IsString()
+  userId: string;
 }
 
 export class SubscribePlanDto {

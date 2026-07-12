@@ -397,6 +397,89 @@ export class MatchmakingService {
     return this.matchRepository.save(match);
   }
 
+  /** Block a matched (or pending) user from chat/discovery. Either party may block. */
+  async blockUser(userId: string, targetUserIdOrProfileId: string): Promise<Match> {
+    const normalizedUser = await this.resolveUserId(userId);
+    const targetUserId = await this.resolveUserId(targetUserIdOrProfileId);
+    if (normalizedUser === targetUserId) {
+      throw new BadRequestException('You cannot block yourself');
+    }
+
+    const expectedPair = this.pairKey(normalizedUser, targetUserId);
+    const viewerProfile = await this.usersService.getProfileOrNull(normalizedUser);
+    const targetProfile = await this.usersService.getProfileOrNull(targetUserId);
+    const lookupIds = [
+      ...new Set(
+        [normalizedUser, targetUserId, viewerProfile?.id, targetProfile?.id].filter(Boolean),
+      ),
+    ] as string[];
+
+    const related = await this.matchRepository.find({
+      where: lookupIds.flatMap((uid) => [{ senderId: uid }, { receiverId: uid }]),
+    });
+
+    let match: Match | null = null;
+    for (const row of related) {
+      const senderId = await this.resolveUserId(row.senderId);
+      const receiverId = await this.resolveUserId(row.receiverId);
+      if (this.pairKey(senderId, receiverId) === expectedPair) {
+        match = row;
+        break;
+      }
+    }
+
+    if (!match) {
+      match = this.matchRepository.create({
+        senderId: normalizedUser,
+        receiverId: targetUserId,
+        status: MatchStatus.BLOCKED,
+      });
+    } else {
+      match.senderId = await this.resolveUserId(match.senderId);
+      match.receiverId = await this.resolveUserId(match.receiverId);
+      match.status = MatchStatus.BLOCKED;
+    }
+
+    return this.matchRepository.save(match);
+  }
+
+  /** Restore a blocked pair to accepted so chat messaging works again. */
+  async unblockUser(userId: string, targetUserIdOrProfileId: string): Promise<Match> {
+    const normalizedUser = await this.resolveUserId(userId);
+    const targetUserId = await this.resolveUserId(targetUserIdOrProfileId);
+    if (normalizedUser === targetUserId) {
+      throw new BadRequestException('You cannot unblock yourself');
+    }
+
+    const expectedPair = this.pairKey(normalizedUser, targetUserId);
+    const viewerProfile = await this.usersService.getProfileOrNull(normalizedUser);
+    const targetProfile = await this.usersService.getProfileOrNull(targetUserId);
+    const lookupIds = [
+      ...new Set(
+        [normalizedUser, targetUserId, viewerProfile?.id, targetProfile?.id].filter(Boolean),
+      ),
+    ] as string[];
+
+    const related = await this.matchRepository.find({
+      where: lookupIds.flatMap((uid) => [{ senderId: uid }, { receiverId: uid }]),
+    });
+
+    for (const row of related) {
+      const senderId = await this.resolveUserId(row.senderId);
+      const receiverId = await this.resolveUserId(row.receiverId);
+      if (this.pairKey(senderId, receiverId) !== expectedPair) continue;
+      if (row.status !== MatchStatus.BLOCKED) {
+        throw new BadRequestException('This user is not blocked');
+      }
+      row.senderId = senderId;
+      row.receiverId = receiverId;
+      row.status = MatchStatus.ACCEPTED;
+      return this.matchRepository.save(row);
+    }
+
+    throw new NotFoundException('Blocked relationship not found');
+  }
+
   private async receiverIdVariants(userId: string): Promise<string[]> {
     const normalizedUser = await this.resolveUserId(userId);
     const profile = await this.usersService.getProfileOrNull(normalizedUser);

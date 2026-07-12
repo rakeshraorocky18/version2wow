@@ -1,11 +1,12 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../store/authStore';
 import AppFooter from './AppFooter';
 import { FooterPaginationProvider, useFooterPagination } from '../context/FooterPaginationContext';
-import { useAcceptedInterests, useReceivedInterests, useShortlist } from '../hooks/useMatchmaking';
+import { useReceivedInterests, useShortlist } from '../hooks/useMatchmaking';
+import { useChatSocket } from '../hooks/useChatSocket';
 import api from '../lib/api';
 import {
   Heart,
@@ -46,8 +47,10 @@ function FooterPaginationReset() {
 
 export default function Layout() {
   const location = useLocation();
+  const queryClient = useQueryClient();
   const isMatchesPage = location.pathname.startsWith('/app/matches');
   const isDashboardPage = location.pathname === '/app';
+  const isChatPage = location.pathname.startsWith('/app/chat');
   const logout = useAuthStore((state) => state.logout);
   const user = useAuthStore((state) => state.user);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -57,11 +60,36 @@ export default function Layout() {
 
   // Notification counts from existing hooks
   const { data: receivedInterests = [] } = useReceivedInterests();
-  const { data: acceptedInterests = [] } = useAcceptedInterests();
   const pendingMatchCount = receivedInterests.filter((m) => m.status === 'pending').length;
   const { data: shortlistData } = useShortlist();
-  const acceptedCount = acceptedInterests.length;
   const shortlistCount = shortlistData?.profiles?.length ?? 0;
+  const { data: unreadChat } = useQuery({
+    queryKey: ['chat-unread'],
+    queryFn: async () => {
+      const { data } = await api.get<{ unreadCount: number }>('/chat/unread');
+      return data.unreadCount ?? 0;
+    },
+    staleTime: 0,
+    refetchInterval: isChatPage ? 5_000 : 10_000,
+    refetchOnWindowFocus: true,
+    refetchOnMount: 'always',
+  });
+  const chatUnreadCount = unreadChat ?? 0;
+
+  // Live-update chat badge when a new message arrives
+  useChatSocket({
+    onNewMessage: () => {
+      queryClient.invalidateQueries({ queryKey: ['chat-unread'] });
+      queryClient.invalidateQueries({ queryKey: ['chat-contacts'] });
+    },
+  });
+
+  // When entering chat page, refresh unread immediately
+  useEffect(() => {
+    if (!isChatPage) return;
+    queryClient.invalidateQueries({ queryKey: ['chat-unread'] });
+  }, [isChatPage, queryClient]);
+
   const { data: events = [] } = useQuery({
     queryKey: ['layout-events-count'],
     queryFn: async () => {
@@ -94,7 +122,7 @@ export default function Layout() {
   // Helper: get badge count for nav item
   function getBadgeCount(badge?: string): number {
     if (badge === 'matches') return pendingMatchCount;
-    if (badge === 'chat') return acceptedCount;
+    if (badge === 'chat') return chatUnreadCount;
     if (badge === 'events') return eventCount;
     if (badge === 'saved') return shortlistCount;
     return 0;
@@ -315,7 +343,7 @@ export default function Layout() {
         <div className="mt-5 flex flex-1 flex-col">
           <FooterPaginationProvider>
             <FooterPaginationReset />
-            <div className="flex-1">
+            <div className={`flex-1 ${isChatPage ? 'flex min-h-0 flex-col' : ''}`}>
               <Outlet />
             </div>
             <AppFooter />

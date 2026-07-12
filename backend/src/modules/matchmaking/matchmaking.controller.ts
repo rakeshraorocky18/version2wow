@@ -12,7 +12,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { MatchmakingService } from './matchmaking.service';
-import { ProfileSearchQueryDto, SendInterestDto, ShortlistDto, SubscribePlanDto } from './dto/matchmaking.dto';
+import { ProfileSearchQueryDto, SendInterestDto, ShortlistDto, SubscribePlanDto, BlockUserDto } from './dto/matchmaking.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @ApiTags('matches')
@@ -156,5 +156,17 @@ export class MatchmakingController {
   @ApiOperation({ summary: 'Reject a match request' })
   async rejectInterest(@Req() req: { user: { id: string } }, @Param('id') id: string) {
     return this.matchmakingService.rejectInterest(req.user.id, id);
+  }
+
+  @Post('block')
+  @ApiOperation({ summary: 'Block a user (removes from search/suggestions; stays in chat)' })
+  async blockUser(@Req() req: { user: { id: string } }, @Body() dto: BlockUserDto) {
+    return this.matchmakingService.blockUser(req.user.id, dto.userId);
+  }
+
+  @Post('unblock')
+  @ApiOperation({ summary: 'Unblock a user and restore chat messaging' })
+  async unblockUser(@Req() req: { user: { id: string } }, @Body() dto: BlockUserDto) {
+    return this.matchmakingService.unblockUser(req.user.id, dto.userId);
   }
 }
