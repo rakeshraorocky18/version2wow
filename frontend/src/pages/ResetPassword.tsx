@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import api from "../lib/api";
+import { Eye, EyeOff } from "lucide-react";
 
 const ResetPassword = () => {
   const navigate = useNavigate();
@@ -12,6 +13,8 @@ const ResetPassword = () => {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const handleResetPassword = async (
     e: React.FormEvent<HTMLFormElement>
@@ -74,23 +77,43 @@ const ResetPassword = () => {
 
         <form onSubmit={handleResetPassword} className="space-y-4">
 
-          <input
-            type="password"
-            placeholder="New Password"
-            required
-            className="w-full border rounded-lg p-3"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-          />
+            <div className="relative">
+  <input
+    type={showNewPassword ? "text" : "password"}
+    placeholder="New Password"
+    required
+    className="w-full border rounded-lg p-3 pr-12"
+    value={newPassword}
+    onChange={(e) => setNewPassword(e.target.value)}
+  />
 
-          <input
-            type="password"
-            placeholder="Confirm Password"
-            required
-            className="w-full border rounded-lg p-3"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-          />
+  <button
+    type="button"
+    onClick={() => setShowNewPassword(!showNewPassword)}
+    className="absolute inset-y-0 right-3 flex items-center text-gray-500"
+  >
+    {showNewPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+  </button>
+</div>
+
+          <div className="relative">
+  <input
+    type={showConfirmPassword ? "text" : "password"}
+    placeholder="Confirm Password"
+    required
+    className="w-full border rounded-lg p-3 pr-12"
+    value={confirmPassword}
+    onChange={(e) => setConfirmPassword(e.target.value)}
+  />
+
+  <button
+    type="button"
+    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+    className="absolute inset-y-0 right-3 flex items-center text-gray-500"
+  >
+    {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+  </button>
+</div>
 
           <button
             type="submit"
