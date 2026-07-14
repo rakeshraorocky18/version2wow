@@ -218,10 +218,10 @@ export default function CustomerDetails() {
       <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
         <div>
           <Link
-            to="/agent/customers"
+            to={`/agent/customers/${id}`}
             className="inline-flex items-center gap-1 text-sm text-wow-muted hover:text-wow-primary mb-2"
           >
-            <ArrowLeft className="w-4 h-4" /> Back to customers
+            <ArrowLeft className="w-4 h-4" /> Back to profile
           </Link>
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="font-display text-3xl text-wow-text">{fullName}</h1>

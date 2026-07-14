@@ -1,14 +1,10 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Eye, Pencil, FileText, StickyNote, Search, Plus, RefreshCw } from 'lucide-react';
+import { Search, Plus, RefreshCw } from 'lucide-react';
 import { useAgentCustomers } from '../../hooks/agent/useAgent';
 import type { AgentCustomerStatus } from '../../types/agent';
-import {
-  EmptyState,
-  ProfileProgress,
-  StatusBadge,
-  TableSkeleton,
-} from '../../components/agent/AgentUI';
+import CustomerCard  from '../../components/agent/CustomerCard';
+import { EmptyState, TableSkeleton } from '../../components/agent/AgentUI';
 
 export default function AgentCustomers() {
   const [search, setSearch] = useState('');
@@ -120,76 +116,11 @@ export default function AgentCustomers() {
         ) : (
           <>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm min-w-[900px]">
-                <thead>
-                  <tr className="text-left text-wow-muted border-b border-gray-100">
-                    <th className="pb-3 font-medium">Customer ID</th>
-                    <th className="pb-3 font-medium">Name</th>
-                    <th className="pb-3 font-medium">Phone</th>
-                    <th className="pb-3 font-medium">Email</th>
-                    <th className="pb-3 font-medium">Gender</th>
-                    <th className="pb-3 font-medium">Completion</th>
-                    <th className="pb-3 font-medium">Status</th>
-                    <th className="pb-3 font-medium">Assigned</th>
-                    <th className="pb-3 font-medium">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.data.map((c) => (
-                    <tr key={c.id} className="border-b border-gray-50 hover:bg-wow-bg/40">
-                      <td className="py-3 font-mono text-xs">{c.customerCode}</td>
-                      <td className="py-3 font-medium">
-                        {(c as { name?: string }).name ||
-                          `${c.firstName} ${c.lastName || ''}`.trim()}
-                      </td>
-                      <td className="py-3">{c.phone || '—'}</td>
-                      <td className="py-3">{c.email || '—'}</td>
-                      <td className="py-3 capitalize">{c.gender || '—'}</td>
-                      <td className="py-3 w-32">
-                        <ProfileProgress value={c.profileCompletion} />
-                      </td>
-                      <td className="py-3">
-                        <StatusBadge status={c.status} />
-                      </td>
-                      <td className="py-3 text-xs text-wow-muted">
-                        {new Date(c.createdAt).toLocaleDateString()}
-                      </td>
-                      <td className="py-3">
-                        <div className="flex items-center gap-1">
-                          <Link
-                            to={`/agent/customers/${c.id}`}
-                            className="p-2 rounded-lg hover:bg-white text-wow-muted hover:text-wow-primary"
-                            title="View"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </Link>
-                          <Link
-                            to={`/agent/customers/${c.id}?tab=personal`}
-                            className="p-2 rounded-lg hover:bg-white text-wow-muted hover:text-wow-primary"
-                            title="Edit"
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </Link>
-                          <Link
-                            to={`/agent/customers/${c.id}?tab=notes`}
-                            className="p-2 rounded-lg hover:bg-white text-wow-muted hover:text-wow-primary"
-                            title="Add Note"
-                          >
-                            <StickyNote className="w-4 h-4" />
-                          </Link>
-                          <Link
-                            to={`/agent/customers/${c.id}?tab=documents`}
-                            className="p-2 rounded-lg hover:bg-white text-wow-muted hover:text-wow-primary"
-                            title="Documents"
-                          >
-                            <FileText className="w-4 h-4" />
-                          </Link>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {data.data.map((c) => (
+                  <CustomerCard key={c.id} customer={c} />
+                ))}
+              </div>
             </div>
 
             <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100">

@@ -55,9 +55,15 @@ services:
       - "7474:7474"
       - "7687:7687"
     environment:
-      NEO4J_AUTH: neo4j/12345678
+      # Password is only applied on first volume init; existing docker_neo4j_data keeps its original password.
+      NEO4J_AUTH: neo4j/wow_password
     volumes:
       - neo4j_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:7474 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # Backend API
   backend:
@@ -81,18 +87,17 @@ services:
       JWT_SECRET: wow-jwt-secret-change-in-production
       JWT_REFRESH_SECRET: wow-refresh-secret-change-in-production
       SQLITE_DATABASE: /app/data/wow_dev.db
-      # Prefer host Neo4j Desktop (wow_neo4j). Falls back to compose neo4j service if used.
-      NEO4J_URI: bolt://host.docker.internal:7687
+      NEO4J_URI: bolt://neo4j:7687
       NEO4J_USERNAME: neo4j
-      NEO4J_PASSWORD: 12345678
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      NEO4J_PASSWORD: wow_password
     depends_on:
       postgres:
         condition: service_healthy
       mongodb:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      neo4j:
         condition: service_healthy
     # Install deps from host package.json so neo4j-driver/nodemailer survive recreates
     command: sh -c "npm install && npm run start:dev"
