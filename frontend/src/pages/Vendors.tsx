@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Star, MapPin, IndianRupee, Search } from 'lucide-react';
 import api from '../lib/api';
+import toast from 'react-hot-toast';
+import { useNavigate } from "react-router-dom";
 
 const categories = [
   'All', 'venue', 'catering', 'photography', 'videography',
@@ -51,13 +52,16 @@ interface CitySuggestionResponse {
   results?: CitySuggestion[];
 }
 
+
+
 export default function Vendors() {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [category, setCategory] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [city, setCity] = useState('');
   const [showCitySuggestions, setShowCitySuggestions] = useState(false);
   const [selectedVendor, setSelectedVendor] = useState<VendorCard | null>(null);
-  const navigate = useNavigate();
 
   const { data, isLoading } = useQuery<VendorsSearchResponse>({
     queryKey: ['vendors', category, searchTerm, city],
@@ -95,12 +99,10 @@ export default function Vendors() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-display font-bold text-gray-900">
-          Vendor Marketplace
-        </h1>
+        <h1 className="text-2xl font-display font-bold text-gray-900">Vendor Marketplace</h1>
       </div>
 
-      
+
       {/* Search & Filters */}
       <div className="card">
         <div className="flex flex-col md:flex-row gap-4">
@@ -303,7 +305,18 @@ export default function Vendors() {
               )}
             </div>
 
-            <div className="flex items-center justify-end gap-2 border-t border-gray-200 px-5 py-4">
+            <div className="flex items-center justify-end gap-2">
+
+              <button
+                className="btn-primary"
+                onClick={() => {
+                  navigate(`/app/book/${selectedVendor._id}`);
+                  // Navigate to booking page here
+                }}
+              >
+                Book Now
+              </button>
+
               {selectedVendor.externalUrl && (
                 <a
                   href={selectedVendor.externalUrl}
@@ -314,12 +327,14 @@ export default function Vendors() {
                   View on Map
                 </a>
               )}
+
               <button
-                onClick={() => navigate(`/app/book/${selectedVendor._id}`)}
-                className="btn-primary text-sm"
+                onClick={() => setSelectedVendor(null)}
+                className="btn-secondary"
               >
-                Book Now
+                Close
               </button>
+
             </div>
           </div>
         </div>

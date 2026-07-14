@@ -4,13 +4,14 @@ import { Repository } from 'typeorm';
 import { EventEntity, GuestEntity } from './entities/event.entity';
 import { CreateEventDto, AddGuestDto, UpdateRsvpDto, AssignSeatDto } from './dto/event.dto';
 import { RsvpStatus } from '../../common/enums';
+import { POSTGRES_CONNECTION } from '../../config/database.constants';
 
 @Injectable()
 export class EventsService {
   constructor(
-    @InjectRepository(EventEntity)
+    @InjectRepository(EventEntity, POSTGRES_CONNECTION)
     private eventRepository: Repository<EventEntity>,
-    @InjectRepository(GuestEntity)
+    @InjectRepository(GuestEntity, POSTGRES_CONNECTION)
     private guestRepository: Repository<GuestEntity>,
   ) {}
 

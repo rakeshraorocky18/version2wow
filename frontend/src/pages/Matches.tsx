@@ -516,9 +516,10 @@ export default function Matches() {
                         key={match.id}
                         match={match}
                         variant="received"
+                        actionLoading={acceptInterest.isPending || rejectInterest.isPending}
                         onAccept={async () => {
                           await acceptInterest.mutateAsync(match.id);
-                          toast.success('Interest accepted — you can chat now');
+                          toast.success('Interest accepted — full profile unlocked');
                           setInterestSubTab('accepted');
                           const next = new URLSearchParams(params);
                           next.set('interest', 'accepted');

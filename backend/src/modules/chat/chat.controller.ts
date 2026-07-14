@@ -15,7 +15,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
-import { ChatServiceTypeorm } from './chat.service.typeorm';
+import { ChatServiceMongodb } from './chat.service.mongodb';
 import {
   SendMessageDto,
   UpdateChatPrivacyDto,
@@ -38,7 +38,7 @@ type UploadedMulterFile = { filename: string; mimetype: string };
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class ChatController {
-  constructor(private readonly chatService: ChatServiceTypeorm) {}
+  constructor(private readonly chatService: ChatServiceMongodb) {}
 
   @Post('messages')
   @ApiOperation({ summary: 'Send a message (post-match only)' })

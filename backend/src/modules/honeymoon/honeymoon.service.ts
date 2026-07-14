@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { HoneymoonPackageEntity, HoneymoonBookingEntity } from './entities/honeymoon.entity';
 import { CreatePackageDto, BookPackageDto, SearchPackagesDto } from './dto/honeymoon.dto';
+import { SQLITE_CONNECTION } from '../../config/database.constants';
 
 type ExternalPackage = {
   id: string;
@@ -24,9 +25,9 @@ type ExternalPackage = {
 @Injectable()
 export class HoneymoonService {
   constructor(
-    @InjectRepository(HoneymoonPackageEntity)
+    @InjectRepository(HoneymoonPackageEntity, SQLITE_CONNECTION)
     private packageRepository: Repository<HoneymoonPackageEntity>,
-    @InjectRepository(HoneymoonBookingEntity)
+    @InjectRepository(HoneymoonBookingEntity, SQLITE_CONNECTION)
     private bookingRepository: Repository<HoneymoonBookingEntity>,
   ) {}
 

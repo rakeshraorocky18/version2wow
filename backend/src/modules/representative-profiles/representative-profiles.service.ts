@@ -6,6 +6,7 @@ import {
   CreateRepresentativeProfileDto,
   UpdateRepresentativeProfileDto,
 } from './dto/representative-profile.dto';
+import { SQLITE_CONNECTION } from '../../config/database.constants';
 
 function calcAge(dateOfBirth?: string): number | null {
   if (!dateOfBirth) return null;
@@ -21,7 +22,7 @@ function calcAge(dateOfBirth?: string): number | null {
 @Injectable()
 export class RepresentativeProfilesService {
   constructor(
-    @InjectRepository(RepresentativeProfileEntity)
+    @InjectRepository(RepresentativeProfileEntity, SQLITE_CONNECTION)
     private readonly repo: Repository<RepresentativeProfileEntity>,
   ) {}
 

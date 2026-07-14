@@ -11,10 +11,11 @@ import { VendorsModule } from '../vendors/vendors.module';
 import { UsersModule } from '../users/users.module';
 import { MatchmakingModule } from '../matchmaking/matchmaking.module';
 import { GuestEntity } from '../events/entities/event.entity';
+import { POSTGRES_CONNECTION } from '../../config/database.constants';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([WeddingPlan, WeddingTask, WeddingEvent, PlannerActivity, GuestEntity]),
+    TypeOrmModule.forFeature([WeddingPlan, WeddingTask, WeddingEvent, PlannerActivity, GuestEntity], POSTGRES_CONNECTION),
     FinanceModule,
     EventsModule,
     VendorsModule,

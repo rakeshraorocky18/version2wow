@@ -18,7 +18,7 @@ import { FileFieldsInterceptor, FileInterceptor } from '@nestjs/platform-express
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
-import { UsersService } from './users.service.typeorm';
+import { UsersService } from './users.service.mongodb';
 import { CreateProfileDto, UpdateProfileDto } from './dto/profile.dto';
 import { WizardProfileDto } from './dto/wizard-profile.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -29,6 +29,7 @@ import {
   toPublicUrl,
 } from './profile-upload.config';
 import type { UploadedFile as StoredUploadFile } from './types/uploaded-file.type';
+import { toLimitedProfileView } from '../matchmaking/utils/profile-privacy';
 
 const WIZARD_UPLOAD_INTERCEPTOR = FileFieldsInterceptor(
   [
@@ -178,9 +179,16 @@ export class UsersController {
   @Get('profile/:id')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get profile by ID' })
-  async getProfileById(@Param('id') id: string) {
-    return this.usersService.getProfileByIdOrUserId(id);
+  @ApiOperation({ summary: 'Get profile by ID (limited for other users; use /matches/profile/:id for relationship-aware full view)' })
+  async getProfileById(
+    @Req() req: { user: { id: string } },
+    @Param('id') id: string,
+  ) {
+    const profile = await this.usersService.getProfileByIdOrUserId(id);
+    if (profile.userId === req.user.id) {
+      return profile;
+    }
+    return toLimitedProfileView(profile as unknown as Record<string, unknown>);
   }
 
   @Put('profile')

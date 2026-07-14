@@ -23,7 +23,6 @@ import {
   Briefcase,
   Lock,
   ArrowLeft,
-  AlertCircle,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../lib/api';
@@ -45,7 +44,7 @@ import {
   EDIT_SECTIONS as SECTIONS,
   SECTION_ERROR_FIELDS,
   getMaxUnlockedStep,
-  getMissingBySection,
+  isSectionCompleted,
   isSectionValid,
   profileCompletion,
   sectionHasErrors,
@@ -61,8 +60,8 @@ const SECTION_META: Record<(typeof SECTIONS)[number], { icon: typeof User; desc:
   Location: { icon: MapPin, desc: 'Where you live and grew up' },
   'Family Background': { icon: Users, desc: 'Parents, siblings, and family values' },
   'Express Yourself': { icon: Quote, desc: 'Tell your story in your own words' },
-  'Partner Preferences': { icon: HeartHandshake, desc: 'What you look for in a partner' },
   Lifestyle: { icon: Leaf, desc: 'Diet, drinking, and smoking habits' },
+  'Partner Preferences': { icon: HeartHandshake, desc: 'What you look for in a partner' },
 };
 
 const FIELD_LABEL =
@@ -711,7 +710,6 @@ export default function EditProfile({ managedMode = false }: { managedMode?: boo
   }
 
   const pct = profileCompletion(form);
-  const missingBySection = useMemo(() => getMissingBySection(form), [form]);
   const SectionIcon = SECTION_META[sectionTitle].icon;
   const selectedPrefReligion = form.prefReligions?.[0] || '';
   const selectedPrefCaste = form.prefCastes?.[0] || '';
@@ -751,33 +749,11 @@ export default function EditProfile({ managedMode = false }: { managedMode?: boo
               </div>
             </div>
 
-            {missingBySection.length > 0 && (
-              <div className="border-t border-[#F2DFE8] px-4 py-4">
-                <p className="mb-3 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-amber-700">
-                  <AlertCircle size={12} /> Missing fields
-                </p>
-                <ul className="max-h-52 space-y-2 overflow-y-auto">
-                  {missingBySection.map(({ sectionIndex, section, fields }) => (
-                    <li key={section}>
-                      <button
-                        type="button"
-                        onClick={() => goToStep(sectionIndex)}
-                        className="w-full rounded-lg bg-amber-50/80 px-3 py-2 text-left ring-1 ring-amber-100 transition hover:bg-amber-50 hover:ring-amber-200"
-                      >
-                        <p className="text-xs font-semibold text-[#5D2B44]">{section}</p>
-                        <p className="mt-0.5 text-[11px] leading-snug text-amber-800">{fields.join(' · ')}</p>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
             <nav className="p-2">
               {SECTIONS.map((label, i) => {
                 const Icon = SECTION_META[label].icon;
                 const isActive = step === i;
-                const isDone = isSectionValid(i, form);
+                const isDone = isSectionCompleted(i, form);
                 const isAccessible = i <= maxUnlockedStep;
                 return (
                   <button
@@ -1230,8 +1206,8 @@ export default function EditProfile({ managedMode = false }: { managedMode?: boo
 
               {step === 5 && (
                 <>
-                  <FormField label="Family Type" htmlFor="familyType">
-                    <select id="familyType" className={inputClass()} value={form.familyType || ''} onChange={(e) => update('familyType', e.target.value)}>
+                  <FormField label="Family Type" htmlFor="familyType" error={errors.familyType} required>
+                    <select id="familyType" className={inputClass(errors.familyType)} value={form.familyType || ''} onChange={(e) => update('familyType', e.target.value)}>
                       <option value="">Select type</option>{FAMILY_TYPES.map((v) => <option key={v}>{v}</option>)}
                     </select>
                   </FormField>
@@ -1290,10 +1266,10 @@ export default function EditProfile({ managedMode = false }: { managedMode?: boo
               )}
 
               {step === 6 && (
-                <FormField label="About Me" htmlFor="bio" colSpan={2} error={errors.bio}>
+                <FormField label="About Me" htmlFor="bio" colSpan={2} error={errors.bio} required>
                   <textarea
                     id="bio"
-                    className={`${inputClass()} min-h-[200px] resize-y leading-relaxed`}
+                    className={`${inputClass(errors.bio)} min-h-[200px] resize-y leading-relaxed`}
                     placeholder="Tell us about yourself, your personality, career, hobbies, family values, lifestyle, and what kind of life partner you are looking for."
                     value={form.bio || ''}
                     onChange={(e) => update('bio', e.target.value.slice(0, 1000))}
@@ -1303,6 +1279,26 @@ export default function EditProfile({ managedMode = false }: { managedMode?: boo
               )}
 
               {step === 7 && (
+                <>
+                  <FormField label="Eating Habit" htmlFor="diet" error={errors.diet} required>
+                    <select id="diet" className={inputClass(errors.diet)} value={form.diet || ''} onChange={(e) => update('diet', e.target.value)}>
+                      <option value="">Select</option>{EATING.map((v) => <option key={v}>{v}</option>)}
+                    </select>
+                  </FormField>
+                  <FormField label="Drinking Habit" htmlFor="drinking">
+                    <select id="drinking" className={inputClass()} value={form.drinking || ''} onChange={(e) => update('drinking', e.target.value)}>
+                      <option value="">Select</option>{HABIT.map((v) => <option key={v}>{v}</option>)}
+                    </select>
+                  </FormField>
+                  <FormField label="Smoking Habit" htmlFor="smoking">
+                    <select id="smoking" className={inputClass()} value={form.smoking || ''} onChange={(e) => update('smoking', e.target.value)}>
+                      <option value="">Select</option>{HABIT.map((v) => <option key={v}>{v}</option>)}
+                    </select>
+                  </FormField>
+                </>
+              )}
+
+              {step === 8 && (
                 <>
                   <FormField label="Preferred Min Age" htmlFor="prefAgeMin">
                     <select id="prefAgeMin" className={inputClass()} value={form.prefAgeMin} onChange={(e) => update('prefAgeMin', Number(e.target.value))}>
@@ -1375,26 +1371,6 @@ export default function EditProfile({ managedMode = false }: { managedMode?: boo
                   <FormField label="Preferred Family Type" htmlFor="prefFamilyType">
                     <select id="prefFamilyType" className={inputClass()} value={form.prefFamilyType || ''} onChange={(e) => update('prefFamilyType', e.target.value)}>
                       <option value="">Any</option><option>Nuclear Family</option><option>Joint Family</option><option>Doesn't Matter</option>
-                    </select>
-                  </FormField>
-                </>
-              )}
-
-              {step === 8 && (
-                <>
-                  <FormField label="Eating Habit" htmlFor="diet">
-                    <select id="diet" className={inputClass()} value={form.diet || ''} onChange={(e) => update('diet', e.target.value)}>
-                      <option value="">Select</option>{EATING.map((v) => <option key={v}>{v}</option>)}
-                    </select>
-                  </FormField>
-                  <FormField label="Drinking Habit" htmlFor="drinking">
-                    <select id="drinking" className={inputClass()} value={form.drinking || ''} onChange={(e) => update('drinking', e.target.value)}>
-                      <option value="">Select</option>{HABIT.map((v) => <option key={v}>{v}</option>)}
-                    </select>
-                  </FormField>
-                  <FormField label="Smoking Habit" htmlFor="smoking">
-                    <select id="smoking" className={inputClass()} value={form.smoking || ''} onChange={(e) => update('smoking', e.target.value)}>
-                      <option value="">Select</option>{HABIT.map((v) => <option key={v}>{v}</option>)}
                     </select>
                   </FormField>
                 </>

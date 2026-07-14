@@ -14,15 +14,16 @@ import { VendorRegisterDto } from './dto/vendor-auth.dto';
 
 import { JwtService } from '@nestjs/jwt';
 import { VendorLoginDto } from './dto/vendor-auth.dto';
+import { POSTGRES_CONNECTION, SQLITE_CONNECTION } from '../../config/database.constants';
 
 
 @Injectable()
 export class VendorAuthService {
   constructor(
-    @InjectRepository(User)
+    @InjectRepository(User, POSTGRES_CONNECTION)
     private userRepository: Repository<User>,
 
-    @InjectRepository(VendorEntity)
+    @InjectRepository(VendorEntity, SQLITE_CONNECTION)
     private vendorRepository: Repository<VendorEntity>,
 
     private jwtService: JwtService,
@@ -54,9 +55,21 @@ export class VendorAuthService {
       category: dto.category,
     });
 
+    const accessToken = this.jwtService.sign({
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+    });
+
     return {
       message: 'Vendor registered successfully',
-      vendor,
+      accessToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        businessName: vendor.businessName,
+      },
     };
   }
 

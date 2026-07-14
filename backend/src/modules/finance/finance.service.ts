@@ -10,15 +10,16 @@ import {
   ApplyLoanDto, AddGiftItemDto,
 } from './dto/finance.dto';
 import { LoanStatus, GiftStatus } from '../../common/enums';
+import { POSTGRES_CONNECTION } from '../../config/database.constants';
 
 @Injectable()
 export class FinanceService {
   constructor(
-    @InjectRepository(BudgetEntity) private budgetRepo: Repository<BudgetEntity>,
-    @InjectRepository(BudgetItemEntity) private budgetItemRepo: Repository<BudgetItemEntity>,
-    @InjectRepository(ExpenseEntity) private expenseRepo: Repository<ExpenseEntity>,
-    @InjectRepository(LoanApplicationEntity) private loanRepo: Repository<LoanApplicationEntity>,
-    @InjectRepository(GiftRegistryItemEntity) private giftRepo: Repository<GiftRegistryItemEntity>,
+    @InjectRepository(BudgetEntity, POSTGRES_CONNECTION) private budgetRepo: Repository<BudgetEntity>,
+    @InjectRepository(BudgetItemEntity, POSTGRES_CONNECTION) private budgetItemRepo: Repository<BudgetItemEntity>,
+    @InjectRepository(ExpenseEntity, POSTGRES_CONNECTION) private expenseRepo: Repository<ExpenseEntity>,
+    @InjectRepository(LoanApplicationEntity, POSTGRES_CONNECTION) private loanRepo: Repository<LoanApplicationEntity>,
+    @InjectRepository(GiftRegistryItemEntity, POSTGRES_CONNECTION) private giftRepo: Repository<GiftRegistryItemEntity>,
   ) {}
 
   // ─── Budget ───

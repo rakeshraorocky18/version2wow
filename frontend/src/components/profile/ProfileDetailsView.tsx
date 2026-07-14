@@ -44,6 +44,11 @@ const TAB_SECTIONS: Record<ProfileTab, SectionKey[]> = {
   preferences: ['preferences'],
 };
 
+const LIMITED_TAB_SECTIONS: Partial<Record<ProfileTab, SectionKey[]>> = {
+  about: ['express'],
+  personal: ['personal', 'religion', 'location'],
+};
+
 function hasValue(value: unknown) {
   if (value === null || value === undefined) return false;
   if (typeof value === 'boolean') return true;
@@ -149,7 +154,7 @@ export default function ProfileDetailsView({
   tab?: ProfileTab;
   visibility?: string;
 }) {
-  void visibility;
+  const isLimited = visibility === 'limited';
   const wizard = profile.wizardProfile || {};
   const pd = { ...profile, ...(wizard.personalDetails || {}) };
   const horoscope = { ...profile, ...(wizard.horoscope || {}) };
@@ -189,7 +194,10 @@ export default function ProfileDetailsView({
   const express = wizard.expressYourself || profile.expressYourself || {};
   const siblingDetails = family.siblingDetails || profile.siblingDetails || [];
 
-  const allowed = tab ? TAB_SECTIONS[tab] : null;
+  const sectionMap = isLimited
+    ? { ...TAB_SECTIONS, ...LIMITED_TAB_SECTIONS }
+    : TAB_SECTIONS;
+  const allowed = tab ? sectionMap[tab] : null;
   const show = (key: SectionKey) => !allowed || allowed.includes(key);
 
   const sections = [
@@ -210,9 +218,16 @@ export default function ProfileDetailsView({
           { label: 'Weight', value: pd.weight },
           { label: 'Complexion', value: pd.complexion },
           { label: 'Blood Group', value: pd.bloodGroup },
-          { label: 'Email', value: pd.email },
-          { label: 'Phone', value: pd.phone },
+          ...(!isLimited
+            ? [
+                { label: 'Email', value: pd.email },
+                { label: 'Phone', value: pd.phone },
+              ]
+            : []),
           { label: 'Languages', value: pd.languagesKnown?.join?.(', ') },
+          ...(isLimited && (profile.occupation || pd.jobTitle)
+            ? [{ label: 'Profession', value: profile.occupation || pd.jobTitle }]
+            : []),
         ]}
       />
     ),

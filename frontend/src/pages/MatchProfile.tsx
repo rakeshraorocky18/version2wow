@@ -22,11 +22,16 @@ import {
   type InterestStatus,
 } from '../lib/matchInterestUtils';
 
-const TABS: { id: ProfileTab; label: string; icon: typeof Sparkles }[] = [
+const FULL_TABS: { id: ProfileTab; label: string; icon: typeof Sparkles }[] = [
   { id: 'about', label: 'About', icon: Sparkles },
   { id: 'personal', label: 'Personal', icon: UserCircle },
   { id: 'family', label: 'Family', icon: Users },
   { id: 'preferences', label: 'Preferences', icon: HeartHandshake },
+];
+
+const LIMITED_TABS: { id: ProfileTab; label: string; icon: typeof Sparkles }[] = [
+  { id: 'about', label: 'About', icon: Sparkles },
+  { id: 'personal', label: 'Personal', icon: UserCircle },
 ];
 
 type MatchProfileResponse = {
@@ -45,7 +50,7 @@ export default function MatchProfile() {
   const [activeTab, setActiveTab] = useState<ProfileTab>('about');
   const [connectError, setConnectError] = useState<string | null>(null);
   const [localConnectedIds, setLocalConnectedIds] = useState<Set<string>>(() => new Set());
-  const { sendInterest } = useMatchActions();
+  const { sendInterest, acceptInterest, rejectInterest } = useMatchActions();
   const { data: sentInterests = [] } = useSentInterests();
   const { data: receivedInterests = [] } = useReceivedInterests();
   const { data: myProfile } = useMyMatchProfile();
@@ -56,6 +61,7 @@ export default function MatchProfile() {
     window.scrollTo(0, 0);
     setConnectError(null);
     setLocalConnectedIds(new Set());
+    setActiveTab('about');
   }, [id]);
 
   const { data: matchData, isLoading, isError, refetch } = useQuery({
@@ -68,7 +74,9 @@ export default function MatchProfile() {
   });
 
   const profile = matchData?.profile as Record<string, unknown> | undefined;
+  const visibility = matchData?.visibility ?? 'limited';
   const apiRelationship = matchData?.relationship;
+  const tabs = visibility === 'full' ? FULL_TABS : LIMITED_TABS;
 
   const { data: compatibility } = useProfileCompatibility(id);
 
@@ -97,10 +105,23 @@ export default function MatchProfile() {
     apiRelationship?.partnerUserId ||
     profileRef.userId;
 
+  const pendingMatchId =
+    apiRelationship?.matchId ||
+    receivedInterests.find(
+      (m) =>
+        m.status === 'pending' &&
+        (m.senderId === profileRef.userId ||
+          m.senderProfile?.id === profileRef.id ||
+          m.partnerUserId === profileRef.userId),
+    )?.id ||
+    null;
+
   const isOwnProfile = Boolean(
     currentUser?.id && profile?.userId && currentUser.id === profile.userId,
   );
   const needsOwnProfile = !myProfile?.id;
+  const showAcceptDecline =
+    !isOwnProfile && interestStatus === 'pending_received' && Boolean(pendingMatchId);
 
   const handleInterest = async () => {
     setConnectError(null);
@@ -155,11 +176,35 @@ export default function MatchProfile() {
     }
   };
 
+  const handleAccept = async () => {
+    if (!pendingMatchId) return;
+    try {
+      await acceptInterest.mutateAsync(pendingMatchId);
+      toast.success('Interest accepted — full profile unlocked');
+      await refetch();
+    } catch {
+      toast.error('Could not accept interest');
+    }
+  };
+
+  const handleDecline = async () => {
+    if (!pendingMatchId) return;
+    try {
+      await rejectInterest.mutateAsync(pendingMatchId);
+      toast.success('Interest declined');
+      navigate('/app/matches?tab=interests&interest=received');
+    } catch {
+      toast.error('Could not decline interest');
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="datepress-matches matches-page relative -mx-4 sm:-mx-6">
         <div className="dp-member-area">
-          <div className="dp-member-area__inner px-4 py-16 text-center text-[#6B7280] sm:px-6">Loading profile...</div>
+          <div className="dp-member-area__inner px-4 py-16 text-center text-[#6B7280] sm:px-6">
+            Loading profile...
+          </div>
         </div>
       </div>
     );
@@ -214,63 +259,109 @@ export default function MatchProfile() {
           <span className="datepress-bg__radial datepress-bg__radial--soft-blue" />
           <span className="datepress-bg__radial datepress-bg__radial--lavender" />
         </div>
-        <div className="datepress-bg__hearts">
-          <svg className="datepress-bg__heart datepress-bg__heart--1" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M60 105c-1.2-1.1-28.5-26.2-28.5-45.8 0-12.4 10-22.4 22.4-22.4 7.1 0 13.7 3.4 17.8 8.6 4.1-5.2 10.7-8.6 17.8-8.6 12.4 0 22.4 10 22.4 22.4 0 19.6-27.3 44.7-28.5 45.8L60 105z" stroke="rgba(255,255,255,0.18)" strokeWidth="4" />
-          </svg>
-          <svg className="datepress-bg__heart datepress-bg__heart--2" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M60 105c-1.2-1.1-28.5-26.2-28.5-45.8 0-12.4 10-22.4 22.4-22.4 7.1 0 13.7 3.4 17.8 8.6 4.1-5.2 10.7-8.6 17.8-8.6 12.4 0 22.4 10 22.4 22.4 0 19.6-27.3 44.7-28.5 45.8L60 105z" stroke="rgba(255,255,255,0.12)" strokeWidth="3" />
-          </svg>
-        </div>
         <div className="datepress-bg__frost" />
       </div>
       <section className="dp-member-area">
         <div className="dp-member-area__inner space-y-6 soft-fade-in">
-        <Link to="/app/matches" className="inline-flex items-center gap-2 text-sm font-medium text-[#f4196d] hover:underline">
-          <ArrowLeft size={16} /> Back to Matches
-        </Link>
-
-        <MatchMemberCard
-          profile={cardProfile}
-          interestStatus={interestStatus}
-          partnerUserId={partnerUserId}
-          onInterest={isOwnProfile ? undefined : handleInterest}
-          interestLoading={sendInterest.isPending}
-          connectLabel={isOwnProfile ? 'Your Profile' : needsOwnProfile ? 'Complete Profile' : undefined}
-          connectError={connectError}
-          expandableBio
-        />
-
-        {needsOwnProfile && !isOwnProfile && (
-          <div className="dp-panel py-3 text-center text-sm">
-            <p className="text-[#6a737c]">You need a profile before you can send interest.</p>
-            <Link to="/app/profile/edit" className="mt-2 inline-block font-semibold text-[#f4196d] hover:underline">
-              Complete your profile →
-            </Link>
-          </div>
-        )}
-
-        {isOwnProfile && (
-          <div className="dp-panel py-3 text-center text-sm text-[#6a737c]">
-            This is your profile. Other members can send you interest from Find Your Match.
-          </div>
-        )}
-
-        <div className="dp-tabs">
-          {TABS.map(({ id: tabId, label, icon: Icon }) => (
-            <button
-              key={tabId}
-              type="button"
-              onClick={() => setActiveTab(tabId)}
-              className={`dp-tabs__btn ${activeTab === tabId ? 'is-active' : ''}`}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <Link
+              to="/app/matches"
+              className="inline-flex items-center gap-2 text-sm font-medium text-[#f4196d] hover:underline"
             >
-              <Icon size={15} />
-              {label}
-            </button>
-          ))}
-        </div>
+              <ArrowLeft size={16} /> Back to Matches
+            </Link>
+            {!isOwnProfile && (
+              <span
+                className={`rounded-full border px-3 py-1 text-xs font-semibold ${
+                  visibility === 'full'
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                    : 'border-[#E8D0DC] bg-[#FFF8FB] text-[#9A5776]'
+                }`}
+              >
+                {visibility === 'full' ? 'Full Profile' : 'Limited Profile'}
+              </span>
+            )}
+          </div>
 
-        <ProfileDetailsView profile={profile} tab={activeTab} />
+          <MatchMemberCard
+            profile={cardProfile}
+            interestStatus={interestStatus}
+            partnerUserId={partnerUserId}
+            onInterest={isOwnProfile || showAcceptDecline ? undefined : handleInterest}
+            interestLoading={sendInterest.isPending}
+            connectLabel={
+              isOwnProfile
+                ? 'Your Profile'
+                : needsOwnProfile
+                  ? 'Complete Profile'
+                  : showAcceptDecline
+                    ? 'Interest received'
+                    : undefined
+            }
+            connectError={connectError}
+            expandableBio
+          />
+
+          {visibility === 'limited' && !isOwnProfile && (
+            <div className="dp-panel py-3 text-center text-sm text-[#6a737c]">
+              Showing basic information only. Accept the interest request to unlock the full profile.
+            </div>
+          )}
+
+          {showAcceptDecline && (
+            <div className="dp-panel flex flex-wrap items-center justify-center gap-3 py-4">
+              <button
+                type="button"
+                disabled={acceptInterest.isPending || rejectInterest.isPending}
+                onClick={handleAccept}
+                className="rounded-lg bg-[#B66A8A] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#A75878] disabled:opacity-60"
+              >
+                Accept Request
+              </button>
+              <button
+                type="button"
+                disabled={acceptInterest.isPending || rejectInterest.isPending}
+                onClick={handleDecline}
+                className="rounded-lg border border-[#D8B6C6] bg-white px-5 py-2.5 text-sm font-semibold text-[#7B4A62] hover:bg-[#FFF5F8] disabled:opacity-60"
+              >
+                Decline Request
+              </button>
+            </div>
+          )}
+
+          {needsOwnProfile && !isOwnProfile && (
+            <div className="dp-panel py-3 text-center text-sm">
+              <p className="text-[#6a737c]">You need a profile before you can send interest.</p>
+              <Link
+                to="/app/profile/edit"
+                className="mt-2 inline-block font-semibold text-[#f4196d] hover:underline"
+              >
+                Complete your profile →
+              </Link>
+            </div>
+          )}
+
+          {isOwnProfile && (
+            <div className="dp-panel py-3 text-center text-sm text-[#6a737c]">
+              This is your profile. Other members can send you interest from Find Your Match.
+            </div>
+          )}
+
+          <div className="dp-tabs">
+            {tabs.map(({ id: tabId, label, icon: Icon }) => (
+              <button
+                key={tabId}
+                type="button"
+                onClick={() => setActiveTab(tabId)}
+                className={`dp-tabs__btn ${activeTab === tabId ? 'is-active' : ''}`}
+              >
+                <Icon size={15} />
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <ProfileDetailsView profile={profile} tab={activeTab} visibility={visibility} />
         </div>
       </section>
     </div>

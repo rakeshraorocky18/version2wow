@@ -8,7 +8,7 @@ import {
   MessageBody,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { ChatServiceTypeorm } from './chat.service.typeorm';
+import { ChatServiceMongodb } from './chat.service.mongodb';
 
 @WebSocketGateway({
   cors: { origin: '*' },
@@ -20,7 +20,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   private userSockets = new Map<string, string>();
 
-  constructor(private readonly chatService: ChatServiceTypeorm) {}
+  constructor(private readonly chatService: ChatServiceMongodb) {}
 
   handleConnection(client: Socket) {
     const userId = client.handshake.query.userId as string;

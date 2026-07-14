@@ -1,4 +1,8 @@
 import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { POSTGRES_CONNECTION } from '../../config/database.constants';
+import { NotificationDeliveryLogEntity } from './entities/notification-delivery-log.entity';
 
 export interface NotificationPayload {
   userId: string;
@@ -10,10 +14,39 @@ export interface NotificationPayload {
 
 @Injectable()
 export class NotificationsService {
+  constructor(
+    @InjectRepository(NotificationDeliveryLogEntity, POSTGRES_CONNECTION)
+    private readonly deliveryLogRepo: Repository<NotificationDeliveryLogEntity>,
+  ) {}
+
   async sendNotification(payload: NotificationPayload): Promise<void> {
-    // TODO: Integrate with FCM/APNs for push notifications
-    // TODO: Integrate with SMS/Email services
-    console.log(`[Notification] To: ${payload.userId} - ${payload.title}: ${payload.body}`);
+    try {
+      // TODO: Integrate with FCM/APNs for push notifications
+      // TODO: Integrate with SMS/Email services
+      console.log(`[Notification] To: ${payload.userId} - ${payload.title}: ${payload.body}`);
+
+      await this.deliveryLogRepo.save({
+        userId: payload.userId,
+        title: payload.title,
+        body: payload.body,
+        type: payload.type,
+        data: payload.data ?? null,
+        status: 'sent',
+        channel: 'console',
+      });
+    } catch (error) {
+      await this.deliveryLogRepo.save({
+        userId: payload.userId,
+        title: payload.title,
+        body: payload.body,
+        type: payload.type,
+        data: payload.data ?? null,
+        status: 'failed',
+        channel: 'console',
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+      });
+      throw error;
+    }
   }
 
   async sendBulkNotifications(payloads: NotificationPayload[]): Promise<void> {
