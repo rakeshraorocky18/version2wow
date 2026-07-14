@@ -31,6 +31,7 @@ import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 
 import VendorRoutes from './vendor/routes/VendorRoutes';
+import AgentRoutes from './routes/AgentRoutes';
 import BookingForm from './pages/BookingForm';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -81,6 +82,7 @@ function App() {
        
       </Route>
       <Route path="/vendor/*" element={<VendorRoutes />} />
+      <Route path="/agent/*" element={<AgentRoutes />} />
     </Routes>
   );
 }

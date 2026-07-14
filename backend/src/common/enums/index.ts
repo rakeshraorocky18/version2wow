@@ -4,6 +4,7 @@ export enum UserRole {
   FAMILY = 'family',
   REPRESENTATIVE = 'representative',
   VENDOR = 'vendor',
+  AGENT = 'agent',
   ADMIN = 'admin',
 }
 
