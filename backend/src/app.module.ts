@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { SQLITE_CONNECTION, POSTGRES_CONNECTION } from './config/database.constants';
+import { Neo4jModule } from './neo4j/neo4j.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { MatchmakingModule } from './modules/matchmaking/matchmaking.module';
@@ -28,6 +29,7 @@ import { VendorDashboardModule } from './modules/vendor-dashboard/vendor-dashboa
     }),
 
     MailModule,
+    Neo4jModule,
 
     TypeOrmModule.forRootAsync({
       name: SQLITE_CONNECTION,

@@ -24,7 +24,8 @@ import {
   resolveSubscriptionType,
 } from './engines/premium.engine';
 import { isHoroscopeCompatible } from './engines/horoscope.engine';
-import { Neo4jMatchService } from './services/neo4j-match.service';
+import { Neo4jService } from '../../neo4j/neo4j.service';
+import { Neo4jInterestRecord } from '../../neo4j/neo4j.constants';
 import { NotificationsService } from '../notifications/notifications.service';
 import { SQLITE_CONNECTION } from '../../config/database.constants';
 import {
@@ -41,9 +42,43 @@ export class MatchmakingService {
     @InjectRepository(Shortlist, SQLITE_CONNECTION)
     private shortlistRepository: Repository<Shortlist>,
     private usersService: UsersService,
-    private neo4jMatchService: Neo4jMatchService,
+    private neo4jService: Neo4jService,
     private notificationsService: NotificationsService,
   ) {}
+
+  /** Keep a minimal User node in Neo4j in sync with Mongo profile flags. */
+  private async syncNeo4jUser(userId: string, profile?: object | null): Promise<void> {
+    const p =
+      (profile as { userId?: string; gender?: string; isComplete?: boolean; profileCompleted?: boolean } | null) ||
+      (await this.usersService.getProfileOrNull(userId));
+    await this.neo4jService.upsertUserNode({
+      id: userId,
+      gender: p?.gender ?? null,
+      profileCompleted: Boolean(p?.isComplete ?? p?.profileCompleted),
+    });
+  }
+
+  /** Map Neo4j interest/match records into the Match shape used by existing APIs. */
+  private interestToMatch(record: Neo4jInterestRecord): Match {
+    const status =
+      record.status === 'accepted'
+        ? MatchStatus.ACCEPTED
+        : record.status === 'blocked'
+          ? MatchStatus.BLOCKED
+          : record.status === 'rejected'
+            ? MatchStatus.REJECTED
+            : MatchStatus.PENDING;
+    return {
+      id: record.matchId,
+      senderId: record.senderId,
+      receiverId: record.receiverId,
+      status,
+      compatibilityScore: record.compatibilityScore ?? null,
+      message: record.message ?? null,
+      createdAt: record.createdAt ? new Date(record.createdAt) : new Date(),
+      updatedAt: record.updatedAt ? new Date(record.updatedAt) : new Date(),
+    } as Match;
+  }
 
   private async resolveReceiverUserId(receiverId: string): Promise<string> {
     try {
@@ -137,6 +172,9 @@ export class MatchmakingService {
   }
 
   private async hasExistingInterest(senderId: string, receiverUserId: string): Promise<boolean> {
+    if (this.neo4jService.isEnabled()) {
+      return this.neo4jService.hasExistingInterestOrMatch(senderId, receiverUserId);
+    }
     const related = await this.matchRepository.find({
       where: [{ senderId }, { receiverId: senderId }],
     });
@@ -158,18 +196,26 @@ export class MatchmakingService {
     if (!profile) {
       throw new BadRequestException('Complete your profile before using matchmaking');
     }
+    await this.syncNeo4jUser(userId, profile);
     return profile;
   }
 
   /**
    * Hide self and anyone not available for a new connection:
-   * accepted matches, pending requests, rejected, and blocked.
+   * accepted matches, pending requests, rejected, blocked, ignored.
    */
   private async excludeUserIds(userId: string): Promise<string[]> {
     const excluded = new Set<string>();
     const selfUserId = await this.resolveUserId(userId);
     excluded.add(selfUserId);
     if (userId !== selfUserId) excluded.add(userId);
+
+    if (this.neo4jService.isEnabled()) {
+      const graphExcluded = await this.neo4jService.getExcludedUserIds(selfUserId);
+      graphExcluded.forEach((id) => excluded.add(id));
+      // Also exclude users who blocked the viewer
+      return Array.from(excluded);
+    }
 
     const selfProfile = await this.usersService.getProfileOrNull(selfUserId);
     const lookupIds = [
@@ -214,7 +260,12 @@ export class MatchmakingService {
       const candidateRecord = candidate as Record<string, unknown>;
       const compatibility = calculateCompatibility(viewerRecord, candidateRecord, { includeHoroscope });
       let score = compatibility.score;
-      if (graphBoostIds.includes(candidateRecord.id as string)) score = Math.min(100, score + 8);
+      if (
+        graphBoostIds.includes(candidateRecord.id as string) ||
+        graphBoostIds.includes(candidateRecord.userId as string)
+      ) {
+        score = Math.min(100, score + 8);
+      }
       score = applyPremiumMatchBoost(score, candidateRecord);
       return enrichWithPremiumBoost(
         {
@@ -320,8 +371,11 @@ export class MatchmakingService {
       throw new BadRequestException('This profile is not available for match requests yet');
     }
 
+    await this.syncNeo4jUser(receiverUserId, receiverProfile);
+
     const compatibility = calculateCompatibility(viewer, receiverProfile, { includeHoroscope: true });
 
+    // Dual-write: SQLite keeps Match IDs for chat; Neo4j stores INTEREST_SENT relationship.
     const match = this.matchRepository.create({
       senderId,
       receiverId: receiverUserId,
@@ -329,8 +383,17 @@ export class MatchmakingService {
       status: MatchStatus.PENDING,
       compatibilityScore: compatibility.score,
     });
-
     const saved = await this.matchRepository.save(match);
+
+    if (this.neo4jService.isEnabled()) {
+      await this.neo4jService.sendInterest({
+        matchId: saved.id,
+        senderId,
+        receiverId: receiverUserId,
+        message: dto.message,
+        compatibilityScore: compatibility.score,
+      });
+    }
 
     const senderName = [(viewer as { firstName?: string }).firstName, (viewer as { lastName?: string }).lastName]
       .filter(Boolean)
@@ -341,10 +404,37 @@ export class MatchmakingService {
   }
 
   async acceptInterest(userId: string, matchId: string): Promise<Match> {
+    const normalizedUser = await this.resolveUserId(userId);
+
+    if (this.neo4jService.isEnabled()) {
+      const graph = await this.neo4jService.acceptInterest(matchId, normalizedUser);
+      if (graph) {
+        const sqlite = await this.matchRepository.findOne({ where: { id: matchId } });
+        if (sqlite) {
+          sqlite.status = MatchStatus.ACCEPTED;
+          sqlite.senderId = graph.senderId;
+          sqlite.receiverId = graph.receiverId;
+          await this.matchRepository.save(sqlite);
+        }
+        const accepter = await this.usersService.getProfileOrNull(normalizedUser);
+        const accepterName =
+          [(accepter as { firstName?: string } | null)?.firstName, (accepter as { lastName?: string } | null)?.lastName]
+            .filter(Boolean)
+            .join(' ') || 'Someone';
+        await this.notificationsService.sendNotification({
+          userId: graph.senderId,
+          title: 'Interest Accepted!',
+          body: `${accepterName} accepted your interest. You can now view their full profile and chat.`,
+          type: 'match',
+          data: { matchId: graph.matchId, status: MatchStatus.ACCEPTED },
+        });
+        return this.interestToMatch(graph);
+      }
+    }
+
     const match = await this.matchRepository.findOne({ where: { id: matchId } });
     if (!match) throw new NotFoundException('Match request not found');
 
-    const normalizedUser = await this.resolveUserId(userId);
     const receiverUserId = await this.resolveUserId(match.receiverId);
     const userProfile = await this.usersService.getProfileOrNull(normalizedUser);
     const isReceiver =
@@ -359,6 +449,10 @@ export class MatchmakingService {
     match.senderId = await this.resolveUserId(match.senderId);
     match.receiverId = receiverUserId;
     const saved = await this.matchRepository.save(match);
+
+    if (this.neo4jService.isEnabled()) {
+      await this.neo4jService.acceptInterest(matchId, receiverUserId);
+    }
 
     const accepter = await this.usersService.getProfileOrNull(normalizedUser);
     const accepterName =
@@ -377,10 +471,26 @@ export class MatchmakingService {
   }
 
   async rejectInterest(userId: string, matchId: string): Promise<Match> {
+    const normalizedUser = await this.resolveUserId(userId);
+
+    if (this.neo4jService.isEnabled()) {
+      const graph = await this.neo4jService.rejectInterest(matchId, normalizedUser);
+      if (graph) {
+        const sqlite = await this.matchRepository.findOne({ where: { id: matchId } });
+        if (sqlite) {
+          sqlite.status = MatchStatus.REJECTED;
+          sqlite.senderId = graph.senderId;
+          sqlite.receiverId = graph.receiverId;
+          await this.matchRepository.save(sqlite);
+          return sqlite;
+        }
+        return this.interestToMatch(graph);
+      }
+    }
+
     const match = await this.matchRepository.findOne({ where: { id: matchId } });
     if (!match) throw new NotFoundException('Match request not found');
 
-    const normalizedUser = await this.resolveUserId(userId);
     const receiverUserId = await this.resolveUserId(match.receiverId);
     const userProfile = await this.usersService.getProfileOrNull(normalizedUser);
     const isReceiver =
@@ -397,13 +507,16 @@ export class MatchmakingService {
     return this.matchRepository.save(match);
   }
 
-  /** Block a matched (or pending) user from chat/discovery. Either party may block. */
+  /** Block a user — Neo4j BLOCKED relationship; dual-write SQLite for chat. */
   async blockUser(userId: string, targetUserIdOrProfileId: string): Promise<Match> {
     const normalizedUser = await this.resolveUserId(userId);
     const targetUserId = await this.resolveUserId(targetUserIdOrProfileId);
     if (normalizedUser === targetUserId) {
       throw new BadRequestException('You cannot block yourself');
     }
+
+    await this.syncNeo4jUser(normalizedUser);
+    await this.syncNeo4jUser(targetUserId);
 
     const expectedPair = this.pairKey(normalizedUser, targetUserId);
     const viewerProfile = await this.usersService.getProfileOrNull(normalizedUser);
@@ -440,15 +553,29 @@ export class MatchmakingService {
       match.status = MatchStatus.BLOCKED;
     }
 
-    return this.matchRepository.save(match);
+    const saved = await this.matchRepository.save(match);
+
+    if (this.neo4jService.isEnabled()) {
+      await this.neo4jService.blockUser(normalizedUser, targetUserId, saved.id);
+    }
+
+    return saved;
   }
 
-  /** Restore a blocked pair to accepted so chat messaging works again. */
+  /** Restore a blocked pair to matched so chat messaging works again. */
   async unblockUser(userId: string, targetUserIdOrProfileId: string): Promise<Match> {
     const normalizedUser = await this.resolveUserId(userId);
     const targetUserId = await this.resolveUserId(targetUserIdOrProfileId);
     if (normalizedUser === targetUserId) {
       throw new BadRequestException('You cannot unblock yourself');
+    }
+
+    if (this.neo4jService.isEnabled()) {
+      const removed = await this.neo4jService.unblockUser(normalizedUser, targetUserId);
+      if (!removed) {
+        // Also try reverse direction for legacy/dual blocks
+        await this.neo4jService.unblockUser(targetUserId, normalizedUser);
+      }
     }
 
     const expectedPair = this.pairKey(normalizedUser, targetUserId);
@@ -474,10 +601,30 @@ export class MatchmakingService {
       row.senderId = senderId;
       row.receiverId = receiverId;
       row.status = MatchStatus.ACCEPTED;
-      return this.matchRepository.save(row);
+      const saved = await this.matchRepository.save(row);
+      if (this.neo4jService.isEnabled()) {
+        await this.neo4jService.restoreMatch(senderId, receiverId, saved.id);
+      }
+      return saved;
     }
 
     throw new NotFoundException('Blocked relationship not found');
+  }
+
+  /** Ignore a user so they are excluded from recommendations. */
+  async ignoreUser(userId: string, targetUserIdOrProfileId: string): Promise<{ ignored: boolean }> {
+    const normalizedUser = await this.resolveUserId(userId);
+    const targetUserId = await this.resolveUserId(targetUserIdOrProfileId);
+    if (normalizedUser === targetUserId) {
+      throw new BadRequestException('You cannot ignore yourself');
+    }
+    await this.syncNeo4jUser(normalizedUser);
+    await this.syncNeo4jUser(targetUserId);
+    if (!this.neo4jService.isEnabled()) {
+      throw new BadRequestException('Ignore requires Neo4j to be configured');
+    }
+    await this.neo4jService.ignoreUser(normalizedUser, targetUserId);
+    return { ignored: true };
   }
 
   private async receiverIdVariants(userId: string): Promise<string[]> {
@@ -491,6 +638,17 @@ export class MatchmakingService {
   async getReceivedInterests(userId: string) {
     await this.cleanupStaleInterestRecords(userId);
     const normalizedUser = await this.resolveUserId(userId);
+
+    if (this.neo4jService.isEnabled()) {
+      const graphRows = await this.neo4jService.getReceivedInterests(normalizedUser);
+      if (graphRows.length) {
+        return this.attachProfilesToMatches(
+          graphRows.map((r) => this.interestToMatch(r)),
+          normalizedUser,
+        );
+      }
+    }
+
     const receiverIds = await this.receiverIdVariants(userId);
     const raw = await this.matchRepository.find({
       where: receiverIds.map((receiverId) => ({
@@ -511,14 +669,41 @@ export class MatchmakingService {
       ({ accepted: 5, pending_sent: 4, pending_received: 4, rejected: 2, none: 0 })[s];
 
     const viewerId = await this.resolveUserId(userId);
+    const map = new Map<string, Entry>();
+
+    if (this.neo4jService.isEnabled()) {
+      const summaries = await this.neo4jService.getRelationshipSummaries(viewerId);
+      for (const row of summaries) {
+        let interestStatus: Status;
+        if (row.kind === 'accepted') interestStatus = 'accepted';
+        else if (row.kind === 'pending_sent') interestStatus = 'pending_sent';
+        else if (row.kind === 'pending_received') interestStatus = 'pending_received';
+        else if (row.kind === 'blocked' || row.kind === 'ignored') interestStatus = 'rejected';
+        else continue;
+
+        const partnerProfile = await this.usersService.getProfileOrNull(row.partnerId);
+        const entry: Entry = {
+          interestStatus,
+          matchId: row.matchId || `${viewerId}:${row.partnerId}`,
+          partnerUserId: row.partnerId,
+        };
+        const keys = [row.partnerId, partnerProfile?.id].filter(Boolean) as string[];
+        for (const key of keys) {
+          const existing = map.get(key);
+          if (!existing || priority(interestStatus) > priority(existing.interestStatus)) {
+            map.set(key, entry);
+          }
+        }
+      }
+      if (map.size) return map;
+    }
+
     const viewerProfile = await this.usersService.getProfileOrNull(viewerId);
     const lookupIds = [...new Set([userId, viewerId, viewerProfile?.id].filter(Boolean))] as string[];
 
     const rawMatches = await this.matchRepository.find({
       where: lookupIds.flatMap((uid) => [{ senderId: uid }, { receiverId: uid }]),
     });
-
-    const map = new Map<string, Entry>();
 
     for (const match of rawMatches) {
       const senderId = await this.resolveUserId(match.senderId);
@@ -585,6 +770,18 @@ export class MatchmakingService {
 
   async getSentInterests(userId: string) {
     await this.cleanupStaleInterestRecords(userId);
+    const normalizedUser = await this.resolveUserId(userId);
+
+    if (this.neo4jService.isEnabled()) {
+      const graphRows = await this.neo4jService.getSentInterests(normalizedUser);
+      if (graphRows.length) {
+        return this.attachProfilesToMatches(
+          graphRows.map((r) => this.interestToMatch(r)),
+          normalizedUser,
+        );
+      }
+    }
+
     const matches = await this.matchRepository.find({
       where: { senderId: userId },
       order: { createdAt: 'DESC' },
@@ -594,6 +791,29 @@ export class MatchmakingService {
 
   async getAcceptedMatches(userId: string) {
     await this.cleanupStaleInterestRecords(userId);
+    const normalizedUser = await this.resolveUserId(userId);
+
+    if (this.neo4jService.isEnabled()) {
+      const graphRows = await this.neo4jService.getMatchedPairs(normalizedUser);
+      if (graphRows.length) {
+        // Rebuild Match rows with correct sender/receiver for profile attachment
+        const asMatches = graphRows.map((row) => {
+          const sqliteId = row.matchId;
+          return {
+            id: sqliteId,
+            senderId: normalizedUser,
+            receiverId: row.receiverId,
+            status: MatchStatus.ACCEPTED,
+            compatibilityScore: row.compatibilityScore ?? null,
+            message: row.message ?? null,
+            createdAt: row.createdAt ? new Date(row.createdAt) : new Date(),
+            updatedAt: row.updatedAt ? new Date(row.updatedAt) : new Date(),
+          } as Match;
+        });
+        return this.attachProfilesToMatches(asMatches, normalizedUser);
+      }
+    }
+
     const matches = await this.matchRepository.find({
       where: [
         { senderId: userId, status: MatchStatus.ACCEPTED },
@@ -710,9 +930,59 @@ export class MatchmakingService {
     if (!viewer) {
       return this.searchMatches(userId, query, userRole);
     }
+    await this.syncNeo4jUser(userId, viewer);
+
     const excludeUserIds = await this.excludeUserIds(userId);
     const page = query.page || 1;
     const limit = query.limit || 20;
+
+    // Neo4j recommendation engine returns User IDs only; profiles come from MongoDB.
+    if (this.neo4jService.isEnabled()) {
+      const recommendedIds = await this.neo4jService.getRecommendationUserIds(userId, limit * 3);
+      if (recommendedIds.length) {
+        const profiles = (
+          await Promise.all(
+            recommendedIds.map(async (uid) => {
+              try {
+                return await this.usersService.getProfileOrNull(uid);
+              } catch {
+                return null;
+              }
+            }),
+          )
+        ).filter(Boolean) as object[];
+
+        const eligible = profiles.filter((p) => {
+          const record = p as { userId?: string; isComplete?: boolean };
+          return record.isComplete && record.userId && !excludeUserIds.includes(record.userId);
+        });
+
+        const graphBoostIds = recommendedIds;
+        let scored = this.maskProfilesForDiscovery(
+          this.scoreProfiles(
+            viewer,
+            eligible,
+            query.includeHoroscope !== false,
+            graphBoostIds,
+          ) as Record<string, unknown>[],
+        );
+        scored = this.applyHoroscopeMatchFilter(viewer, scored as Record<string, unknown>[], query).slice(
+          0,
+          limit,
+        );
+
+        const statusMap = await this.buildInterestStatusMap(userId);
+        scored = this.attachInterestStatusToProfiles(scored as Record<string, unknown>[], statusMap);
+
+        return {
+          profiles: scored,
+          total: scored.length,
+          page,
+          limit,
+          recommendationEngine: 'neo4j+mongo',
+        };
+      }
+    }
 
     const userFilters = this.stripMatchQueryFilters(query);
     const autoFilters = buildSuggestionFilters(viewer, userRole);
@@ -727,7 +997,7 @@ export class MatchmakingService {
       { excludeUserIds },
     );
 
-    const graphBoostIds = await this.neo4jMatchService.getGraphBoostProfileIds(userId, limit);
+    const graphBoostIds = await this.neo4jService.getGraphBoostUserIds(userId, limit);
     let scored = this.maskProfilesForDiscovery(
       this.scoreProfiles(
         viewer,
@@ -746,7 +1016,7 @@ export class MatchmakingService {
       total: result.total,
       page,
       limit,
-      recommendationEngine: this.neo4jMatchService.isEnabled() ? 'graph+rules' : 'rules',
+      recommendationEngine: this.neo4jService.isEnabled() ? 'graph+rules' : 'rules',
     };
   }
 
@@ -762,6 +1032,13 @@ export class MatchmakingService {
       throw new BadRequestException('You cannot shortlist your own profile');
     }
 
+    await this.syncNeo4jUser(userId);
+    await this.syncNeo4jUser(profile.userId, profile);
+
+    if (this.neo4jService.isEnabled()) {
+      await this.neo4jService.shortlistUser(userId, profile.userId, profileId);
+    }
+
     const existing = await this.shortlistRepository.findOne({ where: { userId, profileId } });
     if (existing) return existing;
 
@@ -770,6 +1047,11 @@ export class MatchmakingService {
   }
 
   async removeFromShortlist(userId: string, profileId: string) {
+    const profile = await this.usersService.getProfileById(profileId).catch(() => null);
+    if (this.neo4jService.isEnabled() && profile?.userId) {
+      await this.neo4jService.removeShortlist(userId, profile.userId);
+    }
+
     const entry = await this.shortlistRepository.findOne({ where: { userId, profileId } });
     if (!entry) throw new NotFoundException('Shortlist entry not found');
     await this.shortlistRepository.remove(entry);
@@ -831,6 +1113,11 @@ export class MatchmakingService {
     const target = await this.resolveUserId(targetUserId);
     if (viewer === target) return true;
 
+    if (this.neo4jService.isEnabled()) {
+      const matched = await this.neo4jService.isMatched(viewer, target);
+      if (matched) return true;
+    }
+
     const expectedPair = this.pairKey(viewer, target);
     const viewerProfile = await this.usersService.getProfileOrNull(viewer);
     const targetProfile = await this.usersService.getProfileOrNull(target);
@@ -877,6 +1164,14 @@ export class MatchmakingService {
     const profileRecord = profile as unknown as Record<string, unknown>;
     const targetUserId = String(profileRecord.userId || '');
     const viewerId = await this.resolveUserId(viewerUserId);
+
+    await this.syncNeo4jUser(viewerId);
+    if (targetUserId) {
+      await this.syncNeo4jUser(targetUserId, profileRecord);
+      if (targetUserId !== viewerId) {
+        await this.neo4jService.recordProfileView(viewerId, targetUserId);
+      }
+    }
 
     const relationship = await this.getRelationshipForProfile(viewerUserId, profileIdOrUserId);
     const rel = relationship as {
