@@ -20,6 +20,7 @@ import { VendorProfilesModule } from './modules/vendor-profiles/vendor-profiles.
 import { MailModule } from './common/mail/mail.module';
 import { VendorAuthModule } from './modules/vendor-auth/vendor-auth.module';
 import { VendorDashboardModule } from './modules/vendor-dashboard/vendor-dashboard.module';
+import { AgentModule } from './modules/agent/agent.module';
 
 @Module({
   imports: [
@@ -85,6 +86,7 @@ import { VendorDashboardModule } from './modules/vendor-dashboard/vendor-dashboa
     VendorProfilesModule,
     VendorAuthModule,
     VendorDashboardModule,
+    AgentModule,
   ],
 })
 export class AppModule {}
