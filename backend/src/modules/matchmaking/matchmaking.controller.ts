@@ -169,4 +169,10 @@ export class MatchmakingController {
   async unblockUser(@Req() req: { user: { id: string } }, @Body() dto: BlockUserDto) {
     return this.matchmakingService.unblockUser(req.user.id, dto.userId);
   }
+
+  @Post('ignore')
+  @ApiOperation({ summary: 'Ignore a user (excluded from Neo4j recommendations)' })
+  async ignoreUser(@Req() req: { user: { id: string } }, @Body() dto: BlockUserDto) {
+    return this.matchmakingService.ignoreUser(req.user.id, dto.userId);
+  }
 }
