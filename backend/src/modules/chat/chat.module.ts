@@ -17,6 +17,8 @@ import {
   ChatHiddenContactSchema,
   ChatHistoryClear,
   ChatHistoryClearSchema,
+  ChatThreadSettings,
+  ChatThreadSettingsSchema,
 } from './schemas/message.schema';
 import { Match } from '../matchmaking/entities/match.entity';
 import { UsersModule } from '../users/users.module';
@@ -31,6 +33,7 @@ import { SQLITE_CONNECTION } from '../../config/database.constants';
       { name: ChatMeeting.name, schema: ChatMeetingSchema },
       { name: ChatHiddenContact.name, schema: ChatHiddenContactSchema },
       { name: ChatHistoryClear.name, schema: ChatHistoryClearSchema },
+      { name: ChatThreadSettings.name, schema: ChatThreadSettingsSchema },
     ]),
     TypeOrmModule.forFeature([Match], SQLITE_CONNECTION),
     UsersModule,

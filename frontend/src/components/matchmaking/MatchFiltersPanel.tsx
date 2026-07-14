@@ -9,6 +9,16 @@ import {
 } from '../../lib/savedMatchSearch';
 import { EMPTY_FILTERS, type MatchFilters } from '../../types/matchmaking';
 
+const DIET_OPTIONS = ['Vegetarian', 'Eggetarian', 'Non-Vegetarian', 'Vegan'];
+const INCOME_OPTIONS = [
+  'Below 3 Lakh',
+  '3-5 Lakh',
+  '5-10 Lakh',
+  '10-20 Lakh',
+  '20-50 Lakh',
+  '50+ Lakh',
+];
+
 type Props = {
   filters: MatchFilters;
   onChange: (filters: MatchFilters) => void;
@@ -21,6 +31,10 @@ function countActiveFilters(filters: MatchFilters) {
   if (filters.caste) count += 1;
   if (filters.minAge) count += 1;
   if (filters.maxAge) count += 1;
+  if (filters.city) count += 1;
+  if (filters.diet) count += 1;
+  if (filters.occupation) count += 1;
+  if (filters.income) count += 1;
   if (filters.horoscopeMatch) count += 1;
   return count;
 }
@@ -100,7 +114,7 @@ export default function MatchFiltersPanel({ filters, onChange, matchGenderLabel 
                   key={s.id}
                   type="button"
                   className="dp-filter-chip"
-                  onClick={() => onChange({ ...s.filters })}
+                  onClick={() => onChange({ ...EMPTY_FILTERS, ...s.filters })}
                 >
                   {s.name}
                   <span
@@ -183,6 +197,58 @@ export default function MatchFiltersPanel({ filters, onChange, matchGenderLabel 
               aria-label="Maximum age"
             />
           </div>
+        </div>
+
+        <div className="dp-filter-field">
+          <label htmlFor="match-filter-city" className="dp-filter-label">City</label>
+          <input
+            id="match-filter-city"
+            className="dp-filter-input"
+            placeholder="e.g. Mumbai"
+            value={filters.city}
+            onChange={(e) => onChange({ ...filters, city: e.target.value })}
+          />
+        </div>
+
+        <div className="dp-filter-field">
+          <label htmlFor="match-filter-occupation" className="dp-filter-label">Occupation</label>
+          <input
+            id="match-filter-occupation"
+            className="dp-filter-input"
+            placeholder="e.g. Engineer"
+            value={filters.occupation}
+            onChange={(e) => onChange({ ...filters, occupation: e.target.value })}
+          />
+        </div>
+
+        <div className="dp-filter-field">
+          <label htmlFor="match-filter-income" className="dp-filter-label">Salary / Income</label>
+          <select
+            id="match-filter-income"
+            className="dp-filter-input"
+            value={filters.income}
+            onChange={(e) => onChange({ ...filters, income: e.target.value })}
+          >
+            <option value="">Any income</option>
+            {INCOME_OPTIONS.map((v) => (
+              <option key={v} value={v}>{v}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="dp-filter-field">
+          <label htmlFor="match-filter-diet" className="dp-filter-label">Diet</label>
+          <select
+            id="match-filter-diet"
+            className="dp-filter-input"
+            value={filters.diet}
+            onChange={(e) => onChange({ ...filters, diet: e.target.value })}
+          >
+            <option value="">Any diet</option>
+            {DIET_OPTIONS.map((v) => (
+              <option key={v} value={v}>{v}</option>
+            ))}
+          </select>
         </div>
 
         <div className="dp-filter-field dp-filter-field--last">
