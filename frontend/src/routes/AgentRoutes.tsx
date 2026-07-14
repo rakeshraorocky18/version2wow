@@ -21,6 +21,7 @@ export default function AgentRoutes() {
         <Route path="dashboard" element={<AgentDashboard />} />
         <Route path="customers" element={<AgentCustomers />} />
         <Route path="customers/new" element={<AddCustomer />} />
+        <Route path="add-customer" element={<AddCustomer />} />
         <Route path="customers/:id" element={<CustomerDetails />} />
         <Route path="worksheet" element={<AgentWorksheet />} />
         <Route path="activity" element={<AgentActivity />} />

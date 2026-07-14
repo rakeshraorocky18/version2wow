@@ -40,9 +40,9 @@ export default function AddCustomer() {
 
   const handleSubmit = async () => {
     try {
-      const customer = await createCustomer.mutateAsync(form);
+      await createCustomer.mutateAsync(form);
       toast.success('Customer onboarded successfully');
-      navigate(`/agent/customers/${customer.id}`);
+      navigate('/agent/customers');
     } catch (err: unknown) {
       const message =
         (err as { response?: { data?: { message?: string } } })?.response?.data

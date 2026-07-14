@@ -64,9 +64,9 @@ export class AgentCustomersService {
       .createQueryBuilder('c')
       .where('c.assignedAgentId = :agentId', { agentId });
 
-    if (query.search) {
+    if (query.search?.trim()) {
       qb.andWhere(
-        `(LOWER(c.firstName) LIKE :q OR LOWER(c.lastName) LIKE :q OR LOWER(c.email) LIKE :q OR c.phone LIKE :q OR LOWER(c.customerCode) LIKE :q)`,
+        `(LOWER(c.firstName) LIKE :q OR LOWER(COALESCE(c.lastName, '')) LIKE :q OR LOWER(COALESCE(c.email, '')) LIKE :q OR COALESCE(c.phone, '') LIKE :q OR LOWER(c.customerCode) LIKE :q)`,
         { q: `%${query.search.toLowerCase()}%` },
       );
     }
@@ -82,13 +82,20 @@ export class AgentCustomersService {
     } else if (sortBy === 'completion') {
       qb.orderBy('c.profileCompletion', sortOrder);
     } else {
+      // default: newest first by createdAt
       qb.orderBy('c.createdAt', sortOrder);
     }
 
-    const [data, total] = await qb
+    const [rows, total] = await qb
       .skip((page - 1) * limit)
       .take(limit)
       .getManyAndCount();
+
+    const data = rows.map((c) => ({
+      ...c,
+      name: [c.firstName, c.lastName].filter(Boolean).join(' ').trim(),
+      agentId: c.assignedAgentId,
+    }));
 
     return paginate(data, total, page, limit);
   }

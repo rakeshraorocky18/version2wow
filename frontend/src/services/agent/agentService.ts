@@ -27,7 +27,18 @@ export const agentService = {
     page?: number;
     limit?: number;
   }): Promise<Paginated<AgentCustomer>> => {
-    const { data } = await agentApi.get('/agent/customers', { params });
+    // Never send empty query strings — `status=` causes ValidationPipe 400.
+    const queryParams: Record<string, string | number> = {};
+    if (params.search) queryParams.search = params.search;
+    if (params.status) queryParams.status = params.status;
+    if (params.sortBy) queryParams.sortBy = params.sortBy;
+    if (params.sortOrder) queryParams.sortOrder = params.sortOrder;
+    if (params.page != null) queryParams.page = params.page;
+    if (params.limit != null) queryParams.limit = params.limit;
+
+    const { data } = await agentApi.get('/agent/customers', {
+      params: queryParams,
+    });
     return data;
   },
 
@@ -37,7 +48,12 @@ export const agentService = {
   },
 
   createCustomer: async (payload: CreateCustomerPayload): Promise<AgentCustomer> => {
-    const { data } = await agentApi.post('/agent/customers', payload);
+    const cleanPayload = Object.fromEntries(
+      Object.entries(payload).filter(
+        ([, value]) => value !== '' && value !== undefined && value !== null,
+      ),
+    );
+    const { data } = await agentApi.post('/agent/customers', cleanPayload);
     return data;
   },
 

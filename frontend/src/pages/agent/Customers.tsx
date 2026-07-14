@@ -1,11 +1,10 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Eye, Pencil, FileText, StickyNote, Search, Plus } from 'lucide-react';
+import { Eye, Pencil, FileText, StickyNote, Search, Plus, RefreshCw } from 'lucide-react';
 import { useAgentCustomers } from '../../hooks/agent/useAgent';
 import type { AgentCustomerStatus } from '../../types/agent';
 import {
   EmptyState,
-  ErrorState,
   ProfileProgress,
   StatusBadge,
   TableSkeleton,
@@ -18,28 +17,41 @@ export default function AgentCustomers() {
   const [sortOrder, setSortOrder] = useState<'ASC' | 'DESC'>('DESC');
   const [page, setPage] = useState(1);
 
-  const { data, isLoading, isError } = useAgentCustomers({
+  const { data, isLoading, isError, isFetching, refetch } = useAgentCustomers({
     search: search || undefined,
-    status,
+    // Omit empty status — never send status="" to the API
+    status: status || undefined,
     sortBy,
     sortOrder,
     page,
     limit: 10,
   });
 
-  if (isError) return <ErrorState message="Unable to load customers." />;
+  if (isError) {
+    return (
+      <div className="space-y-6">
+        <CustomersHeader />
+        <div className="card border-red-100 bg-red-50 text-center py-10">
+          <p className="text-red-700 font-medium mb-4">Unable to load customers.</p>
+          <button
+            type="button"
+            onClick={() => {
+              void refetch();
+            }}
+            disabled={isFetching}
+            className="btn-secondary !py-2 !px-4 text-sm inline-flex items-center gap-2 border-red-200 text-red-700 hover:bg-red-100"
+          >
+            <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-        <div>
-          <h1 className="font-display text-3xl text-wow-text">Customers</h1>
-          <p className="text-wow-muted mt-1">Customers assigned to you</p>
-        </div>
-        <Link to="/agent/customers/new" className="btn-primary inline-flex items-center gap-2 !py-2.5 !px-4 text-sm">
-          <Plus className="w-4 h-4" /> Add Customer
-        </Link>
-      </div>
+      <CustomersHeader />
 
       <div className="card">
         <div className="flex flex-col lg:flex-row gap-3 mb-6">
@@ -94,11 +106,14 @@ export default function AgentCustomers() {
           <TableSkeleton />
         ) : !data?.data?.length ? (
           <EmptyState
-            title="No customers found"
-            description="Try adjusting filters or onboard a new customer."
+            title="No customers found."
+            description="Create your first customer to start managing your relationships."
             action={
-              <Link to="/agent/customers/new" className="btn-primary text-sm !py-2 !px-4">
-                Add Customer
+              <Link
+                to="/agent/add-customer"
+                className="btn-primary text-sm !py-2 !px-4 inline-flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" /> Add Customer
               </Link>
             }
           />
@@ -124,7 +139,8 @@ export default function AgentCustomers() {
                     <tr key={c.id} className="border-b border-gray-50 hover:bg-wow-bg/40">
                       <td className="py-3 font-mono text-xs">{c.customerCode}</td>
                       <td className="py-3 font-medium">
-                        {c.firstName} {c.lastName}
+                        {(c as { name?: string }).name ||
+                          `${c.firstName} ${c.lastName || ''}`.trim()}
                       </td>
                       <td className="py-3">{c.phone || '—'}</td>
                       <td className="py-3">{c.email || '—'}</td>
@@ -200,6 +216,23 @@ export default function AgentCustomers() {
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+function CustomersHeader() {
+  return (
+    <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+      <div>
+        <h1 className="font-display text-3xl text-wow-text">Customers</h1>
+        <p className="text-wow-muted mt-1">Customers assigned to you</p>
+      </div>
+      <Link
+        to="/agent/add-customer"
+        className="btn-primary inline-flex items-center gap-2 !py-2.5 !px-4 text-sm"
+      >
+        <Plus className="w-4 h-4" /> Add Customer
+      </Link>
     </div>
   );
 }

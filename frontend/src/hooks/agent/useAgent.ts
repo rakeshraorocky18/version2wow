@@ -36,9 +36,19 @@ export function useAgentCustomers(params: {
   page?: number;
   limit?: number;
 }) {
+  // Normalize so empty status is not part of the request payload.
+  const cleanParams = {
+    search: params.search || undefined,
+    status: params.status || undefined,
+    sortBy: params.sortBy || undefined,
+    sortOrder: params.sortOrder || undefined,
+    page: params.page,
+    limit: params.limit,
+  };
+
   return useQuery({
-    queryKey: agentKeys.customers(params),
-    queryFn: () => agentService.getCustomers(params),
+    queryKey: agentKeys.customers(cleanParams),
+    queryFn: () => agentService.getCustomers(cleanParams),
     placeholderData: (prev) => prev,
   });
 }
