@@ -9,6 +9,7 @@ import {
   WorksheetTaskStatus,
 } from '../common/enums/agent.enums';
 import { AgentActivityService } from '../activity-log/activity-log.service';
+import { AgentCustomersService } from '../customers/customers.service';
 
 @Injectable()
 export class AgentDashboardService {
@@ -18,6 +19,7 @@ export class AgentDashboardService {
     @InjectRepository(AgentWorksheetEntity, POSTGRES_CONNECTION)
     private readonly worksheetRepo: Repository<AgentWorksheetEntity>,
     private readonly activityService: AgentActivityService,
+    private readonly customersService: AgentCustomersService,
   ) {}
 
   async getDashboard(agentId: string) {
@@ -73,11 +75,14 @@ export class AgentDashboardService {
       },
     });
 
-    const recentlyAddedCustomers = await this.customerRepo.find({
+    const recentRows = await this.customerRepo.find({
       where: { assignedAgentId: agentId },
       order: { createdAt: 'DESC' },
       take: 5,
     });
+
+    const recentlyAddedCustomers =
+      await this.customersService.attachProfileImageUrls(recentRows);
 
     const todayPendingTasks = await this.worksheetRepo.find({
       where: {

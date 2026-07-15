@@ -23,6 +23,19 @@ export function calculateAge(dateOfBirth: string): string {
   return age >= 0 ? String(age) : '';
 }
 
+export function calculateYearsMarried(startDate: string, endDate: string): string {
+  if (!startDate || !endDate) return '';
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return '';
+  let years = end.getFullYear() - start.getFullYear();
+  const monthDiff = end.getMonth() - start.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && end.getDate() < start.getDate())) {
+    years -= 1;
+  }
+  return years >= 0 ? String(years) : '';
+}
+
 function resolveField(value: string, other: string): string {
   if (!value) return '';
   return value === OTHER_VALUE ? other.trim() : value;
@@ -60,8 +73,21 @@ export function formatAddress(addr: AddressFields): string {
 export function hasAddressContent(addr: AddressFields): boolean {
   return Object.entries(addr).some(([key, v]) => {
     if (key.endsWith('Other')) return false;
+    if (key === 'mobile' || key === 'email') return false;
     return typeof v === 'string' && v.trim() !== '';
   });
+}
+
+export function isValidMobile(value: string): boolean {
+  return /^\d{10}$/.test(value.trim());
+}
+
+export function isValidEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
+
+export function isValidPinCode(value: string): boolean {
+  return /^\d{6}$/.test(value.trim());
 }
 
 function cleanRecord(obj: Record<string, unknown>): Record<string, unknown> | undefined {
@@ -141,13 +167,22 @@ export function buildCreatePayload(form: AddCustomerFormState): CreateCustomerPa
         (form.religionDetails.star as string) ||
         (form.personalDetails.star as string) ||
         undefined,
+      padam:
+        (form.religionDetails.padam as string) ||
+        (form.personalDetails.padam as string) ||
+        undefined,
+      rasi:
+        (form.religionDetails.rasi as string) ||
+        (form.personalDetails.rasi as string) ||
+        undefined,
+      kujaDosham:
+        (form.religionDetails.kujaDosham as string) ||
+        (form.personalDetails.kujaDosham as string) ||
+        undefined,
     }),
     partnerPreferences: cleanRecord({
       ...form.partnerPreferences,
-      notes:
-        (form.partnerPreferences.notes as string) ||
-        (form.partnerPreferences.otherExpectations as string) ||
-        undefined,
+      notes: (form.partnerPreferences.otherExpectations as string) || undefined,
     }),
   };
 
@@ -162,20 +197,43 @@ export function validateStep(
 
   if (step === 0) {
     if (!form.firstName.trim()) errors.firstName = 'First name is required';
+    if (!form.lastName.trim()) errors.lastName = 'Last name is required';
     if (!form.gender) errors.gender = 'Gender is required';
     if (!form.dateOfBirth) errors.dateOfBirth = 'Date of birth is required';
-    if (!form.phone.trim()) errors.phone = 'Mobile number is required';
+
+    if (!form.phone.trim()) {
+      errors.phone = 'Mobile number is required';
+    } else if (!isValidMobile(form.phone)) {
+      errors.phone = 'Please enter a valid 10-digit mobile number.';
+    }
+
+    const alternate = ((form.personalDetails.alternateMobile as string) || '').trim();
+    if (alternate) {
+      if (!isValidMobile(alternate)) {
+        errors.alternateMobile = 'Please enter a valid 10-digit mobile number.';
+      } else if (alternate === form.phone.trim()) {
+        errors.alternateMobile = 'Alternate mobile cannot be the same as the primary mobile number.';
+      }
+    }
+
+    if (form.email.trim() && !isValidEmail(form.email)) {
+      errors.email = 'Please enter a valid email address.';
+    }
+
     if (!form.profilePhoto) errors.profilePhoto = 'Profile photo is required';
   }
 
-  if (step === 1) {
-    const comm = form.personalDetails.communicationAddress as AddressFields;
-    if (!hasAddressContent(comm) && !form.address.trim()) {
-      errors.communicationAddress = 'At least one communication address field is required';
+  if (step === 3) {
+    const addr = (form.personalDetails.communicationAddress as AddressFields) || ({} as AddressFields);
+    if (!hasAddressContent(addr)) {
+      errors.address = 'Address is required';
+    }
+    if (addr.pinCode?.trim() && !isValidPinCode(addr.pinCode)) {
+      errors.pinCode = 'Please enter a valid 6-digit pin code.';
     }
   }
 
-  if (step === 2) {
+  if (step === 4) {
     const fatherName = (form.familyDetails.fatherName as string) || '';
     if (!fatherName.trim()) errors.fatherName = "Father's name is required";
 
@@ -189,7 +247,7 @@ export function validateStep(
 
 export function validateAll(form: AddCustomerFormState): Record<string, string> {
   const errors: Record<string, string> = {};
-  for (let step = 0; step < 6; step += 1) {
+  for (let step = 0; step < 8; step += 1) {
     Object.assign(errors, validateStep(step as WizardStepId, form));
   }
   return errors;

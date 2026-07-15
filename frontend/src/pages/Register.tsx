@@ -2,6 +2,9 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import toast from 'react-hot-toast';
+import { Mail, Lock, Eye, EyeOff, Phone, User } from 'lucide-react';
+import AuthBlossomShell from '../components/auth/AuthBlossomShell';
+import WowLogo from '../components/brand/WowLogo';
 
 export default function Register() {
   const [email, setEmail] = useState('');
@@ -9,6 +12,8 @@ export default function Register() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [role, setRole] = useState('bride');
   const [phone, setPhone] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const register = useAuthStore((state) => state.register);
   const isLoading = useAuthStore((state) => state.isLoading);
   const navigate = useNavigate();
@@ -17,7 +22,6 @@ export default function Register() {
     e.preventDefault();
     if (password !== confirmPassword) {
       toast.error('Passwords do not match');
-      
       return;
     }
     if (password.length < 8) {
@@ -34,86 +38,111 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 to-white px-4 py-12">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <Link to="/" className="text-3xl font-display font-bold text-primary-600">WOW</Link>
-          <h1 className="mt-4 text-2xl font-semibold text-gray-900">Create Your Account</h1>
-          <p className="mt-2 text-gray-600">Start your wedding journey today</p>
+    <AuthBlossomShell>
+      <form onSubmit={handleSubmit} className="auth-card soft-fade-in max-w-[440px]">
+        <div className="flex justify-center mb-6">
+          <WowLogo to="/" />
         </div>
 
-        <form onSubmit={handleSubmit} className="card space-y-5">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">I am</label>
+        <h1 className="text-2xl font-bold text-gray-900 text-center">Sign Up</h1>
+        <p className="text-sm text-gray-500 text-center mt-1.5 mb-7">
+          Start your wedding journey today.
+        </p>
+
+        <div className="space-y-3.5">
+          <div className="auth-input-wrap">
+            <User className="auth-input-icon w-4 h-4" />
             <select
               value={role}
               onChange={(e) => setRole(e.target.value)}
-              className="input-field"
+              className="auth-input appearance-none"
             >
-              <option value="bride">Bride</option>
-              <option value="groom">Groom</option>
+              <option value="bride">I am a Bride</option>
+              <option value="groom">I am a Groom</option>
               <option value="representative">Family Member / Friend</option>
               <option value="vendor">Vendor</option>
             </select>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+
+          <div className="auth-input-wrap">
+            <Mail className="auth-input-icon w-4 h-4" />
             <input
+              className="auth-input"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="input-field"
-              placeholder="you@example.com"
+              placeholder="Email Address"
               required
+              autoComplete="email"
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Phone (optional)</label>
+
+          <div className="auth-input-wrap">
+            <Phone className="auth-input-icon w-4 h-4" />
             <input
+              className="auth-input"
               type="tel"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              className="input-field"
-              placeholder="+91 9876543210"
+              placeholder="Phone Number"
+              autoComplete="tel"
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+
+          <div className="auth-input-wrap">
+            <Lock className="auth-input-icon w-4 h-4" />
             <input
-              type="password"
+              className="auth-input has-toggle"
+              type={showPassword ? 'text' : 'password'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="input-field"
-              placeholder="Min. 8 characters"
+              placeholder="Password"
               required
+              autoComplete="new-password"
             />
+            <button
+              type="button"
+              className="auth-input-action"
+              onClick={() => setShowPassword((v) => !v)}
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+            >
+              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
+
+          <div className="auth-input-wrap">
+            <Lock className="auth-input-icon w-4 h-4" />
             <input
-              type="password"
+              className="auth-input has-toggle"
+              type={showConfirm ? 'text' : 'password'}
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="input-field"
-              placeholder="Re-enter password"
+              placeholder="Confirm Password"
               required
+              autoComplete="new-password"
             />
+            <button
+              type="button"
+              className="auth-input-action"
+              onClick={() => setShowConfirm((v) => !v)}
+              aria-label={showConfirm ? 'Hide password' : 'Show password'}
+            >
+              {showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
           </div>
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="btn-primary w-full disabled:opacity-50"
-          >
-            {isLoading ? 'Creating Account...' : 'Create Account'}
-          </button>
-          <p className="text-center text-sm text-gray-600">
-            Already have an account?{' '}
-            <Link to="/login" className="text-primary-600 font-medium hover:underline">
-              Sign In
-            </Link>
-          </p>
-        </form>
-      </div>
-    </div>
+        </div>
+
+        <button type="submit" disabled={isLoading} className="auth-btn-primary mt-6">
+          {isLoading ? 'Creating Account...' : 'Create Account'}
+        </button>
+
+        <p className="text-center text-sm text-gray-500 mt-6">
+          Already have an account?{' '}
+          <Link to="/login" className="auth-link">
+            Login
+          </Link>
+        </p>
+      </form>
+    </AuthBlossomShell>
   );
 }

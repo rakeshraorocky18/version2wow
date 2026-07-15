@@ -9,17 +9,13 @@ import {
   User,
 } from 'lucide-react';
 import type { AgentCustomer } from '../../types/agent';
+import { getCustomerProfileImageUrl } from '../../lib/agent/customerAvatar';
 import { ProfileProgress, StatusBadge } from './AgentUI';
+import CustomerAvatar from './CustomerAvatar';
 
 export default function CustomerCard({ customer }: { customer: AgentCustomer }) {
   const name = `${customer.firstName} ${customer.lastName || ''}`.trim();
-
-  const initials = name
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .substring(0, 2)
-    .toUpperCase();
+  const imageUrl = getCustomerProfileImageUrl(customer);
 
   const profileUrl = `/agent/customers/${customer.id}`;
   const manageUrl = `/agent/customers/${customer.id}/manage`;
@@ -29,9 +25,7 @@ export default function CustomerCard({ customer }: { customer: AgentCustomer }) 
       <Link to={profileUrl} className="block">
         <div className="flex items-center justify-between p-5 border-b">
           <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-full bg-pink-500 text-white font-semibold flex items-center justify-center text-lg">
-              {initials}
-            </div>
+            <CustomerAvatar name={name} imageUrl={imageUrl} size={64} />
             <div>
               <h3 className="font-semibold text-lg text-wow-text hover:text-wow-primary transition">
                 {name}

@@ -54,7 +54,7 @@ export default function FamilyAssets({ value, onChange, errors }: FamilyAssetsPr
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-sm font-medium text-wow-text mb-1">Family Assets</h3>
+        <h3 className="text-sm font-medium text-wow-text mb-1">Family Properties</h3>
         <p className="text-xs text-wow-muted mb-4">
           Select property types owned by the family. Add details for each property.
         </p>

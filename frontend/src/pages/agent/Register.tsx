@@ -1,26 +1,50 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { Heart } from 'lucide-react';
+import { User, Building2, Mail, Phone, Lock, Eye, EyeOff } from 'lucide-react';
 import { useAgentAuthStore } from '../../store/agent/agentAuthStore';
+import AuthBlossomShell from '../../components/auth/AuthBlossomShell';
+import WowLogo from '../../components/brand/WowLogo';
 
 export default function AgentRegister() {
   const navigate = useNavigate();
   const register = useAgentAuthStore((s) => s.register);
   const isLoading = useAgentAuthStore((s) => s.isLoading);
   const [form, setForm] = useState({
-    firstName: '',
-    lastName: '',
+    fullName: '',
+    businessName: '',
     email: '',
     phone: '',
-    employeeCode: '',
     password: '',
+    confirmPassword: '',
   });
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (form.password !== form.confirmPassword) {
+      toast.error('Passwords do not match');
+      return;
+    }
+    if (form.password.length < 6) {
+      toast.error('Password must be at least 6 characters');
+      return;
+    }
+
+    const parts = form.fullName.trim().split(/\s+/);
+    const firstName = parts[0] || '';
+    const lastName = parts.slice(1).join(' ') || undefined;
+
     try {
-      await register(form);
+      await register({
+        firstName,
+        lastName,
+        email: form.email,
+        phone: form.phone || undefined,
+        employeeCode: form.businessName || undefined,
+        password: form.password,
+      });
       toast.success('Agent account created');
       navigate('/agent/dashboard');
     } catch (err: unknown) {
@@ -32,89 +56,125 @@ export default function AgentRegister() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#FFF8F3] to-[#F7EBEF] p-4">
-      <form
-        onSubmit={handleSubmit}
-        className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-lg border border-wow-secondary/30"
-      >
-        <div className="text-center mb-6">
-          <Heart className="w-8 h-8 text-wow-primary fill-wow-primary mx-auto mb-2" />
-          <h1 className="font-display text-3xl">Register as Agent</h1>
+    <AuthBlossomShell>
+      <form onSubmit={handleSubmit} className="auth-card soft-fade-in max-w-[440px]">
+        <div className="flex justify-center mb-6">
+          <WowLogo to="/agent/register" />
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="text-sm text-wow-muted">First Name</label>
+        <h1 className="text-2xl font-bold text-gray-900 text-center">Sign Up</h1>
+        <p className="text-sm text-gray-500 text-center mt-1.5 mb-7">
+          Create your agent account.
+        </p>
+
+        <div className="space-y-3.5">
+          <div className="auth-input-wrap">
+            <User className="auth-input-icon w-4 h-4" />
             <input
-              className="input-field mt-1"
+              className="auth-input"
               required
-              value={form.firstName}
-              onChange={(e) => setForm({ ...form, firstName: e.target.value })}
+              value={form.fullName}
+              onChange={(e) => setForm({ ...form, fullName: e.target.value })}
+              placeholder="Full Name"
+              autoComplete="name"
             />
           </div>
-          <div>
-            <label className="text-sm text-wow-muted">Last Name</label>
+
+          <div className="auth-input-wrap">
+            <Building2 className="auth-input-icon w-4 h-4" />
             <input
-              className="input-field mt-1"
-              value={form.lastName}
-              onChange={(e) => setForm({ ...form, lastName: e.target.value })}
+              className="auth-input"
+              value={form.businessName}
+              onChange={(e) => setForm({ ...form, businessName: e.target.value })}
+              placeholder="Business / Agency Name"
             />
           </div>
-        </div>
 
-        <div className="mt-4">
-          <label className="text-sm text-wow-muted">Email</label>
-          <input
-            className="input-field mt-1"
-            type="email"
-            required
-            value={form.email}
-            onChange={(e) => setForm({ ...form, email: e.target.value })}
-          />
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-          <div>
-            <label className="text-sm text-wow-muted">Phone</label>
+          <div className="auth-input-wrap">
+            <Mail className="auth-input-icon w-4 h-4" />
             <input
-              className="input-field mt-1"
+              className="auth-input"
+              type="email"
+              required
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              placeholder="Email Address"
+              autoComplete="email"
+            />
+          </div>
+
+          <div className="auth-input-wrap">
+            <Phone className="auth-input-icon w-4 h-4" />
+            <input
+              className="auth-input"
+              type="tel"
               value={form.phone}
               onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              placeholder="Phone Number"
+              autoComplete="tel"
             />
           </div>
-          <div>
-            <label className="text-sm text-wow-muted">Employee Code</label>
+
+          <div className="auth-input-wrap">
+            <Lock className="auth-input-icon w-4 h-4" />
             <input
-              className="input-field mt-1"
-              value={form.employeeCode}
-              onChange={(e) => setForm({ ...form, employeeCode: e.target.value })}
+              className={`auth-input has-toggle`}
+              type={showPassword ? 'text' : 'password'}
+              required
+              minLength={6}
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              placeholder="Password"
+              autoComplete="new-password"
             />
+            <button
+              type="button"
+              className="auth-input-action"
+              onClick={() => setShowPassword((v) => !v)}
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+            >
+              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
+          </div>
+
+          <div className="auth-input-wrap">
+            <Lock className="auth-input-icon w-4 h-4" />
+            <input
+              className={`auth-input has-toggle`}
+              type={showConfirm ? 'text' : 'password'}
+              required
+              minLength={6}
+              value={form.confirmPassword}
+              onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
+              placeholder="Confirm Password"
+              autoComplete="new-password"
+            />
+            <button
+              type="button"
+              className="auth-input-action"
+              onClick={() => setShowConfirm((v) => !v)}
+              aria-label={showConfirm ? 'Hide password' : 'Show password'}
+            >
+              {showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
           </div>
         </div>
 
-        <div className="mt-4 mb-6">
-          <label className="text-sm text-wow-muted">Password</label>
-          <input
-            className="input-field mt-1"
-            type="password"
-            required
-            minLength={6}
-            value={form.password}
-            onChange={(e) => setForm({ ...form, password: e.target.value })}
-          />
-        </div>
-
-        <button type="submit" disabled={isLoading} className="btn-primary w-full">
+        <button
+          type="submit"
+          disabled={isLoading}
+          className="auth-btn-primary mt-6"
+        >
           {isLoading ? 'Creating...' : 'Create Account'}
         </button>
 
-        <p className="text-center text-sm text-wow-muted mt-4">
+        <p className="text-center text-sm text-gray-500 mt-6">
           Already have an account?{' '}
-          <Link to="/agent/login" className="text-wow-primary font-medium">
-            Sign in
+          <Link to="/agent/login" className="auth-link">
+            Login
           </Link>
         </p>
       </form>
-    </div>
+    </AuthBlossomShell>
   );
 }

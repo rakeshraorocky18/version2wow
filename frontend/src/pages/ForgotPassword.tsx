@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { Mail } from 'lucide-react';
 import api from '../lib/api';
-
+import AuthBlossomShell from '../components/auth/AuthBlossomShell';
+import WowLogo from '../components/brand/WowLogo';
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState('');
@@ -13,26 +14,14 @@ export default function ForgotPassword() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-     console.log("Forgot Password button clicked");
     setIsSubmitting(true);
 
     try {
-         const response = await api.post('/auth/forgot-password', {
-          email,
-         });
-         console.log(response.data);
-
-         setIsSubmitted(true);
-
-        toast.success(response.data.message);
-         navigate('/verify-otp', {
-         state: {
-         email
-        }
-        });
-
+      const response = await api.post('/auth/forgot-password', { email });
+      setIsSubmitted(true);
+      toast.success(response.data.message);
+      navigate('/verify-otp', { state: { email } });
     } catch {
-      // Keep response generic to avoid account enumeration.
       setIsSubmitted(true);
       toast.success('If your account exists, recovery instructions have been sent');
     } finally {
@@ -41,45 +30,45 @@ export default function ForgotPassword() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 to-white px-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <Link to="/" className="text-3xl font-display font-bold text-primary-600">WOW</Link>
-         <h1 className="mt-4 text-2xl font-semibold text-red-600">
-        Forgot Password
-</h1>
-          <p className="mt-2 text-gray-600">Enter your email to receive reset instructions</p>
+    <AuthBlossomShell>
+      <form onSubmit={handleSubmit} className="auth-card soft-fade-in">
+        <div className="flex justify-center mb-6">
+          <WowLogo to="/" />
         </div>
 
-        <form onSubmit={handleSubmit} className="card space-y-5">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="input-field"
-              placeholder="you@example.com"
-              required
-            />
-          </div>
+        <h1 className="text-2xl font-bold text-gray-900 text-center">Forgot Password</h1>
+        <p className="text-sm text-gray-500 text-center mt-1.5 mb-7">
+          Enter your email to receive reset instructions.
+        </p>
 
-          <button
-            type="submit"
-            disabled={isSubmitting || isSubmitted}
-            className="btn-primary w-full disabled:opacity-50"
-          >
-            {isSubmitting ? 'Sending...' : isSubmitted ? 'Email Sent' : 'Send Recovery Email'}
-          </button>
+        <div className="auth-input-wrap">
+          <Mail className="auth-input-icon w-4 h-4" />
+          <input
+            className="auth-input"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="Email Address"
+            required
+            autoComplete="email"
+          />
+        </div>
 
-          <p className="text-center text-sm text-gray-600">
-            Back to{' '}
-            <Link to="/login" className="text-primary-600 font-medium hover:underline">
-              Sign In
-            </Link>
-          </p>
-        </form>
-      </div>
-    </div>
+        <button
+          type="submit"
+          disabled={isSubmitting || isSubmitted}
+          className="auth-btn-primary mt-6"
+        >
+          {isSubmitting ? 'Sending...' : isSubmitted ? 'Email Sent' : 'Send Recovery Email'}
+        </button>
+
+        <p className="text-center text-sm text-gray-500 mt-6">
+          Back to{' '}
+          <Link to="/login" className="auth-link">
+            Login
+          </Link>
+        </p>
+      </form>
+    </AuthBlossomShell>
   );
 }

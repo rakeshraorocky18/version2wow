@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Heart, Users, Store, Calendar, Plane, Camera } from 'lucide-react';
+import WowLogo from '../components/brand/WowLogo';
 
 const features = [
   { icon: Heart, title: 'Matchmaking', description: 'AI-powered compatibility matching with advanced filters' },
@@ -17,7 +18,7 @@ export default function Landing() {
       <section className="relative bg-gradient-to-br from-primary-600 via-primary-700 to-primary-900 text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 lg:py-32">
           <nav className="absolute top-0 left-0 right-0 flex justify-between items-center px-4 sm:px-6 lg:px-8 py-6 max-w-7xl mx-auto">
-            <span className="text-3xl font-display font-bold">WOW</span>
+            <WowLogo variant="sidebar" to="/" />
             <div className="flex gap-4">
               <Link to="/login" className="px-4 py-2 text-sm font-medium hover:bg-white/10 rounded-lg transition">
                 Login
@@ -94,9 +95,9 @@ export default function Landing() {
 
       {/* Footer */}
       <footer className="bg-gray-900 text-gray-400 py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <span className="text-2xl font-display font-bold text-white">WOW</span>
-          <p className="mt-2">World of Weddings — Your wedding, simplified.</p>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center flex flex-col items-center">
+          <WowLogo variant="sidebar" />
+          <p className="mt-3">World of Weddings — Your wedding, simplified.</p>
           <p className="mt-4 text-sm">&copy; 2026 WOW. All rights reserved.</p>
         </div>
       </footer>

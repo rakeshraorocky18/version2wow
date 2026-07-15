@@ -10,6 +10,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { useAgentDashboard } from '../../hooks/agent/useAgent';
+import { getCustomerProfileImageUrl } from '../../lib/agent/customerAvatar';
 import {
   EmptyState,
   ErrorState,
@@ -17,6 +18,7 @@ import {
   StatCardSkeleton,
   StatusBadge,
 } from '../../components/agent/AgentUI';
+import CustomerAvatar from '../../components/agent/CustomerAvatar';
 
 export default function AgentDashboard() {
   const { data, isLoading, isError } = useAgentDashboard();
@@ -130,24 +132,32 @@ export default function AgentDashboard() {
             />
           ) : (
             <ul className="space-y-3">
-              {(data?.recentlyAddedCustomers ?? []).map((c) => (
-                <li key={c.id}>
-                  <Link
-                    to={`/agent/customers/${c.id}`}
-                    className="flex items-center justify-between p-3 rounded-xl hover:bg-wow-bg transition"
-                  >
-                    <div>
-                      <p className="font-medium text-wow-text">
-                        {c.firstName} {c.lastName}
-                      </p>
-                      <p className="text-xs text-wow-muted">{c.customerCode}</p>
-                    </div>
-                    <div className="w-28">
-                      <ProfileProgress value={c.profileCompletion} />
-                    </div>
-                  </Link>
-                </li>
-              ))}
+              {(data?.recentlyAddedCustomers ?? []).map((c) => {
+                const name = `${c.firstName} ${c.lastName || ''}`.trim();
+                return (
+                  <li key={c.id}>
+                    <Link
+                      to={`/agent/customers/${c.id}`}
+                      className="flex items-center justify-between gap-3 p-3 rounded-xl hover:bg-wow-bg transition"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <CustomerAvatar
+                          name={name}
+                          imageUrl={getCustomerProfileImageUrl(c)}
+                          size={40}
+                        />
+                        <div className="min-w-0">
+                          <p className="font-medium text-wow-text truncate">{name}</p>
+                          <p className="text-xs text-wow-muted">{c.customerCode}</p>
+                        </div>
+                      </div>
+                      <div className="w-28 flex-shrink-0">
+                        <ProfileProgress value={c.profileCompletion} />
+                      </div>
+                    </Link>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </section>

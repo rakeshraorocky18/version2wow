@@ -26,6 +26,7 @@ export enum AgentDocumentType {
   EDUCATION_CERTIFICATE = 'education_certificate',
   INCOME_PROOF = 'income_proof',
   CUSTOMER_PHOTO = 'customer_photo',
+  PROFILE_PHOTO = 'profile_photo',
   OTHER = 'other',
 }
 

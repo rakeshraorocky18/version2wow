@@ -13,16 +13,18 @@ import {
 } from '../../lib/agent/addCustomerUtils';
 import { WizardStepper } from '../../components/agent/addCustomer/WizardUI';
 import {
-  ContactStep,
   DocumentsStep,
   EducationStep,
   FamilyStep,
+  HoroscopeStep,
+  LocationStep,
   PartnerStep,
   PersonalStep,
+  RelationshipStep,
 } from '../../components/agent/addCustomer/AddCustomerSteps';
 import { ReviewStep } from '../../components/agent/addCustomer/ReviewStep';
 
-const LAST_STEP = 6;
+const LAST_STEP = 8;
 
 export default function AddCustomer() {
   const navigate = useNavigate();
@@ -74,6 +76,10 @@ export default function AddCustomer() {
     setErrors(allErrors);
     if (Object.keys(allErrors).length > 0) {
       toast.error('Please complete all required fields before submitting.');
+      const firstInvalidStep = [0, 1, 2, 3, 4, 5, 6, 7].find(
+        (s) => Object.keys(validateStep(s as WizardStepId, form)).length > 0,
+      );
+      if (firstInvalidStep != null) setStep(firstInvalidStep);
       return;
     }
 
@@ -85,7 +91,7 @@ export default function AddCustomer() {
       const uploads: { type: Parameters<typeof agentService.uploadDocument>[1]; file: File }[] =
         [];
       if (form.profilePhoto) {
-        uploads.push({ type: 'customer_photo', file: form.profilePhoto });
+        uploads.push({ type: 'profile_photo', file: form.profilePhoto });
       }
       form.pendingDocuments.forEach((doc) => {
         uploads.push({ type: doc.type, file: doc.file });
@@ -136,12 +142,14 @@ export default function AddCustomer() {
 
       <div className="space-y-6">
         {step === 0 && <PersonalStep {...stepProps} />}
-        {step === 1 && <ContactStep {...stepProps} />}
-        {step === 2 && <FamilyStep {...stepProps} />}
-        {step === 3 && <EducationStep {...stepProps} />}
-        {step === 4 && <PartnerStep {...stepProps} />}
-        {step === 5 && <DocumentsStep {...stepProps} />}
-        {step === 6 && <ReviewStep form={form} agentName={agentName} onEdit={setStep} />}
+        {step === 1 && <HoroscopeStep {...stepProps} />}
+        {step === 2 && <RelationshipStep {...stepProps} />}
+        {step === 3 && <LocationStep {...stepProps} />}
+        {step === 4 && <FamilyStep {...stepProps} />}
+        {step === 5 && <EducationStep {...stepProps} />}
+        {step === 6 && <PartnerStep {...stepProps} />}
+        {step === 7 && <DocumentsStep {...stepProps} />}
+        {step === 8 && <ReviewStep form={form} agentName={agentName} onEdit={setStep} />}
       </div>
 
       <div className="flex justify-between items-center pt-2 pb-8">
