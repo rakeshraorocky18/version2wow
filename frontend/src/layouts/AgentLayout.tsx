@@ -51,7 +51,7 @@ export default function AgentLayout() {
   }
 
   return (
-    <div className="flex min-h-screen bg-gradient-to-br from-[#FFF8F3] via-[#FAF8FB] to-[#F7EBEF]">
+    <div className="flex min-h-screen bg-[#F8F9FB]">
       <AgentSidebar />
 
       <div className="flex-1 flex flex-col min-w-0">
@@ -61,7 +61,7 @@ export default function AgentLayout() {
         />
 
         {mobileOpen && (
-          <div className="md:hidden border-b border-wow-secondary/40 bg-white px-4 py-3 space-y-1">
+          <div className="md:hidden border-b border-gray-100 bg-white px-4 py-3 space-y-1">
             {mobileItems.map((item) => {
               const Icon = item.icon;
               const active = location.pathname.startsWith(item.path);
@@ -71,7 +71,7 @@ export default function AgentLayout() {
                   to={item.path}
                   onClick={() => setMobileOpen(false)}
                   className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm ${
-                    active ? 'bg-wow-primary/10 text-wow-primary' : 'text-wow-text'
+                    active ? 'bg-pink-50 text-[#E91E63]' : 'text-gray-800'
                   }`}
                 >
                   <Icon className="w-4 h-4" />

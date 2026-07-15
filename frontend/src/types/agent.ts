@@ -16,6 +16,7 @@ export type AgentDocumentType =
   | 'education_certificate'
   | 'income_proof'
   | 'customer_photo'
+  | 'profile_photo'
   | 'other';
 
 export interface AgentUser {
@@ -58,6 +59,8 @@ export interface AgentCustomer {
   createdAt: string;
   updatedAt: string;
   documents?: AgentDocument[];
+  /** Primary profile image URL from uploaded profile photo */
+  profileImageUrl?: string | null;
 }
 
 export interface AgentNote {

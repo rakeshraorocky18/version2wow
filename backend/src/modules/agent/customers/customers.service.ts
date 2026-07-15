@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { POSTGRES_CONNECTION } from '../../../config/database.constants';
 import { paginate } from '../../../common/utils/pagination';
 import { AgentCustomerEntity } from '../common/entities/agent-customer.entity';
@@ -19,6 +19,7 @@ import {
   getMatchmakingCompletionThreshold,
   isMatchmakingUnlocked,
 } from '../common/utils/profile-completion.util';
+import { resolveProfileImageUrl } from '../common/utils/profile-image.util';
 import { AgentActivityService } from '../activity-log/activity-log.service';
 import {
   CreateAgentCustomerDto,
@@ -53,6 +54,36 @@ export class AgentCustomersService {
     return `WOW-${String(count + 1).padStart(5, '0')}`;
   }
 
+  private async getProfileImageMap(
+    customerIds: string[],
+  ): Promise<Map<string, string | null>> {
+    const map = new Map<string, string | null>();
+    if (!customerIds.length) return map;
+
+    const docs = await this.documentRepo.find({
+      where: {
+        customerId: In(customerIds),
+        type: In([
+          AgentDocumentType.PROFILE_PHOTO,
+          AgentDocumentType.CUSTOMER_PHOTO,
+        ]),
+      },
+      order: { createdAt: 'ASC' },
+    });
+
+    const byCustomer = new Map<string, AgentDocumentEntity[]>();
+    for (const doc of docs) {
+      const list = byCustomer.get(doc.customerId) || [];
+      list.push(doc);
+      byCustomer.set(doc.customerId, list);
+    }
+
+    for (const id of customerIds) {
+      map.set(id, resolveProfileImageUrl(byCustomer.get(id) || []));
+    }
+    return map;
+  }
+
   async create(agentId: string, dto: CreateAgentCustomerDto) {
     const customerCode = await this.generateCustomerCode();
     const customer = this.customerRepo.create({
@@ -73,7 +104,7 @@ export class AgentCustomersService {
       description: `Customer ${saved.firstName} ${saved.lastName ?? ''} (${saved.customerCode}) created`,
     });
 
-    return saved;
+    return { ...saved, profileImageUrl: null };
   }
 
   async list(agentId: string, query: ListCustomersQueryDto) {
@@ -102,7 +133,6 @@ export class AgentCustomersService {
     } else if (sortBy === 'completion') {
       qb.orderBy('c.profileCompletion', sortOrder);
     } else {
-      // default: newest first by createdAt
       qb.orderBy('c.createdAt', sortOrder);
     }
 
@@ -111,10 +141,13 @@ export class AgentCustomersService {
       .take(limit)
       .getManyAndCount();
 
+    const imageMap = await this.getProfileImageMap(rows.map((c) => c.id));
+
     const data = rows.map((c) => ({
       ...c,
       name: [c.firstName, c.lastName].filter(Boolean).join(' ').trim(),
       agentId: c.assignedAgentId,
+      profileImageUrl: imageMap.get(c.id) ?? null,
     }));
 
     return paginate(data, total, page, limit);
@@ -145,6 +178,7 @@ export class AgentCustomersService {
       documents,
       matchCompletionThreshold: threshold,
       matchmakingUnlocked: isMatchmakingUnlocked(customer.profileCompletion ?? 0),
+      profileImageUrl: resolveProfileImageUrl(documents),
     };
   }
 
@@ -177,7 +211,11 @@ export class AgentCustomersService {
       description: `Customer ${saved.customerCode} profile updated`,
     });
 
-    return saved;
+    const imageMap = await this.getProfileImageMap([saved.id]);
+    return {
+      ...saved,
+      profileImageUrl: imageMap.get(saved.id) ?? null,
+    };
   }
 
   async refreshCompletion(customerId: string) {
@@ -478,5 +516,15 @@ export class AgentCustomersService {
       data: profiles,
       total: profiles.length,
     };
+  }
+
+  async attachProfileImageUrls<T extends { id: string }>(
+    customers: T[],
+  ): Promise<(T & { profileImageUrl: string | null })[]> {
+    const imageMap = await this.getProfileImageMap(customers.map((c) => c.id));
+    return customers.map((c) => ({
+      ...c,
+      profileImageUrl: imageMap.get(c.id) ?? null,
+    }));
   }
 }

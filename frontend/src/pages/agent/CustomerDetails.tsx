@@ -13,6 +13,7 @@ import {
 import { agentService } from '../../services/agent/agentService';
 import { useQueryClient } from '@tanstack/react-query';
 import type { AgentDocumentType, AgentNote } from '../../types/agent';
+import { getCustomerProfileImageUrl } from '../../lib/agent/customerAvatar';
 import {
   EmptyState,
   ErrorState,
@@ -20,6 +21,7 @@ import {
   StatusBadge,
   TableSkeleton,
 } from '../../components/agent/AgentUI';
+import CustomerAvatar from '../../components/agent/CustomerAvatar';
 
 const TABS = [
   { id: 'about', label: 'About' },
@@ -42,7 +44,8 @@ const DOC_TYPES: { value: AgentDocumentType; label: string }[] = [
   { value: 'horoscope', label: 'Horoscope' },
   { value: 'education_certificate', label: 'Education Certificate' },
   { value: 'income_proof', label: 'Income Proof' },
-  { value: 'customer_photo', label: 'Customer Photos' },
+  { value: 'customer_photo', label: 'Gallery Photos' },
+  { value: 'profile_photo', label: 'Profile Photo' },
   { value: 'other', label: 'Other' },
 ];
 
@@ -225,10 +228,19 @@ export default function CustomerDetails() {
             <ArrowLeft className="w-4 h-4" /> Back to match workspace
           </Link>
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className="font-display text-3xl text-wow-text">{fullName}</h1>
-            <StatusBadge status={customer.status} />
+            <CustomerAvatar
+              name={fullName}
+              imageUrl={getCustomerProfileImageUrl(customer)}
+              size={64}
+            />
+            <div>
+              <div className="flex flex-wrap items-center gap-3">
+                <h1 className="font-display text-3xl text-wow-text">{fullName}</h1>
+                <StatusBadge status={customer.status} />
+              </div>
+              <p className="text-wow-muted mt-1 font-mono text-sm">{customer.customerCode}</p>
+            </div>
           </div>
-          <p className="text-wow-muted mt-1 font-mono text-sm">{customer.customerCode}</p>
           <div className="mt-4 max-w-sm">
             <ProfileProgress value={customer.profileCompletion} />
           </div>

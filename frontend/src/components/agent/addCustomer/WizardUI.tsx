@@ -4,12 +4,12 @@ import { WIZARD_STEPS } from '../../../types/addCustomer';
 
 export function WizardStepper({ currentStep }: { currentStep: number }) {
   return (
-    <div className="overflow-x-auto pb-2">
-      <div className="flex items-center gap-2 min-w-max">
+    <div className="overflow-x-auto pb-2 -mx-1 px-1">
+      <div className="flex items-center gap-1.5 min-w-max">
         {WIZARD_STEPS.map((step, i) => (
-          <div key={step.id} className="flex items-center gap-2 flex-shrink-0">
+          <div key={step.id} className="flex items-center gap-1.5 flex-shrink-0">
             <div
-              className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-medium transition-all ${
+              className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium transition-all ${
                 i < currentStep
                   ? 'bg-wow-primary text-white'
                   : i === currentStep
@@ -17,22 +17,22 @@ export function WizardStepper({ currentStep }: { currentStep: number }) {
                     : 'bg-gray-100 text-gray-400'
               }`}
             >
-              {i < currentStep ? <Check className="w-4 h-4" /> : <span>{step.icon}</span>}
+              {i < currentStep ? <Check className="w-3.5 h-3.5" /> : <span>{step.icon}</span>}
             </div>
             <span
-              className={`text-sm hidden sm:inline ${
+              className={`text-xs hidden lg:inline ${
                 i === currentStep ? 'text-wow-text font-medium' : 'text-wow-muted'
               }`}
             >
               {step.label}
             </span>
             {i < WIZARD_STEPS.length - 1 && (
-              <div className="w-6 sm:w-10 h-px bg-gray-200 mx-1" />
+              <div className="w-4 lg:w-6 h-px bg-gray-200 mx-0.5" />
             )}
           </div>
         ))}
       </div>
-      <p className="text-sm text-wow-muted mt-3 sm:hidden">
+      <p className="text-sm text-wow-muted mt-3 lg:hidden">
         Step {currentStep + 1} of {WIZARD_STEPS.length}: {WIZARD_STEPS[currentStep]?.title}
       </p>
     </div>
@@ -81,9 +81,9 @@ export function FormField({
 }) {
   return (
     <div className={className}>
-      <label className="text-sm text-wow-muted">
+      <label className="text-sm font-medium text-wow-text">
         {label}
-        {required && <span className="text-red-500 ml-0.5">*</span>}
+        {required && <span className="text-red-500 ml-0.5 font-semibold">*</span>}
       </label>
       <div className="mt-1">{children}</div>
       {error && <p className="text-xs text-red-600 mt-1">{error}</p>}

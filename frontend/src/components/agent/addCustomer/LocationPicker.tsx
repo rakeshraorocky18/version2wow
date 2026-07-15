@@ -20,6 +20,7 @@ interface LocationPickerProps {
   mode?: LocationPickerMode;
   title?: string;
   disabled?: boolean;
+  labelPrefix?: string;
 }
 
 function resolveDisplay(
@@ -36,8 +37,10 @@ export default function LocationPicker({
   mode = 'full',
   title,
   disabled,
+  labelPrefix = '',
 }: LocationPickerProps) {
   const loc = value || emptyLocation();
+  const label = (name: string) => (labelPrefix ? `${labelPrefix} ${name}` : name);
 
   const update = (patch: Partial<LocationFields>) => {
     const next = { ...loc, ...patch };
@@ -93,7 +96,7 @@ export default function LocationPicker({
     <div>
       {title && <h3 className="text-sm font-medium text-wow-text mb-3">{title}</h3>}
       <FormGrid>
-        <FormField label="Country">
+        <FormField label={label('Country')}>
           <SearchableSelect
             value={loc.country}
             onChange={(v) => update({ country: v })}
@@ -104,7 +107,7 @@ export default function LocationPicker({
             otherPlaceholder="Enter country"
           />
         </FormField>
-        <FormField label="State">
+        <FormField label={label('State')}>
           <SearchableSelect
             value={loc.state}
             onChange={(v) => update({ state: v })}
@@ -115,7 +118,7 @@ export default function LocationPicker({
             otherPlaceholder="Enter state"
           />
         </FormField>
-        <FormField label="District">
+        <FormField label={label('District')}>
           <SearchableSelect
             value={loc.district}
             onChange={(v) => update({ district: v })}
@@ -128,7 +131,7 @@ export default function LocationPicker({
         </FormField>
 
         {(mode === 'full' || mode === 'native') && (
-          <FormField label="Mandal / Taluk">
+          <FormField label={label('Mandal / Taluk')}>
             <SearchableSelect
               value={loc.mandal}
               onChange={(v) => update({ mandal: v })}
@@ -141,8 +144,8 @@ export default function LocationPicker({
           </FormField>
         )}
 
-        {mode === 'native' && (
-          <FormField label="Village">
+        {(mode === 'full' || mode === 'native') && (
+          <FormField label={label('Village')}>
             <SearchableSelect
               value={loc.village}
               onChange={(v) => update({ village: v })}
@@ -156,7 +159,7 @@ export default function LocationPicker({
         )}
 
         {(mode === 'full' || mode === 'city' || mode === 'partner') && (
-          <FormField label={mode === 'full' ? 'City / Town' : 'City'}>
+          <FormField label={label('City')}>
             <SearchableSelect
               value={loc.city}
               onChange={(v) => update({ city: v })}
@@ -165,20 +168,6 @@ export default function LocationPicker({
               otherValue={loc.cityOther}
               onOtherChange={(v) => update({ cityOther: v })}
               otherPlaceholder="Enter city"
-            />
-          </FormField>
-        )}
-
-        {mode === 'full' && (
-          <FormField label="Village">
-            <SearchableSelect
-              value={loc.village}
-              onChange={(v) => update({ village: v })}
-              options={villages}
-              disabled={disabled || !loc.mandal}
-              otherValue={loc.villageOther}
-              onOtherChange={(v) => update({ villageOther: v })}
-              otherPlaceholder="Enter village"
             />
           </FormField>
         )}

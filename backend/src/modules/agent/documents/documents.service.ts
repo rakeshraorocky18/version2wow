@@ -34,6 +34,15 @@ export class AgentDocumentsService {
     await this.customersService.findAssignedOrFail(agentId, customerId);
 
     const fileUrl = toPublicUrl(`agent-documents/${file.filename}`);
+
+    // Keep a single primary profile photo — replace previous profile_photo docs
+    if (type === AgentDocumentType.PROFILE_PHOTO) {
+      await this.documentRepo.delete({
+        customerId,
+        type: AgentDocumentType.PROFILE_PHOTO,
+      });
+    }
+
     const doc = await this.documentRepo.save(
       this.documentRepo.create({
         customerId,

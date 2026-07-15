@@ -8,6 +8,7 @@ import { FooterPaginationProvider, useFooterPagination } from '../context/Footer
 import { useReceivedInterests, useShortlist } from '../hooks/useMatchmaking';
 import { useChatSocket } from '../hooks/useChatSocket';
 import api from '../lib/api';
+import WowLogo from './brand/WowLogo';
 import {
   Heart,
   MessageCircle,
@@ -172,22 +173,10 @@ export default function Layout() {
           <div className="flex items-center justify-between h-16 px-4 sm:px-5 lg:px-6">
 
             {/* Logo */}
-            <Link to="/app" className="flex items-center gap-3 group">
-              <motion.span
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.98 }}
-                className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-[#B76E79] to-[#D69BA6] text-white shadow-[0_4px_14px_rgba(183,110,121,0.35)]"
-              >
-                <Heart size={18} fill="currentColor" />
+            <Link to="/app" className="flex items-center group">
+              <motion.span whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }}>
+                <WowLogo variant="header" />
               </motion.span>
-              <div>
-                <span className="text-xl font-display font-bold bg-gradient-to-r from-[#B76E79] to-[#D69BA6] bg-clip-text text-transparent">
-                  WOW
-                </span>
-                <p className="hidden sm:block text-[10px] font-medium text-[#6B6670] -mt-0.5 leading-none">
-                  World of Weddings
-                </p>
-              </div>
             </Link>
 
             {/* Desktop nav */}

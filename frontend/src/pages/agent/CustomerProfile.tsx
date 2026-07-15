@@ -3,12 +3,14 @@ import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, Pencil } from 'lucide-react';
 import { useAgentCustomer } from '../../hooks/agent/useAgent';
 import { displayValue } from '../../lib/agent/addCustomerUtils';
+import { getCustomerProfileImageUrl } from '../../lib/agent/customerAvatar';
 import {
   ErrorState,
   ProfileProgress,
   StatusBadge,
   TableSkeleton,
 } from '../../components/agent/AgentUI';
+import CustomerAvatar from '../../components/agent/CustomerAvatar';
 import { ReviewRow, WizardSection } from '../../components/agent/addCustomer/WizardUI';
 
 function json(customer: Record<string, unknown>, key: string): Record<string, unknown> {
@@ -46,13 +48,7 @@ export default function CustomerProfile() {
   const religion = json(customer as unknown as Record<string, unknown>, 'religionDetails');
   const partner = json(customer as unknown as Record<string, unknown>, 'partnerPreferences');
   const manageUrl = `/agent/customers/${resolvedId}/manage`;
-
-  const initials = fullName
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase();
+  const imageUrl = getCustomerProfileImageUrl(customer);
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
@@ -69,9 +65,7 @@ export default function CustomerProfile() {
       >
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-wow-primary to-wow-primary-light text-white font-semibold flex items-center justify-center text-xl">
-              {initials}
-            </div>
+            <CustomerAvatar name={fullName} imageUrl={imageUrl} size={64} />
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="font-display text-3xl text-wow-text">{fullName}</h1>
