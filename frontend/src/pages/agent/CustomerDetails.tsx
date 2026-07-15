@@ -85,17 +85,18 @@ function Field({
 }
 
 export default function CustomerDetails() {
-  const { id = '' } = useParams();
+  const { customerId = '', id = '' } = useParams();
+  const resolvedId = customerId || id;
   const [searchParams, setSearchParams] = useSearchParams();
   const tab = (searchParams.get('tab') as TabId) || 'about';
   const setTab = (next: TabId) => setSearchParams({ tab: next });
 
   const qc = useQueryClient();
-  const { data: customer, isLoading, isError } = useAgentCustomer(id);
-  const updateCustomer = useUpdateCustomer(id);
-  const { data: notes = [], refetch: refetchNotes } = useAgentNotes(id);
-  const { data: documents = [] } = useAgentDocuments(id);
-  const uploadDoc = useUploadDocument(id);
+  const { data: customer, isLoading, isError } = useAgentCustomer(resolvedId);
+  const updateCustomer = useUpdateCustomer(resolvedId);
+  const { data: notes = [], refetch: refetchNotes } = useAgentNotes(resolvedId);
+  const { data: documents = [] } = useAgentDocuments(resolvedId);
+  const uploadDoc = useUploadDocument(resolvedId);
 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<Record<string, unknown>>({});
@@ -113,12 +114,12 @@ export default function CustomerDetails() {
   }, [customer]);
 
   useEffect(() => {
-    if (tab === 'activity' && id) {
-      agentService.getActivity({ customerId: id, limit: 50 }).then((res) => {
+    if (tab === 'activity' && resolvedId) {
+      agentService.getActivity({ customerId: resolvedId, limit: 50 }).then((res) => {
         setActivities(res.data);
       });
     }
-  }, [tab, id]);
+  }, [tab, resolvedId]);
 
   const fullName = useMemo(
     () => `${customer?.firstName || ''} ${customer?.lastName || ''}`.trim(),
@@ -175,7 +176,7 @@ export default function CustomerDetails() {
         await agentService.updateNote(editingNote.id, noteContent);
         toast.success('Note updated');
       } else {
-        await agentService.addNote(id, noteContent);
+        await agentService.addNote(resolvedId, noteContent);
         toast.success('Note added');
       }
       setNoteContent('');
@@ -218,10 +219,10 @@ export default function CustomerDetails() {
       <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
         <div>
           <Link
-            to={`/agent/customers/${id}`}
+            to={`/agent/customers/${resolvedId}`}
             className="inline-flex items-center gap-1 text-sm text-wow-muted hover:text-wow-primary mb-2"
           >
-            <ArrowLeft className="w-4 h-4" /> Back to profile
+            <ArrowLeft className="w-4 h-4" /> Back to match workspace
           </Link>
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="font-display text-3xl text-wow-text">{fullName}</h1>

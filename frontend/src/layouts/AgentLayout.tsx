@@ -28,8 +28,26 @@ export default function AgentLayout() {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  // Customer context (/agent/customers/:id and nested pages) — hide agent shell
+  // until the agent returns to the portal (e.g. customers list / dashboard).
+  // Keep chrome on /agent/customers and /agent/customers/new.
+  const isCustomerContext =
+    /^\/agent\/customers\/(?!new(?:\/|$))[^/]+(?:\/.*)?$/.test(
+      location.pathname,
+    );
+
   if (!isAuthenticated) {
     return <Navigate to="/agent/login" replace />;
+  }
+
+  if (isCustomerContext) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-[#FFF8F3] via-[#FAF8FB] to-[#F7EBEF]">
+        <main className="min-h-screen overflow-auto p-4 md:p-6 lg:p-8">
+          <Outlet />
+        </main>
+      </div>
+    );
   }
 
   return (

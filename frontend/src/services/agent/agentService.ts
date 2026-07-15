@@ -12,6 +12,12 @@ import type {
   WorksheetTask,
   WorksheetTaskStatus,
 } from '../../types/agent';
+import type {
+  AgentMatchProfile,
+  AgentMatchSearchPayload,
+  AgentMatchSearchResult,
+  AgentRecommendationsResult,
+} from '../../types/agentMatching';
 
 export const agentService = {
   getDashboard: async (): Promise<AgentDashboardStats> => {
@@ -140,5 +146,60 @@ export const agentService = {
   }): Promise<Paginated<ActivityLog>> => {
     const { data } = await agentApi.get('/agent/activity', { params });
     return data;
+  },
+
+  searchCustomerMatches: async (
+    customerId: string,
+    payload: AgentMatchSearchPayload,
+  ): Promise<AgentMatchSearchResult> => {
+    const cleanPayload = Object.fromEntries(
+      Object.entries(payload).filter(([, value]) => {
+        if (value === '' || value === undefined || value === null) return false;
+        if (value === false) return false;
+        return true;
+      }),
+    );
+    const { data } = await agentApi.post(
+      `/agent/customers/${customerId}/matching/search`,
+      cleanPayload,
+    );
+    return data;
+  },
+
+  getCustomerRecommendations: async (
+    customerId: string,
+  ): Promise<AgentRecommendationsResult> => {
+    const { data } = await agentApi.get(
+      `/agent/customers/${customerId}/matching/recommendations`,
+    );
+    return data;
+  },
+
+  getMatchProfile: async (customerId: string, matchedProfileId: string) => {
+    const { data } = await agentApi.get(
+      `/agent/customers/${customerId}/matching/profiles/${matchedProfileId}`,
+    );
+    return data as {
+      viewerCustomerId: string;
+      viewerCustomerName: string;
+      profile: AgentMatchProfile & {
+        personalDetails?: Record<string, unknown>;
+        familyDetails?: Record<string, unknown>;
+        educationDetails?: Record<string, unknown>;
+        religionDetails?: Record<string, unknown>;
+        partnerPreferences?: Record<string, unknown>;
+        email?: string;
+        address?: string;
+        motherTongue?: string;
+        dateOfBirth?: string | null;
+      };
+      documents: Array<{
+        id: string;
+        type: string;
+        fileName: string;
+        fileUrl: string;
+        createdAt: string;
+      }>;
+    };
   },
 };

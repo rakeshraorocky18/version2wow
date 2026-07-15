@@ -51,6 +51,8 @@ export interface AgentCustomer {
   partnerPreferences?: Record<string, unknown>;
   status: AgentCustomerStatus;
   profileCompletion: number;
+  matchCompletionThreshold?: number;
+  matchmakingUnlocked?: boolean;
   assignedAgentId: string;
   createdByAgentId: string;
   createdAt: string;

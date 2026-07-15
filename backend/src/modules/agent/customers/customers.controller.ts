@@ -24,6 +24,7 @@ import {
   ListCustomersQueryDto,
   UpdateAgentCustomerDto,
 } from './dto/customer.dto';
+import { MatchingSearchDto } from './dto/matching.dto';
 
 @ApiTags('Agent Customers')
 @ApiBearerAuth()
@@ -49,6 +50,41 @@ export class AgentCustomersController {
     @Body() dto: CreateAgentCustomerDto,
   ) {
     return this.customersService.create(req.user.id, dto);
+  }
+
+  @Post(':customerId/matching/search')
+  @ApiOperation({ summary: 'Search matching profiles for a customer' })
+  searchMatches(
+    @Req() req: { user: { id: string } },
+    @Param('customerId') customerId: string,
+    @Body() dto: MatchingSearchDto,
+  ) {
+    return this.customersService.searchMatches(req.user.id, customerId, dto);
+  }
+
+  @Get(':customerId/matching/recommendations')
+  @ApiOperation({ summary: 'AI suggested profiles for a customer' })
+  getRecommendations(
+    @Req() req: { user: { id: string } },
+    @Param('customerId') customerId: string,
+  ) {
+    return this.customersService.getRecommendations(req.user.id, customerId);
+  }
+
+  @Get(':customerId/matching/profiles/:matchedProfileId')
+  @ApiOperation({
+    summary: 'Full matched profile detail (platform-wide, for matchmaking)',
+  })
+  getMatchProfile(
+    @Req() req: { user: { id: string } },
+    @Param('customerId') customerId: string,
+    @Param('matchedProfileId') matchedProfileId: string,
+  ) {
+    return this.customersService.getMatchProfile(
+      req.user.id,
+      customerId,
+      matchedProfileId,
+    );
   }
 
   @Get(':id')

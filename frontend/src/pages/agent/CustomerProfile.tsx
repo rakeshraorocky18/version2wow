@@ -32,8 +32,9 @@ function ProfileSection({
 }
 
 export default function CustomerProfile() {
-  const { id = '' } = useParams();
-  const { data: customer, isLoading, isError } = useAgentCustomer(id);
+  const { customerId = '', id = '' } = useParams();
+  const resolvedId = customerId || id;
+  const { data: customer, isLoading, isError } = useAgentCustomer(resolvedId);
 
   if (isLoading) return <TableSkeleton rows={8} />;
   if (isError || !customer) return <ErrorState message="Customer not found." />;
@@ -44,7 +45,7 @@ export default function CustomerProfile() {
   const education = json(customer as unknown as Record<string, unknown>, 'educationDetails');
   const religion = json(customer as unknown as Record<string, unknown>, 'religionDetails');
   const partner = json(customer as unknown as Record<string, unknown>, 'partnerPreferences');
-  const manageUrl = `/agent/customers/${id}/manage`;
+  const manageUrl = `/agent/customers/${resolvedId}/manage`;
 
   const initials = fullName
     .split(' ')
@@ -56,10 +57,10 @@ export default function CustomerProfile() {
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       <Link
-        to="/agent/customers"
+        to={`/agent/customers/${resolvedId}`}
         className="inline-flex items-center gap-1 text-sm text-wow-muted hover:text-wow-primary"
       >
-        <ArrowLeft className="w-4 h-4" /> Back to customers
+        <ArrowLeft className="w-4 h-4" /> Back to match workspace
       </Link>
 
       <div

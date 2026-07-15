@@ -15,49 +15,90 @@ function objectFillRatio(obj: Record<string, unknown> | null | undefined): numbe
   return filled / values.length;
 }
 
+/**
+ * Weighted profile completion (100 total).
+ * Basic 15 · Photo 10 · Education 10 · Occupation 10 · Religion 5 · Caste 5 ·
+ * Family 10 · Partner Prefs 20 · Address 5 · Verification 5 · Documents 10
+ */
 export function calculateProfileCompletion(
   customer: Partial<AgentCustomerEntity>,
   documentCount = 0,
+  hasProfilePhoto = false,
 ): number {
   let score = 0;
+  const personal = (customer.personalDetails || {}) as Record<string, unknown>;
+  const addr = (personal.communicationAddress || {}) as Record<string, unknown>;
 
-  // Personal information (20)
-  const personalFields = [
+  // Basic Details — 15
+  const basicFields = [
     customer.firstName,
     customer.lastName,
     customer.gender,
     customer.dateOfBirth,
-  ];
-  score += (personalFields.filter(hasValue).length / personalFields.length) * 20;
-
-  // Contact (15)
-  const contactFields = [customer.phone, customer.email, customer.address];
-  score += (contactFields.filter(hasValue).length / contactFields.length) * 15;
-
-  // Basic profile (15)
-  const basicFields = [
-    customer.religion,
-    customer.caste,
+    customer.phone,
     customer.motherTongue,
-    customer.occupation,
-    customer.education,
   ];
   score += (basicFields.filter(hasValue).length / basicFields.length) * 15;
 
-  // Family details (15)
-  score += objectFillRatio(customer.familyDetails) * 15;
+  // Profile Photo — 10
+  const photoPresent =
+    hasProfilePhoto ||
+    hasValue(personal.profilePhoto) ||
+    hasValue(personal.photo);
+  score += photoPresent ? 10 : 0;
 
-  // Education details (10)
-  score += objectFillRatio(customer.educationDetails) * 10;
+  // Education — 10
+  const educationRatio = Math.max(
+    objectFillRatio(customer.educationDetails),
+    hasValue(customer.education) ? 0.7 : 0,
+  );
+  score += educationRatio * 10;
 
-  // Religion details (5)
-  score += objectFillRatio(customer.religionDetails) * 5;
+  // Occupation — 10
+  score += hasValue(customer.occupation) ? 10 : 0;
 
-  // Partner preferences (10)
-  score += objectFillRatio(customer.partnerPreferences) * 10;
+  // Religion — 5
+  const religionRatio = Math.max(
+    objectFillRatio(customer.religionDetails),
+    hasValue(customer.religion) ? 0.7 : 0,
+  );
+  score += religionRatio * 5;
 
-  // Documents (10) — at least 2 documents for full credit
+  // Caste — 5
+  score += hasValue(customer.caste) ? 5 : 0;
+
+  // Family Details — 10
+  score += objectFillRatio(customer.familyDetails) * 10;
+
+  // Partner Preferences — 20
+  score += objectFillRatio(customer.partnerPreferences) * 20;
+
+  // Address — 5
+  const addressFilled =
+    hasValue(customer.address) ||
+    hasValue(addr.city) ||
+    hasValue(addr.state) ||
+    hasValue(personal.city);
+  score += addressFilled ? 5 : 0;
+
+  // Verification — 5
+  const verified =
+    Boolean((customer as { isVerified?: boolean }).isVerified) || documentCount >= 2;
+  score += verified ? 5 : documentCount === 1 ? 2 : 0;
+
+  // Documents — 10 (full credit at 2+ docs)
   score += Math.min(documentCount / 2, 1) * 10;
 
   return Math.round(Math.min(score, 100));
+}
+
+/** Minimum completion % required before full matchmaking unlocks. */
+export function getMatchmakingCompletionThreshold(): number {
+  const raw = Number(process.env.AGENT_MATCH_COMPLETION_THRESHOLD || 80);
+  if (!Number.isFinite(raw)) return 80;
+  return Math.min(100, Math.max(0, Math.round(raw)));
+}
+
+export function isMatchmakingUnlocked(profileCompletion: number): boolean {
+  return (profileCompletion ?? 0) >= getMatchmakingCompletionThreshold();
 }

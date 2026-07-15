@@ -7,6 +7,7 @@ import type {
   WorksheetTaskStatus,
   AgentDocumentType,
 } from '../../types/agent';
+import type { AgentMatchSearchPayload } from '../../types/agentMatching';
 
 export const agentKeys = {
   dashboard: ['agent', 'dashboard'] as const,
@@ -19,6 +20,12 @@ export const agentKeys = {
     ['agent', 'worksheet', params] as const,
   activity: (params?: Record<string, unknown>) =>
     ['agent', 'activity', params] as const,
+  matching: (customerId: string, payload?: AgentMatchSearchPayload) =>
+    ['agent', 'matching', customerId, payload] as const,
+  recommendations: (customerId: string) =>
+    ['agent', 'recommendations', customerId] as const,
+  matchProfile: (customerId: string, matchedProfileId: string) =>
+    ['agent', 'matchProfile', customerId, matchedProfileId] as const,
 };
 
 export function useAgentDashboard() {
@@ -169,5 +176,38 @@ export function useAgentActivity(params?: {
   return useQuery({
     queryKey: agentKeys.activity(params),
     queryFn: () => agentService.getActivity(params),
+  });
+}
+
+export function useAgentCustomerMatching(
+  customerId: string,
+  payload: AgentMatchSearchPayload,
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: agentKeys.matching(customerId, payload),
+    queryFn: () => agentService.searchCustomerMatches(customerId, payload),
+    enabled: !!customerId && enabled,
+    placeholderData: (prev) => prev,
+  });
+}
+
+export function useAgentRecommendations(customerId: string, enabled = true) {
+  return useQuery({
+    queryKey: agentKeys.recommendations(customerId),
+    queryFn: () => agentService.getCustomerRecommendations(customerId),
+    enabled: !!customerId && enabled,
+  });
+}
+
+export function useAgentMatchProfile(
+  customerId: string,
+  matchedProfileId: string,
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: agentKeys.matchProfile(customerId, matchedProfileId),
+    queryFn: () => agentService.getMatchProfile(customerId, matchedProfileId),
+    enabled: !!customerId && !!matchedProfileId && enabled,
   });
 }

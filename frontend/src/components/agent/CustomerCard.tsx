@@ -7,6 +7,7 @@ import {
   Phone,
   Mail,
   User,
+  HeartHandshake,
 } from 'lucide-react';
 import type { AgentCustomer } from '../../types/agent';
 import { ProfileProgress, StatusBadge } from './AgentUI';
@@ -21,12 +22,13 @@ export default function CustomerCard({ customer }: { customer: AgentCustomer }) 
     .substring(0, 2)
     .toUpperCase();
 
-  const profileUrl = `/agent/customers/${customer.id}`;
+  const workspaceUrl = `/agent/customers/${customer.id}`;
+  const profileUrl = `/agent/customers/${customer.id}/profile`;
   const manageUrl = `/agent/customers/${customer.id}/manage`;
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
-      <Link to={profileUrl} className="block">
+      <Link to={workspaceUrl} className="block">
         <div className="flex items-center justify-between p-5 border-b">
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 rounded-full bg-pink-500 text-white font-semibold flex items-center justify-center text-lg">
@@ -72,6 +74,13 @@ export default function CustomerCard({ customer }: { customer: AgentCustomer }) 
       </Link>
 
       <div className="border-t p-4 flex justify-around">
+        <Link
+          to={workspaceUrl}
+          className="w-10 h-10 rounded-full bg-pink-50 text-wow-primary hover:bg-pink-500 hover:text-white flex items-center justify-center transition"
+          title="Match workspace"
+        >
+          <HeartHandshake size={18} />
+        </Link>
         <Link
           to={profileUrl}
           className="w-10 h-10 rounded-full bg-gray-100 hover:bg-pink-500 hover:text-white flex items-center justify-center transition"
