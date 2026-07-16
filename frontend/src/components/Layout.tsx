@@ -52,6 +52,7 @@ export default function Layout() {
   const isMatchesPage = location.pathname.startsWith('/app/matches');
   const isDashboardPage = location.pathname === '/app';
   const isChatPage = location.pathname.startsWith('/app/chat');
+  const isClientPage = location.pathname.startsWith('/app/clients/');
   const logout = useAuthStore((state) => state.logout);
   const user = useAuthStore((state) => state.user);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -147,7 +148,8 @@ export default function Layout() {
       <main className="relative z-10 flex flex-1 flex-col w-full px-4 sm:px-6 lg:px-8 py-6">
 
         {/* ── Navbar ─────────────────────────────────────── */}
-        <header
+        {!isClientPage && (
+         <header
           onMouseEnter={() => {
             setIsNavHovered(true);
             setIsNavVisible(true);
@@ -169,7 +171,8 @@ export default function Layout() {
               : ''
             }
           `}
-        >
+          >
+      
           <div className="flex items-center justify-between h-16 px-4 sm:px-5 lg:px-6">
 
             {/* Logo */}
@@ -327,7 +330,7 @@ export default function Layout() {
             </nav>
           )}
         </header>
-
+        )}
         {/* Main content — flex-1 pushes footer to viewport bottom on short pages */}
         <div className="mt-5 flex flex-1 flex-col">
           <FooterPaginationProvider>
@@ -335,7 +338,7 @@ export default function Layout() {
             <div className={`flex-1 ${isChatPage ? 'flex min-h-0 flex-col' : ''}`}>
               <Outlet />
             </div>
-            <AppFooter />
+            {!isClientPage && <AppFooter />}
           </FooterPaginationProvider>
         </div>
       </main>

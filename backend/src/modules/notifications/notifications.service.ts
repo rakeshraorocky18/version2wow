@@ -3,7 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { POSTGRES_CONNECTION } from '../../config/database.constants';
 import { NotificationDeliveryLogEntity } from './entities/notification-delivery-log.entity';
-
+import { Notification } from './entities/notification.entity';
+import { CreateNotificationDto } from './dto/create-notification.dto';
 export interface NotificationPayload {
   userId: string;
   title: string;
@@ -17,6 +18,8 @@ export class NotificationsService {
   constructor(
     @InjectRepository(NotificationDeliveryLogEntity, POSTGRES_CONNECTION)
     private readonly deliveryLogRepo: Repository<NotificationDeliveryLogEntity>,
+    @InjectRepository(Notification, POSTGRES_CONNECTION)
+    private readonly notificationRepository: Repository<Notification>,
   ) {}
 
   async sendNotification(payload: NotificationPayload): Promise<void> {
@@ -79,4 +82,34 @@ export class NotificationsService {
       type: 'reminder',
     });
   }
+
+  async create(dto: CreateNotificationDto) {
+  return await this.notificationRepository.save(dto);
+}
+
+async findAll(userId: number) {
+  return await this.notificationRepository.find({
+    where: {
+      userId,
+    },
+    order: {
+      createdAt: 'DESC',
+    },
+  });
+}
+
+async markAsRead(id: number) {
+  await this.notificationRepository.update(id, {
+    isRead: true,
+  });
+}
+
+async unreadCount(userId: number) {
+  return await this.notificationRepository.count({
+    where: {
+      userId,
+      isRead: false,
+    },
+  });
+}
 }
