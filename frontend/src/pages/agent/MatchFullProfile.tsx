@@ -488,22 +488,28 @@ export default function MatchFullProfile() {
                   : item.id === 'notifications'
                     ? unreadNotifications
                     : 0;
+              const params = new URLSearchParams(searchParams);
+              if (item.id === 'matches') params.delete('section');
+              else params.set('section', item.id);
+              const query = params.toString();
+              const to = `/agent/customers/${customerId}/profile/${matchedProfileId}${query ? `?${query}` : ''}`;
 
               return (
-                <button
+                <Link
                   key={item.id}
-                  type="button"
-                  onClick={() => {
-                    if (item.id === 'favourites' && !activity.favourite) {
-                      handleFavourite();
-                    }
-                    setSection(item.id);
-                  }}
+                  to={to}
                   className={`relative inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium transition ${
                     active
                       ? 'bg-[#FFF0F4] text-wow-primary shadow-sm'
                       : 'text-wow-muted hover:bg-[#FFF5F7] hover:text-wow-primary'
                   }`}
+                  onClick={(event) => {
+                    if (item.id === 'favourites' && !activity.favourite) {
+                      event.preventDefault();
+                      handleFavourite();
+                      setSection(item.id);
+                    }
+                  }}
                 >
                   <Icon className="h-4 w-4" />
                   {item.label}
@@ -512,7 +518,7 @@ export default function MatchFullProfile() {
                       {badge}
                     </span>
                   )}
-                </button>
+                </Link>
               );
             })}
           </nav>
