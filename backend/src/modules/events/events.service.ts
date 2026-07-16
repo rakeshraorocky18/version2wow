@@ -15,7 +15,7 @@ export class EventsService {
     private guestRepository: Repository<GuestEntity>,
   ) {}
 
-  // ─── Events ───
+  // ── Events ──
 
   async createEvent(userId: string, dto: CreateEventDto): Promise<EventEntity> {
     const event = this.eventRepository.create({ userId, ...dto });
@@ -83,7 +83,7 @@ export class EventsService {
     return summary;
   }
 
-  // ─── Guests ───
+  // ── Guests ── 
 
   async addGuest(eventId: string, userId: string, dto: AddGuestDto): Promise<GuestEntity> {
     const event = await this.getEvent(eventId);

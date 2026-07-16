@@ -2,7 +2,6 @@ import { Link } from 'react-router-dom';
 import {
   Users,
   UserCheck,
-  Percent,
   Clock,
   ClipboardList,
   AlertTriangle,
@@ -14,7 +13,6 @@ import { getCustomerProfileImageUrl } from '../../lib/agent/customerAvatar';
 import {
   EmptyState,
   ErrorState,
-  ProfileProgress,
   StatCardSkeleton,
   StatusBadge,
 } from '../../components/agent/AgentUI';
@@ -37,12 +35,6 @@ export default function AgentDashboard() {
       value: data?.activeCustomers ?? 0,
       icon: UserCheck,
       tone: 'from-green-200/60 to-green-50',
-    },
-    {
-      title: 'Profile Completion',
-      value: `${data?.profileCompletionPercentage ?? 0}%`,
-      icon: Percent,
-      tone: 'from-amber-200/60 to-amber-50',
     },
     {
       title: 'Pending Profiles',
@@ -86,7 +78,7 @@ export default function AgentDashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
         {isLoading
           ? Array.from({ length: 6 }).map((_, i) => <StatCardSkeleton key={i} />)
           : stats.map((stat) => {
@@ -131,29 +123,25 @@ export default function AgentDashboard() {
               }
             />
           ) : (
-            <ul className="space-y-3">
+            <ul className="space-y-1">
               {(data?.recentlyAddedCustomers ?? []).map((c) => {
                 const name = `${c.firstName} ${c.lastName || ''}`.trim();
                 return (
                   <li key={c.id}>
                     <Link
                       to={`/agent/customers/${c.id}`}
-                      className="flex items-center justify-between gap-3 p-3 rounded-xl hover:bg-wow-bg transition"
+                      className="flex items-center gap-3 p-3 rounded-xl hover:bg-wow-bg transition"
                     >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <CustomerAvatar
-                          name={name}
-                          imageUrl={getCustomerProfileImageUrl(c)}
-                          size={40}
-                        />
-                        <div className="min-w-0">
-                          <p className="font-medium text-wow-text truncate">{name}</p>
-                          <p className="text-xs text-wow-muted">{c.customerCode}</p>
-                        </div>
+                      <CustomerAvatar
+                        name={name}
+                        imageUrl={getCustomerProfileImageUrl(c)}
+                        size={40}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-wow-text truncate">{name}</p>
+                        <p className="text-xs text-wow-muted">{c.customerCode}</p>
                       </div>
-                      <div className="w-28 flex-shrink-0">
-                        <ProfileProgress value={c.profileCompletion} />
-                      </div>
+                      <ArrowRight className="w-4 h-4 text-wow-muted flex-shrink-0" />
                     </Link>
                   </li>
                 );
