@@ -21,6 +21,7 @@ import {
   UserRound,
   X,
 } from 'lucide-react';
+import { getPhotoUrl } from '../../lib/profileUtils';
 import type { ReactNode } from 'react';
 import {
   useAgentCustomerAction,
@@ -147,7 +148,7 @@ function MatchCard({
       <div className="grid gap-0 lg:grid-cols-[220px_1fr]">
         <div className="relative min-h-[220px] bg-gradient-to-br from-[#FFF0F4] to-[#F7EBEF]">
           {profile.profilePhoto ? (
-            <img src={profile.profilePhoto} alt={name} className="h-full w-full object-cover" />
+            <img src={getPhotoUrl(profile.profilePhoto || '')} alt={name} className="h-full w-full object-cover" />
           ) : (
             <div className="flex h-full min-h-[220px] items-center justify-center">
               <ProfileAvatar name={name} size="h-24 w-24 text-2xl" />

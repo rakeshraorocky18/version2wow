@@ -21,6 +21,7 @@ import {
   UserRound,
 } from 'lucide-react';
 import { useAgentCustomerAction, useAgentMatchProfile } from '../../hooks/agent/useAgent';
+import { getPhotoUrl } from '../../lib/profileUtils';
 import { displayValue } from '../../lib/agent/addCustomerUtils';
 import CompatibilityBadge from '../../components/agent/matching/CompatibilityBadge';
 import {
@@ -527,7 +528,7 @@ export default function MatchFullProfile() {
           <div className="relative min-h-[280px] bg-gradient-to-br from-[#FFF0F4] to-[#F7EBEF]">
             {profile.profilePhoto ? (
               <img
-                src={profile.profilePhoto}
+                src={getPhotoUrl(profile.profilePhoto || '')}
                 alt={name}
                 className="h-full w-full object-cover"
               />
@@ -833,7 +834,7 @@ export default function MatchFullProfile() {
               >
                 <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-[#FFF0F4] text-wow-primary">
                   {profile.profilePhoto ? (
-                    <img src={profile.profilePhoto} alt="" className="h-full w-full object-cover" />
+                    <img src={getPhotoUrl(profile.profilePhoto || '')} alt="" className="h-full w-full object-cover" />
                   ) : (
                     initials || <MessageCircle className="h-5 w-5" />
                   )}
@@ -1059,7 +1060,7 @@ export default function MatchFullProfile() {
             <div className="flex flex-col gap-4 rounded-2xl border border-[#F6DDE7] bg-[#FFFBFC] p-4 sm:flex-row sm:items-center">
               <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#FFF0F4] text-wow-primary">
                 {profile.profilePhoto ? (
-                  <img src={profile.profilePhoto} alt={name} className="h-full w-full object-cover" />
+                  <img src={getPhotoUrl(profile.profilePhoto || '')} alt={name} className="h-full w-full object-cover" />
                 ) : (
                   initials || <UserRound className="h-6 w-6" />
                 )}
