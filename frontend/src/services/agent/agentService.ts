@@ -19,6 +19,106 @@ import type {
   AgentRecommendationsResult,
 } from '../../types/agentMatching';
 
+export type AgentRelationshipStatus =
+  | 'none'
+  | 'recommended'
+  | 'pending_sent'
+  | 'pending_received'
+  | 'accepted'
+  | 'declined'
+  | 'withdrawn'
+  | 'blocked'
+  | 'ignored';
+
+export type AgentCustomerWorkspaceProfile = AgentMatchProfile & {
+  relationshipId?: string | null;
+  relationshipStatus?: AgentRelationshipStatus;
+  favourite?: boolean;
+  shortlisted?: boolean;
+  blocked?: boolean;
+  ignored?: boolean;
+  accepted?: boolean;
+  notesCount?: number;
+};
+
+export type AgentCustomerWorkspace = {
+  customer: AgentCustomer & {
+    profileImageUrl?: string | null;
+    matchCompletionThreshold?: number;
+    matchmakingUnlocked?: boolean;
+  };
+  stats: {
+    matchCount: number;
+    pendingRequests: number;
+    acceptedMatches: number;
+  };
+};
+
+export type AgentCustomerHistoryCard = {
+  relationship: {
+    id: string;
+    status: AgentRelationshipStatus;
+    favourite: boolean;
+    shortlisted: boolean;
+    blocked: boolean;
+    ignored: boolean;
+    notes?: Array<{ id: string; content: string; createdAt: string }>;
+    updatedAt: string;
+  };
+  profile: AgentCustomer & {
+    name: string;
+    profileImageUrl?: string | null;
+  };
+};
+
+export type AgentCustomerHistory = {
+  friends: AgentCustomerHistoryCard[];
+  requestsReceived: AgentCustomerHistoryCard[];
+  requestsSent: AgentCustomerHistoryCard[];
+  shortlisted: AgentCustomerHistoryCard[];
+  blocked: AgentCustomerHistoryCard[];
+  declined: AgentCustomerHistoryCard[];
+};
+
+export type AgentCustomerNotification = {
+  id: string;
+  title: string;
+  body: string;
+  type: string;
+  status: string;
+  data?: Record<string, unknown> | null;
+  createdAt: string;
+};
+
+export type AgentCustomerChatContact = {
+  userId: string;
+  name: string;
+  subtitle: string;
+  onlineStatus: boolean;
+  unreadCount: number;
+};
+
+export type AgentCustomerChatMessage = {
+  id?: string;
+  _id?: string;
+  senderId: string;
+  receiverId: string;
+  content: string;
+  type?: string;
+  mediaUrl?: string;
+  isRead?: boolean;
+  createdAt?: string;
+};
+
+export type AgentCustomerChat = {
+  contacts: AgentCustomerChatContact[];
+  activeProfileId?: string;
+  messages: {
+    messages: AgentCustomerChatMessage[];
+    total: number;
+  };
+};
+
 export const agentService = {
   getDashboard: async (): Promise<AgentDashboardStats> => {
     const { data } = await agentApi.get('/agent/dashboard');
@@ -192,6 +292,13 @@ export const agentService = {
         address?: string;
         motherTongue?: string;
         dateOfBirth?: string | null;
+        relationshipId?: string | null;
+        relationshipStatus?: AgentRelationshipStatus | 'none';
+        favourite?: boolean;
+        shortlisted?: boolean;
+        blocked?: boolean;
+        ignored?: boolean;
+        accepted?: boolean;
       };
       documents: Array<{
         id: string;
@@ -201,5 +308,99 @@ export const agentService = {
         createdAt: string;
       }>;
     };
+  },
+
+  getCustomerWorkspace: async (
+    customerId: string,
+  ): Promise<AgentCustomerWorkspace> => {
+    const { data } = await agentApi.get(`/agent/customers/${customerId}/workspace`);
+    return data;
+  },
+
+  getCustomerMatches: async (
+    customerId: string,
+    params: AgentMatchSearchPayload,
+  ): Promise<AgentMatchSearchResult & { data: AgentCustomerWorkspaceProfile[] }> => {
+    const { data } = await agentApi.get(`/agent/customers/${customerId}/matches`, {
+      params,
+    });
+    return data;
+  },
+
+  getCustomerHistory: async (
+    customerId: string,
+  ): Promise<AgentCustomerHistory> => {
+    const { data } = await agentApi.get(`/agent/customers/${customerId}/history`);
+    return data;
+  },
+
+  getCustomerNotifications: async (
+    customerId: string,
+    params?: { page?: number; limit?: number },
+  ): Promise<Paginated<AgentCustomerNotification>> => {
+    const { data } = await agentApi.get(`/agent/customers/${customerId}/notifications`, {
+      params,
+    });
+    return data;
+  },
+
+  markCustomerNotificationsRead: async (
+    customerId: string,
+    notificationId?: string,
+  ): Promise<{ success: boolean }> => {
+    const { data } = await agentApi.post(`/agent/customers/${customerId}/notifications/read`, {
+      notificationId,
+    });
+    return data;
+  },
+
+  getCustomerChat: async (
+    customerId: string,
+    params?: { profileId?: string; page?: number; limit?: number },
+  ): Promise<AgentCustomerChat> => {
+    const { data } = await agentApi.get(`/agent/customers/${customerId}/chat`, {
+      params,
+    });
+    return data;
+  },
+
+  sendCustomerChatMessage: async (
+    customerId: string,
+    payload: { receiverId: string; content: string; type?: string; mediaUrl?: string },
+  ): Promise<AgentCustomerChatMessage> => {
+    const { data } = await agentApi.post(`/agent/customers/${customerId}/chat/messages`, payload);
+    return data;
+  },
+
+  customerProfileAction: async (
+    customerId: string,
+    action:
+      | 'send-interest'
+      | 'accept-interest'
+      | 'decline-interest'
+      | 'withdraw-interest'
+      | 'favourite'
+      | 'shortlist'
+      | 'block'
+      | 'unblock'
+      | 'ignore',
+    profileId: string,
+  ) => {
+    const { data } = await agentApi.post(`/agent/customers/${customerId}/${action}`, {
+      profileId,
+    });
+    return data;
+  },
+
+  addCustomerProfileNote: async (
+    customerId: string,
+    profileId: string,
+    content: string,
+  ) => {
+    const { data } = await agentApi.post(`/agent/customers/${customerId}/notes`, {
+      profileId,
+      content,
+    });
+    return data;
   },
 };

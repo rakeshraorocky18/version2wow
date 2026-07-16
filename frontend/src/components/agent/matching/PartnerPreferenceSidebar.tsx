@@ -10,6 +10,8 @@ interface Props {
   onSaveSearch: () => void;
   isApplying?: boolean;
   className?: string;
+  compactDropdowns?: boolean;
+  hideActions?: boolean;
 }
 
 const inputClass =
@@ -35,6 +37,44 @@ function Group({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
+const dropdownOptions: Partial<Record<keyof AgentMatchFilters, string[]>> = {
+  religion: ['Hindu', 'Muslim', 'Christian', 'Sikh', 'Jain', 'Buddhist', 'Other'],
+  caste: ['Reddy', 'Kamma', 'Kapu', 'Brahmin', 'Vysya', 'Naidu', 'Yadav', 'Other'],
+  subCaste: ['Any', 'Other'],
+  minAge: Array.from({ length: 43 }, (_, i) => String(18 + i)),
+  maxAge: Array.from({ length: 43 }, (_, i) => String(18 + i)),
+  minHeight: ['140', '145', '150', '155', '160', '165', '170', '175', '180'],
+  maxHeight: ['150', '155', '160', '165', '170', '175', '180', '185', '190'],
+  maritalStatus: ['Never Married', 'Divorced', 'Widowed'],
+  country: ['India', 'United States', 'United Kingdom', 'Canada', 'Australia', 'Other'],
+  state: ['Andhra Pradesh', 'Telangana', 'Karnataka', 'Tamil Nadu', 'Maharashtra', 'Other'],
+  city: ['Hyderabad', 'Vijayawada', 'Bengaluru', 'Chennai', 'Mumbai', 'Pune', 'Other'],
+  occupation: ['Software Engineer', 'Doctor', 'Business', 'Government Job', 'Teacher', 'Other'],
+  annualIncome: ['0-5 LPA', '5-10 LPA', '10-20 LPA', '20-50 LPA', '50 LPA+'],
+  familyStatus: ['Middle Class', 'Upper Middle Class', 'Rich'],
+  familyType: ['Joint', 'Nuclear'],
+  horoscope: ['Required', 'Not Required', 'Matching', 'Rasi Match', 'Star Match'],
+};
+
+const compactFilterFields: Array<{ key: keyof AgentMatchFilters; label: string; half?: boolean }> = [
+  { key: 'religion', label: 'Religion' },
+  { key: 'caste', label: 'Caste' },
+  { key: 'subCaste', label: 'Sub Caste' },
+  { key: 'minAge', label: 'Min Age', half: true },
+  { key: 'maxAge', label: 'Max Age', half: true },
+  { key: 'minHeight', label: 'Min Height', half: true },
+  { key: 'maxHeight', label: 'Max Height', half: true },
+  { key: 'maritalStatus', label: 'Marital Status' },
+  { key: 'country', label: 'Country' },
+  { key: 'state', label: 'State' },
+  { key: 'city', label: 'City' },
+  { key: 'occupation', label: 'Profession' },
+  { key: 'annualIncome', label: 'Income' },
+  { key: 'familyStatus', label: 'Family Status' },
+  { key: 'familyType', label: 'Family Type' },
+  { key: 'horoscope', label: 'Horoscope' },
+];
+
 export default function PartnerPreferenceSidebar({
   filters,
   onChange,
@@ -43,10 +83,71 @@ export default function PartnerPreferenceSidebar({
   onSaveSearch,
   isApplying,
   className = '',
+  compactDropdowns = false,
+  hideActions = false,
 }: Props) {
   const set = <K extends keyof AgentMatchFilters>(key: K, value: AgentMatchFilters[K]) => {
     onChange({ ...filters, [key]: value });
   };
+
+  if (compactDropdowns) {
+    return (
+      <aside
+        className={`flex w-full flex-col overflow-hidden rounded-[22px] border border-gray-100 bg-white lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:w-[300px] lg:shrink-0 ${className}`}
+        style={{ boxShadow: '0 14px 36px rgba(44, 38, 48, 0.08)' }}
+        aria-label="Partner preference filters"
+      >
+        <div className="border-b border-gray-100 bg-gradient-to-r from-[#FFF5F7] to-white px-4 py-4">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-wow-primary/10 text-wow-primary">
+                <SlidersHorizontal className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="text-sm font-semibold text-wow-text">Filters</h2>
+                <p className="mt-0.5 text-[11px] text-wow-muted">
+                  Auto fetches when selected
+                </p>
+              </div>
+            </div>
+            {isApplying && <span className="text-[11px] text-wow-primary">Fetching...</span>}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 overflow-y-auto p-4">
+          {compactFilterFields.map(({ key, label, half }) => (
+            <div key={key} className={half ? '' : 'col-span-2'}>
+              <Field label={label}>
+                <select
+                  className={inputClass}
+                  value={String(filters[key] || '')}
+                  onChange={(e) => set(key, e.target.value as AgentMatchFilters[typeof key])}
+                >
+                  <option value="">Any</option>
+                  {(dropdownOptions[key] || []).map((option) => (
+                    <option key={option} value={option === 'Any' ? '' : option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            </div>
+          ))}
+        </div>
+
+        <div className="border-t border-gray-100 p-4">
+          <button
+            type="button"
+            onClick={onReset}
+            className="inline-flex w-full items-center justify-center gap-1.5 rounded-2xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium transition hover:bg-gray-50"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            Reset Filters
+          </button>
+        </div>
+      </aside>
+    );
+  }
 
   return (
     <aside
@@ -208,7 +309,7 @@ export default function PartnerPreferenceSidebar({
         </div>
       </div>
 
-      <div className="space-y-2.5 border-t border-gray-100 p-5">
+      {!hideActions && <div className="space-y-2.5 border-t border-gray-100 p-5">
         <button
           type="button"
           onClick={onApply}
@@ -236,7 +337,7 @@ export default function PartnerPreferenceSidebar({
             Save
           </button>
         </div>
-      </div>
+      </div>}
     </aside>
   );
 }

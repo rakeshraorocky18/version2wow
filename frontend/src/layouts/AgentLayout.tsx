@@ -9,7 +9,6 @@ import {
   Settings,
   LogOut,
 } from 'lucide-react';
-import AgentSidebar from '../components/agent/AgentSidebar';
 import AgentHeader from '../components/agent/AgentHeader';
 import { useAgentAuthStore } from '../store/agent/agentAuthStore';
 
@@ -51,10 +50,8 @@ export default function AgentLayout() {
   }
 
   return (
-    <div className="flex min-h-screen bg-[#F8F9FB]">
-      <AgentSidebar />
-
-      <div className="flex-1 flex flex-col min-w-0">
+    <div className="min-h-screen bg-[#F8F9FB]">
+      <div className="flex min-h-screen flex-col">
         <AgentHeader
           mobileOpen={mobileOpen}
           onToggleMobileNav={() => setMobileOpen((v) => !v)}
@@ -92,7 +89,7 @@ export default function AgentLayout() {
           </div>
         )}
 
-        <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-auto">
+        <main className="mx-auto w-full max-w-7xl flex-1 overflow-auto p-4 md:p-6 lg:p-8">
           <Outlet />
         </main>
       </div>

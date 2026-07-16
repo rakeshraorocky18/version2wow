@@ -1,4 +1,4 @@
-import type { CreateCustomerPayload } from '../../types/agent';
+import type { AgentCustomer, CreateCustomerPayload } from '../../types/agent';
 import type {
   AddCustomerFormState,
   AddressFields,
@@ -9,6 +9,8 @@ import type {
 } from '../../types/addCustomer';
 import { PROPERTY_TYPE_CONFIG } from '../../types/addCustomer';
 import { OTHER_VALUE } from '../../lib/agent/formOptions';
+import { createEmptyForm } from '../../types/addCustomer';
+import { getCustomerProfileImageUrl } from './customerAvatar';
 
 export function calculateAge(dateOfBirth: string): string {
   if (!dateOfBirth) return '';
@@ -134,7 +136,6 @@ export function buildCreatePayload(form: AddCustomerFormState): CreateCustomerPa
     age: calculateAge(form.dateOfBirth),
     birthPlace: form.personalDetails.birthPlace,
     nativePlace: form.personalDetails.nativePlace,
-    settledPlace: form.personalDetails.settledPlace,
   };
 
   const payload: CreateCustomerPayload = {
@@ -189,6 +190,65 @@ export function buildCreatePayload(form: AddCustomerFormState): CreateCustomerPa
   return payload;
 }
 
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function pickString(value: unknown): string {
+  return typeof value === 'string' ? value : '';
+}
+
+export function formFromAgentCustomer(customer: AgentCustomer): AddCustomerFormState {
+  const empty = createEmptyForm();
+  const personalDetails = {
+    ...empty.personalDetails,
+    ...asRecord(customer.personalDetails),
+  };
+  const familyDetails = {
+    ...empty.familyDetails,
+    ...asRecord(customer.familyDetails),
+  };
+  const educationDetails = {
+    ...empty.educationDetails,
+    ...asRecord(customer.educationDetails),
+  };
+  const religionDetails = {
+    ...empty.religionDetails,
+    ...asRecord(customer.religionDetails),
+  };
+  const partnerPreferences = {
+    ...empty.partnerPreferences,
+    ...asRecord(customer.partnerPreferences),
+  };
+
+  return {
+    ...empty,
+    firstName: customer.firstName || '',
+    lastName: customer.lastName || '',
+    gender: customer.gender || '',
+    dateOfBirth: customer.dateOfBirth ? customer.dateOfBirth.slice(0, 10) : '',
+    phone: customer.phone || '',
+    email: customer.email || '',
+    address: customer.address || '',
+    religion: customer.religion || pickString(religionDetails.religion),
+    caste: customer.caste || pickString(religionDetails.caste),
+    motherTongue: customer.motherTongue || pickString(personalDetails.motherTongue),
+    occupation: customer.occupation || pickString(educationDetails.employmentType),
+    education: customer.education || pickString(educationDetails.education),
+    status: customer.status,
+    personalDetails,
+    familyDetails,
+    educationDetails,
+    religionDetails,
+    partnerPreferences,
+    existingProfilePhotoUrl: getCustomerProfileImageUrl(customer),
+    profilePhoto: null,
+    pendingDocuments: [],
+  };
+}
+
 export function validateStep(
   step: WizardStepId,
   form: AddCustomerFormState,
@@ -220,16 +280,15 @@ export function validateStep(
       errors.email = 'Please enter a valid email address.';
     }
 
-    if (!form.profilePhoto) errors.profilePhoto = 'Profile photo is required';
+    if (!form.profilePhoto && !form.existingProfilePhotoUrl) {
+      errors.profilePhoto = 'Profile photo is required';
+    }
   }
 
-  if (step === 3) {
-    const addr = (form.personalDetails.communicationAddress as AddressFields) || ({} as AddressFields);
-    if (!hasAddressContent(addr)) {
-      errors.address = 'Address is required';
-    }
-    if (addr.pinCode?.trim() && !isValidPinCode(addr.pinCode)) {
-      errors.pinCode = 'Please enter a valid 6-digit pin code.';
+  if (step === 2) {
+    const hasHoroscope = ((form.personalDetails.hasHoroscope as string) || '').toLowerCase();
+    if (hasHoroscope === 'yes' && !((form.personalDetails.rasi as string) || '').trim()) {
+      errors.rasi = 'Rashi is required when horoscope is available';
     }
   }
 

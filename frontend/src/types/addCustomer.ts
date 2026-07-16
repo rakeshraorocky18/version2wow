@@ -40,6 +40,7 @@ export interface SiblingEntry {
   name: string;
   age: string;
   maritalStatus: string;
+  spouseName: string;
   qualification: string;
   profession: string;
 }
@@ -168,49 +169,6 @@ export const PROPERTY_TYPE_CONFIG: PropertyTypeConfig[] = [
     ],
   },
   {
-    id: 'farm_house',
-    label: 'Farm House',
-    fields: [
-      { key: 'location', label: 'Location' },
-      { key: 'area', label: 'Area (Acres)', type: 'number' },
-      { key: 'estimatedValue', label: 'Estimated Value' },
-      { key: 'ownership', label: 'Ownership', type: 'select' },
-      { key: 'remarks', label: 'Remarks', fullWidth: true },
-    ],
-  },
-  {
-    id: 'vehicle',
-    label: 'Vehicle',
-    fields: [
-      { key: 'vehicleType', label: 'Vehicle Type', placeholder: 'Car, Bike, etc.' },
-      { key: 'makeModel', label: 'Make / Model' },
-      { key: 'estimatedValue', label: 'Estimated Value' },
-      { key: 'ownership', label: 'Ownership', type: 'select' },
-      { key: 'remarks', label: 'Remarks', fullWidth: true },
-    ],
-  },
-  {
-    id: 'gold',
-    label: 'Gold / Jewellery',
-    fields: [
-      { key: 'description', label: 'Description' },
-      { key: 'weight', label: 'Weight (grams)', type: 'number' },
-      { key: 'estimatedValue', label: 'Estimated Value' },
-      { key: 'ownership', label: 'Ownership', type: 'select' },
-      { key: 'remarks', label: 'Remarks', fullWidth: true },
-    ],
-  },
-  {
-    id: 'investments',
-    label: 'Investments',
-    fields: [
-      { key: 'investmentType', label: 'Investment Type', placeholder: 'Stocks, FD, etc.' },
-      { key: 'estimatedValue', label: 'Estimated Value' },
-      { key: 'ownership', label: 'Ownership', type: 'select' },
-      { key: 'remarks', label: 'Remarks', fullWidth: true },
-    ],
-  },
-  {
     id: 'other',
     label: 'Other',
     fields: [
@@ -248,19 +206,19 @@ export interface AddCustomerFormState {
   partnerPreferences: Record<string, unknown>;
   sameAsCommunication: boolean;
   profilePhoto: File | null;
+  existingProfilePhotoUrl?: string | null;
   pendingDocuments: PendingDocument[];
 }
 
 export const WIZARD_STEPS = [
   { id: 0, label: 'Personal', icon: '👤', title: 'Personal Details' },
-  { id: 1, label: 'Horoscope', icon: '✨', title: 'Horoscope Details' },
-  { id: 2, label: 'Relationship', icon: '💍', title: 'Relationship Status' },
-  { id: 3, label: 'Location', icon: '📍', title: 'Location Details' },
+  { id: 1, label: 'Religion', icon: '🛕', title: 'Religion Details' },
+  { id: 2, label: 'Horoscope', icon: '✨', title: 'Horoscope Details' },
+  { id: 3, label: 'Relationship', icon: '💍', title: 'Relationship Status' },
   { id: 4, label: 'Family', icon: '👨‍👩‍👧', title: 'Family Details' },
   { id: 5, label: 'Career', icon: '💼', title: 'Education & Career' },
   { id: 6, label: 'Partner', icon: '❤️', title: 'Partner Preferences' },
-  { id: 7, label: 'Documents', icon: '📄', title: 'Documents' },
-  { id: 8, label: 'Review', icon: '✓', title: 'Review & Submit' },
+  { id: 7, label: 'Photos', icon: '📷', title: 'Photos & Submit' },
 ] as const;
 
 export type WizardStepId = (typeof WIZARD_STEPS)[number]['id'];
@@ -314,6 +272,7 @@ export function createEmptySibling(): SiblingEntry {
     name: '',
     age: '',
     maritalStatus: '',
+    spouseName: '',
     qualification: '',
     profession: '',
   };
@@ -371,7 +330,6 @@ export function createEmptyForm(): AddCustomerFormState {
       about: '',
       birthPlace: emptyLocation(),
       nativePlace: emptyLocation(),
-      settledPlace: emptyLocation(),
       communicationAddress: emptyAddress(),
       registration: {
         registrationDate: new Date().toISOString().split('T')[0],
@@ -384,10 +342,12 @@ export function createEmptyForm(): AddCustomerFormState {
     },
     familyDetails: {
       fatherName: '',
+      fatherLifeStatus: 'alive',
       fatherAge: '',
       fatherQualification: '',
       fatherProfession: '',
       motherName: '',
+      motherLifeStatus: 'alive',
       motherAge: '',
       motherQualification: '',
       motherProfession: '',
@@ -400,10 +360,17 @@ export function createEmptyForm(): AddCustomerFormState {
     educationDetails: {
       institution: '',
       education: '',
+      collegeName: '',
+      collegePlace: '',
       company: '',
+      employmentType: '',
       designation: '',
+      role: '',
+      salary: '',
       officeName: '',
       businessName: '',
+      businessIncome: '',
+      businessLocation: '',
       workLocation: '',
     },
     religionDetails: {
@@ -426,6 +393,7 @@ export function createEmptyForm(): AddCustomerFormState {
     },
     sameAsCommunication: false,
     profilePhoto: null,
+    existingProfilePhotoUrl: null,
     pendingDocuments: [],
   };
 }

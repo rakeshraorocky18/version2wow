@@ -26,6 +26,16 @@ export const agentKeys = {
     ['agent', 'recommendations', customerId] as const,
   matchProfile: (customerId: string, matchedProfileId: string) =>
     ['agent', 'matchProfile', customerId, matchedProfileId] as const,
+  customerWorkspace: (customerId: string) =>
+    ['agent', 'customerWorkspace', customerId] as const,
+  customerWorkspaceMatches: (customerId: string, payload?: AgentMatchSearchPayload) =>
+    ['agent', 'customerWorkspaceMatches', customerId, payload] as const,
+  customerHistory: (customerId: string) =>
+    ['agent', 'customerHistory', customerId] as const,
+  customerNotifications: (customerId: string, params?: Record<string, unknown>) =>
+    ['agent', 'customerNotifications', customerId, params] as const,
+  customerChat: (customerId: string, params?: Record<string, unknown>) =>
+    ['agent', 'customerChat', customerId, params] as const,
 };
 
 export function useAgentDashboard() {
@@ -209,5 +219,114 @@ export function useAgentMatchProfile(
     queryKey: agentKeys.matchProfile(customerId, matchedProfileId),
     queryFn: () => agentService.getMatchProfile(customerId, matchedProfileId),
     enabled: !!customerId && !!matchedProfileId && enabled,
+  });
+}
+
+export function useAgentCustomerWorkspace(customerId: string) {
+  return useQuery({
+    queryKey: agentKeys.customerWorkspace(customerId),
+    queryFn: () => agentService.getCustomerWorkspace(customerId),
+    enabled: !!customerId,
+  });
+}
+
+export function useAgentCustomerWorkspaceMatches(
+  customerId: string,
+  payload: AgentMatchSearchPayload,
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: agentKeys.customerWorkspaceMatches(customerId, payload),
+    queryFn: () => agentService.getCustomerMatches(customerId, payload),
+    enabled: !!customerId && enabled,
+    placeholderData: (prev) => prev,
+  });
+}
+
+export function useAgentCustomerHistory(customerId: string, enabled = true) {
+  return useQuery({
+    queryKey: agentKeys.customerHistory(customerId),
+    queryFn: () => agentService.getCustomerHistory(customerId),
+    enabled: !!customerId && enabled,
+  });
+}
+
+export function useAgentCustomerNotifications(
+  customerId: string,
+  params?: { page?: number; limit?: number },
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: agentKeys.customerNotifications(customerId, params),
+    queryFn: () => agentService.getCustomerNotifications(customerId, params),
+    enabled: !!customerId && enabled,
+    refetchInterval: enabled ? 30_000 : false,
+  });
+}
+
+export function useAgentCustomerChat(
+  customerId: string,
+  params?: { profileId?: string; page?: number; limit?: number },
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: agentKeys.customerChat(customerId, params),
+    queryFn: () => agentService.getCustomerChat(customerId, params),
+    enabled: !!customerId && enabled,
+    refetchInterval: enabled ? 5_000 : false,
+  });
+}
+
+export function useAgentCustomerAction(customerId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      action,
+      profileId,
+      content,
+    }: {
+      action:
+        | 'send-interest'
+        | 'accept-interest'
+        | 'decline-interest'
+        | 'withdraw-interest'
+        | 'favourite'
+        | 'shortlist'
+        | 'block'
+        | 'unblock'
+        | 'ignore'
+        | 'notes'
+        | 'mark-notifications-read';
+      profileId?: string;
+      content?: string;
+    }) => {
+      if (action === 'notes') {
+        return agentService.addCustomerProfileNote(customerId, profileId || '', content || '');
+      }
+      if (action === 'mark-notifications-read') {
+        return agentService.markCustomerNotificationsRead(customerId, profileId);
+      }
+      return agentService.customerProfileAction(customerId, action, profileId || '');
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: agentKeys.customerWorkspace(customerId) });
+      qc.invalidateQueries({ queryKey: ['agent', 'customerWorkspaceMatches', customerId] });
+      qc.invalidateQueries({ queryKey: agentKeys.recommendations(customerId) });
+      qc.invalidateQueries({ queryKey: agentKeys.customerHistory(customerId) });
+      qc.invalidateQueries({ queryKey: ['agent', 'customerNotifications', customerId] });
+      qc.invalidateQueries({ queryKey: ['agent', 'customerChat', customerId] });
+    },
+  });
+}
+
+export function useSendAgentCustomerChatMessage(customerId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: { receiverId: string; content: string; type?: string; mediaUrl?: string }) =>
+      agentService.sendCustomerChatMessage(customerId, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['agent', 'customerChat', customerId] });
+      qc.invalidateQueries({ queryKey: ['agent', 'customerNotifications', customerId] });
+    },
   });
 }

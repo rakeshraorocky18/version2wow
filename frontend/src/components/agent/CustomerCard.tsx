@@ -2,8 +2,6 @@ import { Link } from 'react-router-dom';
 import {
   Eye,
   Pencil,
-  StickyNote,
-  FileText,
   Phone,
   Mail,
   User,
@@ -20,7 +18,7 @@ export default function CustomerCard({ customer }: { customer: AgentCustomer }) 
 
   const workspaceUrl = `/agent/customers/${customer.id}`;
   const profileUrl = `/agent/customers/${customer.id}/profile`;
-  const manageUrl = `/agent/customers/${customer.id}/manage`;
+  const editUrl = `/agent/customers/${customer.id}/edit`;
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
@@ -67,7 +65,7 @@ export default function CustomerCard({ customer }: { customer: AgentCustomer }) 
         </div>
       </Link>
 
-      <div className="border-t p-4 flex justify-around">
+      <div className="border-t p-4 flex justify-center gap-5">
         <Link
           to={workspaceUrl}
           className="w-10 h-10 rounded-full bg-pink-50 text-wow-primary hover:bg-pink-500 hover:text-white flex items-center justify-center transition"
@@ -83,25 +81,11 @@ export default function CustomerCard({ customer }: { customer: AgentCustomer }) 
           <Eye size={18} />
         </Link>
         <Link
-          to={`${manageUrl}?tab=personal`}
+          to={editUrl}
           className="w-10 h-10 rounded-full bg-gray-100 hover:bg-pink-500 hover:text-white flex items-center justify-center transition"
-          title="Edit personal details"
+          title="Edit customer"
         >
           <Pencil size={18} />
-        </Link>
-        <Link
-          to={`${manageUrl}?tab=notes`}
-          className="w-10 h-10 rounded-full bg-gray-100 hover:bg-pink-500 hover:text-white flex items-center justify-center transition"
-          title="Notes"
-        >
-          <StickyNote size={18} />
-        </Link>
-        <Link
-          to={`${manageUrl}?tab=documents`}
-          className="w-10 h-10 rounded-full bg-gray-100 hover:bg-pink-500 hover:text-white flex items-center justify-center transition"
-          title="Documents"
-        >
-          <FileText size={18} />
         </Link>
       </div>
     </div>

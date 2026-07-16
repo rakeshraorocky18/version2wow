@@ -87,7 +87,7 @@ export default function LocationPicker({
   };
 
   const states = getStates(loc.country);
-  const districts = getDistricts(loc.state);
+  const districts = getDistricts(loc.country, loc.state);
   const mandals = getMandals(loc.district);
   const villages = getVillages(loc.mandal);
   const cities = getCities(loc.district);

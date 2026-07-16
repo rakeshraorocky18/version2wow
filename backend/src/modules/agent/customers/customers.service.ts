@@ -1,14 +1,29 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
-import { POSTGRES_CONNECTION } from '../../../config/database.constants';
+import {
+  POSTGRES_CONNECTION,
+  SQLITE_CONNECTION,
+} from '../../../config/database.constants';
 import { paginate } from '../../../common/utils/pagination';
 import { AgentCustomerEntity } from '../common/entities/agent-customer.entity';
 import { AgentDocumentEntity } from '../common/entities/agent-document.entity';
+import {
+  AgentCustomerMatchEntity,
+  AgentCustomerMatchStatus,
+} from '../common/entities/agent-customer-match.entity';
+import { NotificationDeliveryLogEntity } from '../../notifications/entities/notification-delivery-log.entity';
+import { Match } from '../../matchmaking/entities/match.entity';
+import { MatchStatus } from '../../../common/enums';
+import { Neo4jService } from '../../../neo4j/neo4j.service';
+import { ChatServiceMongodb } from '../../chat/chat.service.mongodb';
+import { NotificationsService } from '../../notifications/notifications.service';
+import { SendMessageDto } from '../../chat/dto/chat.dto';
 import {
   AgentActivityAction,
   AgentCustomerStatus,
@@ -27,6 +42,10 @@ import {
   UpdateAgentCustomerDto,
 } from './dto/customer.dto';
 import { MatchingSearchDto } from './dto/matching.dto';
+import {
+  CustomerChatQueryDto,
+  CustomerNotificationQueryDto,
+} from './dto/customer-workspace.dto';
 import { computeCompatibility } from './compatibility.engine';
 import {
   asRecord,
@@ -46,7 +65,16 @@ export class AgentCustomersService {
     private readonly customerRepo: Repository<AgentCustomerEntity>,
     @InjectRepository(AgentDocumentEntity, POSTGRES_CONNECTION)
     private readonly documentRepo: Repository<AgentDocumentEntity>,
+    @InjectRepository(AgentCustomerMatchEntity, POSTGRES_CONNECTION)
+    private readonly customerMatchRepo: Repository<AgentCustomerMatchEntity>,
+    @InjectRepository(NotificationDeliveryLogEntity, POSTGRES_CONNECTION)
+    private readonly notificationRepo: Repository<NotificationDeliveryLogEntity>,
+    @InjectRepository(Match, SQLITE_CONNECTION)
+    private readonly matchRepo: Repository<Match>,
     private readonly activityService: AgentActivityService,
+    private readonly neo4jService: Neo4jService,
+    private readonly chatService: ChatServiceMongodb,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   private async generateCustomerCode(): Promise<string> {
@@ -268,6 +296,39 @@ export class AgentCustomersService {
     return { candidates, docsByCustomer };
   }
 
+  private async getHiddenCandidateIds(customerId: string, candidateIds: string[]) {
+    if (!candidateIds.length) return new Set<string>();
+
+    const hiddenStatuses = [
+      AgentCustomerMatchStatus.ACCEPTED,
+      AgentCustomerMatchStatus.PENDING_SENT,
+      AgentCustomerMatchStatus.PENDING_RECEIVED,
+      AgentCustomerMatchStatus.BLOCKED,
+      AgentCustomerMatchStatus.IGNORED,
+      AgentCustomerMatchStatus.DECLINED,
+      AgentCustomerMatchStatus.WITHDRAWN,
+    ];
+
+    const relationships = await this.customerMatchRepo.find({
+      where: [
+        { customerId, profileId: In(candidateIds) },
+        { customerId: In(candidateIds), profileId: customerId },
+      ],
+    });
+
+    const hiddenProfileIds = new Set<string>();
+    for (const relationship of relationships) {
+      if (!hiddenStatuses.includes(relationship.status)) continue;
+      if (relationship.customerId === customerId) {
+        hiddenProfileIds.add(relationship.profileId);
+      } else if (relationship.profileId === customerId) {
+        hiddenProfileIds.add(relationship.customerId);
+      }
+    }
+
+    return hiddenProfileIds;
+  }
+
   async searchMatches(agentId: string, customerId: string, dto: MatchingSearchDto) {
     const customer = await this.findAssignedOrFail(agentId, customerId);
     const page = Number(dto.page) || 1;
@@ -394,6 +455,9 @@ export class AgentCustomersService {
       })
       .filter((p): p is NonNullable<typeof p> => p != null);
 
+    const hiddenProfileIds = await this.getHiddenCandidateIds(customerId, profiles.map((profile) => profile.id));
+    profiles = profiles.filter((profile) => profile.id !== customer.id && !hiddenProfileIds.has(profile.id));
+
     const sortBy = dto.sortBy || 'compatibility';
     profiles.sort((a, b) => {
       if (sortBy === 'newest') {
@@ -444,12 +508,23 @@ export class AgentCustomersService {
       where: { customerId: matchedProfileId },
       order: { createdAt: 'DESC' },
     });
-    const photo =
-      documents.find((d) => d.type === AgentDocumentType.CUSTOMER_PHOTO)?.fileUrl ||
-      documents[0]?.fileUrl ||
-      null;
+    const photo = resolveProfileImageUrl(documents);
     const compatibility = computeCompatibility(candidate, viewer, documents.length);
     const profile = toMatchProfile(candidate, photo, documents.length, compatibility);
+    const relationships = await this.customerMatchRepo.find({
+      where: [
+        { customerId, profileId: matchedProfileId },
+        { customerId: matchedProfileId, profileId: customerId },
+      ],
+    });
+    const relationship =
+      relationships.find((row) => row.status === AgentCustomerMatchStatus.ACCEPTED) ||
+      relationships.find((row) => row.customerId === customerId) ||
+      relationships[0];
+    const viewerRelationship =
+      relationship?.customerId === customerId
+        ? relationship
+        : relationships.find((row) => row.customerId === customerId);
 
     return {
       viewerCustomerId: customerId,
@@ -468,6 +543,13 @@ export class AgentCustomersService {
         address: candidate.address ?? '',
         motherTongue: candidate.motherTongue ?? '',
         dateOfBirth: candidate.dateOfBirth ?? null,
+        relationshipId: relationship?.id ?? null,
+        relationshipStatus: relationship?.status ?? 'none',
+        favourite: viewerRelationship?.favourite ?? false,
+        shortlisted: viewerRelationship?.shortlisted ?? false,
+        blocked: relationship?.blocked ?? false,
+        ignored: relationship?.ignored ?? false,
+        accepted: relationship?.status === AgentCustomerMatchStatus.ACCEPTED,
       },
       documents: documents.map((d) => ({
         id: d.id,
@@ -487,7 +569,13 @@ export class AgentCustomersService {
       customer.gender,
     );
 
+    const hiddenProfileIds = await this.getHiddenCandidateIds(
+      customerId,
+      candidates.map((candidate) => candidate.id),
+    );
+
     const profiles = candidates
+      .filter((candidate) => candidate.id !== customer.id && !hiddenProfileIds.has(candidate.id))
       .map((candidate) => {
         const customerDocs = docsByCustomer.get(candidate.id) || [];
         const photo =
@@ -516,6 +604,489 @@ export class AgentCustomersService {
       data: profiles,
       total: profiles.length,
     };
+  }
+
+  private async findCandidateOrFail(profileId: string) {
+    const candidate = await this.customerRepo.findOne({ where: { id: profileId } });
+    if (!candidate) throw new NotFoundException('Match profile not found');
+    return candidate;
+  }
+
+  private relationshipKey(customerId: string, profileId: string) {
+    return { customerId, profileId };
+  }
+
+  private async getOrCreateRelationship(params: {
+    agentId: string;
+    customerId: string;
+    profileId: string;
+    compatibilityScore?: number | null;
+  }) {
+    let row = await this.customerMatchRepo.findOne({
+      where: this.relationshipKey(params.customerId, params.profileId),
+    });
+    if (row) return row;
+
+    row = this.customerMatchRepo.create({
+      agentId: params.agentId,
+      customerId: params.customerId,
+      profileId: params.profileId,
+      status: AgentCustomerMatchStatus.RECOMMENDED,
+      compatibilityScore: params.compatibilityScore ?? null,
+      lastActionAt: new Date(),
+    });
+    return this.customerMatchRepo.save(row);
+  }
+
+  private async ensureSqliteMatch(
+    senderId: string,
+    receiverId: string,
+    status: MatchStatus,
+    compatibilityScore?: number | null,
+    message?: string,
+  ) {
+    const rows = await this.matchRepo.find({
+      where: [{ senderId }, { receiverId: senderId }],
+    });
+    let match =
+      rows.find(
+        (row) =>
+          (row.senderId === senderId && row.receiverId === receiverId) ||
+          (row.senderId === receiverId && row.receiverId === senderId),
+      ) || null;
+
+    if (!match) {
+      match = this.matchRepo.create({
+        senderId,
+        receiverId,
+        status,
+        compatibilityScore: compatibilityScore ?? undefined,
+        message,
+      });
+    } else {
+      match.senderId = senderId;
+      match.receiverId = receiverId;
+      match.status = status;
+      match.compatibilityScore = compatibilityScore ?? match.compatibilityScore;
+      if (message) match.message = message;
+    }
+
+    return this.matchRepo.save(match);
+  }
+
+  private async notifyCustomer(
+    customerId: string,
+    title: string,
+    body: string,
+    type: 'match' | 'message' | 'booking' | 'reminder' | 'system' = 'match',
+    data?: Record<string, unknown>,
+  ) {
+    await this.notificationsService.sendNotification({
+      userId: customerId,
+      title,
+      body,
+      type,
+      data: { customerId, ...(data || {}) },
+    });
+  }
+
+  private async overlayRelationships(customerId: string, profiles: Array<Record<string, unknown>>) {
+    if (!profiles.length) return profiles;
+    const rows = await this.customerMatchRepo.find({
+      where: { customerId },
+    });
+    const byProfile = new Map(rows.map((row) => [row.profileId, row]));
+    return profiles.map((profile) => {
+      const rel = byProfile.get(String(profile.id));
+      return {
+        ...profile,
+        relationshipId: rel?.id ?? null,
+        relationshipStatus: rel?.status ?? 'none',
+        favourite: rel?.favourite ?? false,
+        shortlisted: rel?.shortlisted ?? false,
+        blocked: rel?.blocked ?? false,
+        ignored: rel?.ignored ?? false,
+        notesCount: rel?.notes?.length ?? 0,
+        accepted: rel?.status === AgentCustomerMatchStatus.ACCEPTED,
+      };
+    });
+  }
+
+  async getWorkspace(agentId: string, customerId: string) {
+    const customer = await this.getOne(agentId, customerId);
+    const rows = await this.customerMatchRepo.find({ where: { customerId } });
+    const matchCount = rows.filter(
+      (row) =>
+        row.status !== AgentCustomerMatchStatus.BLOCKED &&
+        row.status !== AgentCustomerMatchStatus.IGNORED,
+    ).length;
+    const pendingRequests = rows.filter(
+      (row) =>
+        row.status === AgentCustomerMatchStatus.PENDING_RECEIVED ||
+        row.status === AgentCustomerMatchStatus.PENDING_SENT,
+    ).length;
+    const acceptedMatches = rows.filter(
+      (row) => row.status === AgentCustomerMatchStatus.ACCEPTED,
+    ).length;
+
+    return {
+      customer,
+      stats: {
+        matchCount,
+        pendingRequests,
+        acceptedMatches,
+      },
+    };
+  }
+
+  async getCustomerMatches(
+    agentId: string,
+    customerId: string,
+    query: MatchingSearchDto,
+  ) {
+    const result = await this.searchMatches(agentId, customerId, query);
+    return {
+      ...result,
+      data: await this.overlayRelationships(
+        customerId,
+        result.data as unknown as Array<Record<string, unknown>>,
+      ),
+    };
+  }
+
+  async sendInterest(agentId: string, customerId: string, profileId: string) {
+    const customer = await this.findAssignedOrFail(agentId, customerId);
+    const profile = await this.findCandidateOrFail(profileId);
+    if (customer.id === profile.id) throw new BadRequestException('Cannot send interest to same customer');
+
+    const compatibility = computeCompatibility(profile, customer, 0);
+    const relationship = await this.getOrCreateRelationship({
+      agentId,
+      customerId,
+      profileId,
+      compatibilityScore: compatibility.score,
+    });
+
+    if (
+      relationship.status === AgentCustomerMatchStatus.PENDING_SENT ||
+      relationship.status === AgentCustomerMatchStatus.PENDING_RECEIVED ||
+      relationship.status === AgentCustomerMatchStatus.ACCEPTED
+    ) {
+      return relationship;
+    }
+
+    relationship.status = AgentCustomerMatchStatus.PENDING_SENT;
+    relationship.compatibilityScore = compatibility.score;
+    relationship.shortlisted = false;
+    relationship.lastActionAt = new Date();
+    const saved = await this.customerMatchRepo.save(relationship);
+
+    const reverse = await this.getOrCreateRelationship({
+      agentId: profile.assignedAgentId,
+      customerId: profileId,
+      profileId: customerId,
+      compatibilityScore: compatibility.score,
+    });
+    reverse.status = AgentCustomerMatchStatus.PENDING_RECEIVED;
+    reverse.compatibilityScore = compatibility.score;
+    reverse.shortlisted = false;
+    reverse.lastActionAt = new Date();
+    await this.customerMatchRepo.save(reverse);
+
+    const sqliteMatch = await this.ensureSqliteMatch(
+      customerId,
+      profileId,
+      MatchStatus.PENDING,
+      compatibility.score,
+    );
+    if (this.neo4jService.isEnabled()) {
+      await this.neo4jService.upsertUserNode({ id: customerId, gender: customer.gender, profileCompleted: true });
+      await this.neo4jService.upsertUserNode({ id: profileId, gender: profile.gender, profileCompleted: true });
+      await this.neo4jService.sendInterest({
+        matchId: sqliteMatch.id,
+        senderId: customerId,
+        receiverId: profileId,
+        compatibilityScore: compatibility.score,
+      });
+    }
+
+    await this.notifyCustomer(profileId, 'Interest Request Received', `${customer.firstName} sent an interest request.`, 'match', {
+      profileId: customerId,
+      matchId: saved.id,
+    });
+    return saved;
+  }
+
+  async acceptInterest(agentId: string, customerId: string, profileId: string) {
+    await this.findAssignedOrFail(agentId, customerId);
+    const profile = await this.findCandidateOrFail(profileId);
+    const relationship = await this.getOrCreateRelationship({ agentId, customerId, profileId });
+    relationship.status = AgentCustomerMatchStatus.ACCEPTED;
+    relationship.blocked = false;
+    relationship.ignored = false;
+    relationship.shortlisted = false;
+    relationship.lastActionAt = new Date();
+    const saved = await this.customerMatchRepo.save(relationship);
+
+    const reverse = await this.getOrCreateRelationship({
+      agentId: profile.assignedAgentId,
+      customerId: profileId,
+      profileId: customerId,
+    });
+    reverse.status = AgentCustomerMatchStatus.ACCEPTED;
+    reverse.blocked = false;
+    reverse.ignored = false;
+    reverse.shortlisted = false;
+    reverse.lastActionAt = new Date();
+    await this.customerMatchRepo.save(reverse);
+
+    const sqliteMatch = await this.ensureSqliteMatch(
+      profileId,
+      customerId,
+      MatchStatus.ACCEPTED,
+      relationship.compatibilityScore,
+    );
+    if (this.neo4jService.isEnabled()) {
+      await this.neo4jService.upsertUserNode({ id: customerId, profileCompleted: true });
+      await this.neo4jService.upsertUserNode({ id: profileId, profileCompleted: true });
+      await this.neo4jService.acceptInterest(sqliteMatch.id, customerId);
+    }
+
+    await this.notifyCustomer(profileId, 'Interest Accepted', 'Your interest request was accepted.', 'match', {
+      profileId: customerId,
+      matchId: saved.id,
+    });
+    return saved;
+  }
+
+  async declineInterest(agentId: string, customerId: string, profileId: string) {
+    await this.findAssignedOrFail(agentId, customerId);
+    const relationship = await this.getOrCreateRelationship({ agentId, customerId, profileId });
+    relationship.status = AgentCustomerMatchStatus.DECLINED;
+    relationship.shortlisted = false;
+    relationship.lastActionAt = new Date();
+    const saved = await this.customerMatchRepo.save(relationship);
+    await this.ensureSqliteMatch(profileId, customerId, MatchStatus.REJECTED, relationship.compatibilityScore);
+    await this.notifyCustomer(profileId, 'Interest Declined', 'Your interest request was declined.', 'match', {
+      profileId: customerId,
+      matchId: saved.id,
+    });
+    return saved;
+  }
+
+  async withdrawInterest(agentId: string, customerId: string, profileId: string) {
+    await this.findAssignedOrFail(agentId, customerId);
+    const relationship = await this.getOrCreateRelationship({ agentId, customerId, profileId });
+    relationship.status = AgentCustomerMatchStatus.WITHDRAWN;
+    relationship.shortlisted = false;
+    relationship.lastActionAt = new Date();
+    return this.customerMatchRepo.save(relationship);
+  }
+
+  async toggleFavourite(agentId: string, customerId: string, profileId: string) {
+    await this.findAssignedOrFail(agentId, customerId);
+    await this.findCandidateOrFail(profileId);
+    const relationship = await this.getOrCreateRelationship({ agentId, customerId, profileId });
+    relationship.favourite = !relationship.favourite;
+    relationship.lastActionAt = new Date();
+    const saved = await this.customerMatchRepo.save(relationship);
+    await this.notifyCustomer(customerId, relationship.favourite ? 'Favourite Added' : 'Favourite Removed', 'Favourite profile list updated.', 'system', {
+      profileId,
+    });
+    return saved;
+  }
+
+  async toggleShortlist(agentId: string, customerId: string, profileId: string) {
+    await this.findAssignedOrFail(agentId, customerId);
+    await this.findCandidateOrFail(profileId);
+    const relationship = await this.getOrCreateRelationship({ agentId, customerId, profileId });
+    relationship.shortlisted = !relationship.shortlisted;
+    relationship.lastActionAt = new Date();
+    const saved = await this.customerMatchRepo.save(relationship);
+    if (this.neo4jService.isEnabled()) {
+      if (relationship.shortlisted) {
+        await this.neo4jService.shortlistUser(customerId, profileId, profileId);
+      } else {
+        await this.neo4jService.removeShortlist(customerId, profileId);
+      }
+    }
+    await this.notifyCustomer(customerId, relationship.shortlisted ? 'Profile Shortlisted' : 'Shortlist Removed', 'Shortlisted profile list updated.', 'system', {
+      profileId,
+    });
+    return saved;
+  }
+
+  async blockProfile(agentId: string, customerId: string, profileId: string) {
+    await this.findAssignedOrFail(agentId, customerId);
+    const relationship = await this.getOrCreateRelationship({ agentId, customerId, profileId });
+    relationship.status = AgentCustomerMatchStatus.BLOCKED;
+    relationship.blocked = true;
+    relationship.shortlisted = false;
+    relationship.lastActionAt = new Date();
+    const saved = await this.customerMatchRepo.save(relationship);
+    await this.ensureSqliteMatch(customerId, profileId, MatchStatus.BLOCKED, relationship.compatibilityScore);
+    if (this.neo4jService.isEnabled()) await this.neo4jService.blockUser(customerId, profileId, saved.id);
+    return saved;
+  }
+
+  async unblockProfile(agentId: string, customerId: string, profileId: string) {
+    await this.findAssignedOrFail(agentId, customerId);
+    const relationship = await this.getOrCreateRelationship({ agentId, customerId, profileId });
+    relationship.status = AgentCustomerMatchStatus.RECOMMENDED;
+    relationship.blocked = false;
+    relationship.lastActionAt = new Date();
+    const saved = await this.customerMatchRepo.save(relationship);
+    if (this.neo4jService.isEnabled()) await this.neo4jService.unblockUser(customerId, profileId);
+    return saved;
+  }
+
+  async ignoreProfile(agentId: string, customerId: string, profileId: string) {
+    await this.findAssignedOrFail(agentId, customerId);
+    const relationship = await this.getOrCreateRelationship({ agentId, customerId, profileId });
+    relationship.status = AgentCustomerMatchStatus.IGNORED;
+    relationship.ignored = true;
+    relationship.lastActionAt = new Date();
+    const saved = await this.customerMatchRepo.save(relationship);
+    if (this.neo4jService.isEnabled()) await this.neo4jService.ignoreUser(customerId, profileId);
+    return saved;
+  }
+
+  async addProfileNote(agentId: string, customerId: string, profileId: string, content: string) {
+    await this.findAssignedOrFail(agentId, customerId);
+    await this.findCandidateOrFail(profileId);
+    const relationship = await this.getOrCreateRelationship({ agentId, customerId, profileId });
+    const now = new Date().toISOString();
+    relationship.notes = [
+      ...(relationship.notes || []),
+      {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        content,
+        createdAt: now,
+      },
+    ];
+    relationship.lastActionAt = new Date();
+    return this.customerMatchRepo.save(relationship);
+  }
+
+  async getHistory(agentId: string, customerId: string) {
+    await this.findAssignedOrFail(agentId, customerId);
+    const rows = await this.customerMatchRepo.find({
+      where: { customerId },
+      order: { updatedAt: 'DESC' },
+    });
+    const profileIds = [...new Set(rows.map((row) => row.profileId))];
+    const profiles = profileIds.length
+      ? await this.customerRepo.find({ where: { id: In(profileIds) } })
+      : [];
+    const imageMap = await this.getProfileImageMap(profileIds);
+    const byId = new Map(profiles.map((profile) => [profile.id, profile]));
+
+    const toCard = (row: AgentCustomerMatchEntity) => {
+      const profile = byId.get(row.profileId);
+      if (!profile) return null;
+      return {
+        relationship: row,
+        profile: {
+          ...profile,
+          name: [profile.firstName, profile.lastName].filter(Boolean).join(' ').trim(),
+          profileImageUrl: imageMap.get(profile.id) ?? null,
+        },
+      };
+    };
+
+    const cards = rows.map(toCard).filter(Boolean);
+    return {
+      friends: cards.filter((card) => card!.relationship.status === AgentCustomerMatchStatus.ACCEPTED),
+      requestsReceived: cards.filter((card) => card!.relationship.status === AgentCustomerMatchStatus.PENDING_RECEIVED),
+      requestsSent: cards.filter((card) => card!.relationship.status === AgentCustomerMatchStatus.PENDING_SENT),
+      shortlisted: cards.filter((card) =>
+        card!.relationship.shortlisted &&
+        card!.relationship.status === AgentCustomerMatchStatus.RECOMMENDED,
+      ),
+      blocked: cards.filter((card) => card!.relationship.blocked || card!.relationship.status === AgentCustomerMatchStatus.BLOCKED),
+      declined: cards.filter((card) =>
+        [AgentCustomerMatchStatus.DECLINED, AgentCustomerMatchStatus.WITHDRAWN, AgentCustomerMatchStatus.IGNORED].includes(
+          card!.relationship.status,
+        ),
+      ),
+    };
+  }
+
+  async getNotifications(
+    agentId: string,
+    customerId: string,
+    query: CustomerNotificationQueryDto,
+  ) {
+    await this.findAssignedOrFail(agentId, customerId);
+    const page = Number(query.page) || 1;
+    const limit = Math.min(Number(query.limit) || 20, 100);
+    const [rows, total] = await this.notificationRepo.findAndCount({
+      where: { userId: customerId },
+      order: { createdAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+    return paginate(rows, total, page, limit);
+  }
+
+  async markNotificationsRead(agentId: string, customerId: string, notificationId?: string) {
+    await this.findAssignedOrFail(agentId, customerId);
+    const where = notificationId ? { id: notificationId, userId: customerId } : { userId: customerId };
+    await this.notificationRepo.update(where, { status: 'read' });
+    return { success: true };
+  }
+
+  async getChat(agentId: string, customerId: string, query: CustomerChatQueryDto) {
+    await this.findAssignedOrFail(agentId, customerId);
+    const accepted = await this.customerMatchRepo.find({
+      where: { customerId, status: AgentCustomerMatchStatus.ACCEPTED },
+      order: { updatedAt: 'DESC' },
+    });
+    const contacts = await Promise.all(
+      accepted.map(async (row) => {
+        const profile = await this.findCandidateOrFail(row.profileId);
+        const unread = await this.chatService.getUnreadCount(customerId);
+        return {
+          userId: row.profileId,
+          name: [profile.firstName, profile.lastName].filter(Boolean).join(' ').trim(),
+          subtitle: 'Accepted match',
+          onlineStatus: Date.now() - new Date(profile.updatedAt).getTime() < 24 * 60 * 60 * 1000,
+          unreadCount: unread,
+        };
+      }),
+    );
+
+    const activeProfileId = query.profileId || contacts[0]?.userId;
+    const messages = activeProfileId
+      ? await this.chatService.getMessages(customerId, activeProfileId, query.page, query.limit)
+      : { messages: [], total: 0 };
+
+    return {
+      contacts,
+      activeProfileId,
+      messages,
+    };
+  }
+
+  async sendChatMessage(
+    agentId: string,
+    customerId: string,
+    dto: SendMessageDto,
+  ) {
+    await this.findAssignedOrFail(agentId, customerId);
+    const relationship = await this.customerMatchRepo.findOne({
+      where: {
+        customerId,
+        profileId: dto.receiverId,
+        status: AgentCustomerMatchStatus.ACCEPTED,
+      },
+    });
+    if (!relationship) throw new BadRequestException('Only accepted matches can chat');
+    const message = await this.chatService.sendMessage(customerId, dto);
+    await this.notifyCustomer(dto.receiverId, 'New Chat Message', 'You have a new message.', 'message', {
+      profileId: customerId,
+    });
+    return message;
   }
 
   async attachProfileImageUrls<T extends { id: string }>(

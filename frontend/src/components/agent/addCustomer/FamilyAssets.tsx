@@ -13,20 +13,20 @@ interface FamilyAssetsProps {
 export default function FamilyAssets({ value, onChange, errors }: FamilyAssetsProps) {
   const selectedTypes = value.selectedTypes || [];
 
-  const toggleType = (typeId: PropertyTypeId, checked: boolean) => {
-    const nextSelected = checked
-      ? [...selectedTypes, typeId]
-      : selectedTypes.filter((t) => t !== typeId);
-
+  const addType = (typeId: PropertyTypeId) => {
+    if (!typeId || selectedTypes.includes(typeId)) return;
     const nextEntries = { ...value.entries };
-    if (checked && (!nextEntries[typeId] || nextEntries[typeId].length === 0)) {
-      nextEntries[typeId] = [createEmptyPropertyEntry()];
-    }
-    if (!checked) {
-      delete nextEntries[typeId];
-    }
+    nextEntries[typeId] = [createEmptyPropertyEntry()];
+    onChange({ selectedTypes: [...selectedTypes, typeId], entries: nextEntries });
+  };
 
-    onChange({ selectedTypes: nextSelected, entries: nextEntries });
+  const removeType = (typeId: PropertyTypeId) => {
+    const nextEntries = { ...value.entries };
+    delete nextEntries[typeId];
+    onChange({
+      selectedTypes: selectedTypes.filter((t) => t !== typeId),
+      entries: nextEntries,
+    });
   };
 
   const updateEntry = (
@@ -62,28 +62,19 @@ export default function FamilyAssets({ value, onChange, errors }: FamilyAssetsPr
           <p className="text-xs text-red-600 mb-3">{errors.familyAssets}</p>
         )}
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {PROPERTY_TYPE_CONFIG.map((type) => {
-            const checked = selectedTypes.includes(type.id);
-            return (
-              <label
-                key={type.id}
-                className={`flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 ${
-                  checked
-                    ? 'border-wow-primary bg-wow-primary/5 shadow-sm'
-                    : 'border-gray-100 hover:border-wow-primary/30 hover:bg-wow-bg/40'
-                }`}
-              >
-                <input
-                  type="checkbox"
-                  checked={checked}
-                  onChange={(e) => toggleType(type.id, e.target.checked)}
-                  className="rounded border-gray-300 text-wow-primary focus:ring-wow-primary"
-                />
-                <span className="text-sm font-medium text-wow-text">{type.label}</span>
-              </label>
-            );
-          })}
+        <div>
+          <select
+            className="input-field"
+            value=""
+            onChange={(e) => addType(e.target.value as PropertyTypeId)}
+          >
+            <option value="">Select house or plot type to add</option>
+            {PROPERTY_TYPE_CONFIG.filter((type) => !selectedTypes.includes(type.id)).map((type) => (
+              <option key={type.id} value={type.id}>
+                {type.label}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -98,6 +89,13 @@ export default function FamilyAssets({ value, onChange, errors }: FamilyAssetsPr
             className="rounded-[20px] border border-gray-100 p-5 bg-wow-bg/30 transition-all duration-200"
           >
             <h4 className="font-medium text-wow-text mb-4">{config.label}</h4>
+            <button
+              type="button"
+              className="mb-4 text-xs text-red-500 hover:underline"
+              onClick={() => removeType(typeId)}
+            >
+              Remove {config.label}
+            </button>
 
             <div className="space-y-4">
               {entries.map((entry, index) => (

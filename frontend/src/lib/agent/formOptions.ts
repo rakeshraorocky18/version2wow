@@ -1,3 +1,12 @@
+import {
+  RELIGION_OPTIONS as PROFILE_RELIGION_OPTIONS,
+  getCastesForReligion,
+  getSubCastesForCaste,
+} from '../religionCasteOptions';
+
+const toOptions = (values: readonly string[] | string[]) =>
+  values.map((value) => ({ value, label: value }));
+
 export const GENDER_OPTIONS = [
   { value: 'male', label: 'Male' },
   { value: 'female', label: 'Female' },
@@ -22,38 +31,15 @@ export const BLOOD_GROUP_OPTIONS = [
   { value: 'O-', label: 'O-' },
 ];
 
-export const RELIGION_OPTIONS = [
-  { value: 'hindu', label: 'Hindu' },
-  { value: 'muslim', label: 'Muslim' },
-  { value: 'christian', label: 'Christian' },
-  { value: 'sikh', label: 'Sikh' },
-  { value: 'jain', label: 'Jain' },
-  { value: 'buddhist', label: 'Buddhist' },
-  { value: 'other', label: 'Other' },
-];
-
-export const CASTE_OPTIONS = [
-  { value: 'brahmin', label: 'Brahmin' },
-  { value: 'kshatriya', label: 'Kshatriya' },
-  { value: 'vaishya', label: 'Vaishya' },
-  { value: 'reddy', label: 'Reddy' },
-  { value: 'kamma', label: 'Kamma' },
-  { value: 'kapu', label: 'Kapu' },
-  { value: 'velama', label: 'Velama' },
-  { value: 'padmashali', label: 'Padmashali' },
-  { value: 'sc', label: 'SC' },
-  { value: 'st', label: 'ST' },
-  { value: 'bc', label: 'BC' },
-  { value: 'other', label: 'Other' },
-];
-
-export const SUB_CASTE_OPTIONS = [
-  { value: 'iyengar', label: 'Iyengar' },
-  { value: 'iyer', label: 'Iyer' },
-  { value: 'niyogi', label: 'Niyogi' },
-  { value: 'vadama', label: 'Vadama' },
-  { value: 'other', label: 'Other' },
-];
+export const RELIGION_OPTIONS = toOptions(PROFILE_RELIGION_OPTIONS);
+export const CASTE_OPTIONS = toOptions(getCastesForReligion('Hindu'));
+export const SUB_CASTE_OPTIONS = toOptions([
+  ...new Set(getCastesForReligion('Hindu').flatMap((caste) => getSubCastesForCaste(caste))),
+]);
+export const getCasteOptionsForReligion = (religion: string) =>
+  toOptions(getCastesForReligion(religion));
+export const getSubCasteOptionsForCaste = (caste: string) =>
+  toOptions(getSubCastesForCaste(caste));
 
 export const MOTHER_TONGUE_OPTIONS = [
   { value: 'telugu', label: 'Telugu' },
@@ -111,6 +97,13 @@ export const OWNERSHIP_OPTIONS = [
 export const HEIGHT_OPTIONS = Array.from({ length: 61 }, (_, i) => {
   const cm = 140 + i;
   return { value: String(cm), label: `${cm} cm` };
+});
+
+export const HEIGHT_FEET_INCH_OPTIONS = Array.from({ length: 31 }, (_, i) => {
+  const totalInches = 54 + i;
+  const feet = Math.floor(totalInches / 12);
+  const inches = totalInches % 12;
+  return { value: `${feet}'${inches}"`, label: `${feet} ft ${inches} in` };
 });
 
 export const COMPLEXION_OPTIONS = [

@@ -2,7 +2,6 @@ import { Link } from 'react-router-dom';
 import {
   Users,
   UserCheck,
-  Percent,
   Clock,
   ClipboardList,
   AlertTriangle,
@@ -14,7 +13,6 @@ import { getCustomerProfileImageUrl } from '../../lib/agent/customerAvatar';
 import {
   EmptyState,
   ErrorState,
-  ProfileProgress,
   StatCardSkeleton,
   StatusBadge,
 } from '../../components/agent/AgentUI';
@@ -33,24 +31,6 @@ export default function AgentDashboard() {
       tone: 'from-wow-primary/20 to-wow-primary/5',
     },
     {
-      title: 'Active Customers',
-      value: data?.activeCustomers ?? 0,
-      icon: UserCheck,
-      tone: 'from-green-200/60 to-green-50',
-    },
-    {
-      title: 'Profile Completion',
-      value: `${data?.profileCompletionPercentage ?? 0}%`,
-      icon: Percent,
-      tone: 'from-amber-200/60 to-amber-50',
-    },
-    {
-      title: 'Pending Profiles',
-      value: data?.pendingProfiles ?? 0,
-      icon: Clock,
-      tone: 'from-blue-200/50 to-blue-50',
-    },
-    {
       title: "Today's Tasks",
       value: data?.todaysTasks ?? 0,
       icon: ClipboardList,
@@ -61,6 +41,18 @@ export default function AgentDashboard() {
       value: data?.overdueTasks ?? 0,
       icon: AlertTriangle,
       tone: 'from-red-200/50 to-red-50',
+    },
+    {
+      title: 'Active Customers',
+      value: data?.activeCustomers ?? 0,
+      icon: UserCheck,
+      tone: 'from-green-200/60 to-green-50',
+    },
+    {
+      title: 'Pending Profiles',
+      value: data?.pendingProfiles ?? 0,
+      icon: Clock,
+      tone: 'from-blue-200/50 to-blue-50',
     },
   ];
 
@@ -86,9 +78,9 @@ export default function AgentDashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
         {isLoading
-          ? Array.from({ length: 6 }).map((_, i) => <StatCardSkeleton key={i} />)
+          ? Array.from({ length: 5 }).map((_, i) => <StatCardSkeleton key={i} />)
           : stats.map((stat) => {
               const Icon = stat.icon;
               return (
@@ -151,9 +143,7 @@ export default function AgentDashboard() {
                           <p className="text-xs text-wow-muted">{c.customerCode}</p>
                         </div>
                       </div>
-                      <div className="w-28 flex-shrink-0">
-                        <ProfileProgress value={c.profileCompletion} />
-                      </div>
+                      <StatusBadge status={c.status} />
                     </Link>
                   </li>
                 );

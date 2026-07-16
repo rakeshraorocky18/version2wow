@@ -1,41 +1,66 @@
 import type { ReactNode } from 'react';
-import { Check } from 'lucide-react';
+import { Check, Lock } from 'lucide-react';
 import { WIZARD_STEPS } from '../../../types/addCustomer';
 
-export function WizardStepper({ currentStep }: { currentStep: number }) {
+export function WizardStepper({
+  currentStep,
+  completedSteps = new Set<number>(),
+  onStepSelect,
+}: {
+  currentStep: number;
+  completedSteps?: Set<number>;
+  onStepSelect?: (step: number) => void;
+}) {
   return (
-    <div className="overflow-x-auto pb-2 -mx-1 px-1">
-      <div className="flex items-center gap-1.5 min-w-max">
-        {WIZARD_STEPS.map((step, i) => (
-          <div key={step.id} className="flex items-center gap-1.5 flex-shrink-0">
-            <div
-              className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium transition-all ${
-                i < currentStep
-                  ? 'bg-wow-primary text-white'
-                  : i === currentStep
-                    ? 'bg-wow-primary/15 text-wow-primary ring-2 ring-wow-primary'
-                    : 'bg-gray-100 text-gray-400'
-              }`}
-            >
-              {i < currentStep ? <Check className="w-3.5 h-3.5" /> : <span>{step.icon}</span>}
-            </div>
-            <span
-              className={`text-xs hidden lg:inline ${
-                i === currentStep ? 'text-wow-text font-medium' : 'text-wow-muted'
-              }`}
-            >
-              {step.label}
-            </span>
-            {i < WIZARD_STEPS.length - 1 && (
-              <div className="w-4 lg:w-6 h-px bg-gray-200 mx-0.5" />
-            )}
-          </div>
-        ))}
+    <aside className="overflow-hidden rounded-2xl border border-[#F2DFE8] bg-white shadow-sm lg:sticky lg:top-24">
+      <div className="bg-gradient-to-r from-[#F9DEE7] via-[#F6E8FF] to-[#FFF5EF] px-5 py-4">
+        <h2 className="font-display text-xl font-bold text-[#5D2B44]">Add Customer</h2>
+        <p className="mt-1 text-xs text-[#9A5776]">Complete required sections in order.</p>
       </div>
-      <p className="text-sm text-wow-muted mt-3 lg:hidden">
-        Step {currentStep + 1} of {WIZARD_STEPS.length}: {WIZARD_STEPS[currentStep]?.title}
-      </p>
-    </div>
+      <nav className="space-y-1 p-2">
+        {WIZARD_STEPS.map((step, i) => {
+          const canSelect = i <= currentStep || completedSteps.has(i);
+          return (
+          <button
+            key={step.id}
+            type="button"
+            disabled={!canSelect}
+            onClick={() => {
+              if (canSelect) onStepSelect?.(i);
+            }}
+            className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition ${
+              i === currentStep
+                ? 'bg-[#B66A8A] text-white shadow-sm'
+                : completedSteps.has(i)
+                  ? 'bg-[#F5FFF8] text-[#3D8B5F]'
+                  : i < currentStep
+                    ? 'bg-amber-50 text-amber-700'
+                    : 'text-[#A98AA0] opacity-75'
+            }`}
+          >
+            <span
+              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${
+                i === currentStep
+                  ? 'bg-white/20'
+                  : completedSteps.has(i)
+                    ? 'bg-[#E8F8EF]'
+                    : 'bg-[#F5F0F2]'
+              }`}
+            >
+              {completedSteps.has(i) ? (
+                <Check className="h-3.5 w-3.5" />
+              ) : i > currentStep ? (
+                <Lock className="h-3.5 w-3.5" />
+              ) : (
+                <span>{step.icon}</span>
+              )}
+            </span>
+            <span className="min-w-0 flex-1 truncate font-medium">{step.label}</span>
+          </button>
+          );
+        })}
+      </nav>
+    </aside>
   );
 }
 

@@ -1,3 +1,4 @@
+import { City, Country, State } from 'country-state-city';
 import { DISTRICTS_BY_STATE } from './indiaDistricts';
 
 export const OTHER_VALUE = 'other';
@@ -7,11 +8,13 @@ export interface LocationNode {
   label: string;
 }
 
+const normalize = (value: string) => value.trim().toLowerCase();
+
 export const COUNTRIES: LocationNode[] = [
-  { value: 'india', label: 'India' },
-  { value: 'usa', label: 'United States' },
-  { value: 'uk', label: 'United Kingdom' },
-  { value: 'uae', label: 'UAE' },
+  ...Country.getAllCountries().map((country) => ({
+    value: country.isoCode,
+    label: country.name,
+  })),
   { value: OTHER_VALUE, label: 'Other' },
 ];
 
@@ -229,12 +232,39 @@ export const CITIES_BY_DISTRICT: Record<string, LocationNode[]> = {
 
 export function getStates(country: string): LocationNode[] {
   if (!country || country === OTHER_VALUE) return [{ value: OTHER_VALUE, label: 'Other' }];
+  const countryCode =
+    country === 'india' ? 'IN' : country === 'usa' ? 'US' : country === 'uk' ? 'GB' : country === 'uae' ? 'AE' : country;
+  const states = State.getStatesOfCountry(countryCode);
+  if (states.length) {
+    return [
+      ...states.map((state) => ({
+        value: normalize(state.name),
+        label: state.name,
+      })),
+      { value: OTHER_VALUE, label: 'Other' },
+    ];
+  }
   return STATES_BY_COUNTRY[country] ?? [{ value: OTHER_VALUE, label: 'Other' }];
 }
 
-export function getDistricts(state: string): LocationNode[] {
+export function getDistricts(country: string, state: string): LocationNode[] {
   if (!state || state === OTHER_VALUE) return [{ value: OTHER_VALUE, label: 'Other' }];
-  return DISTRICTS_BY_STATE[state] ?? [{ value: OTHER_VALUE, label: 'Other' }];
+  const countryCode =
+    country === 'india' ? 'IN' : country === 'usa' ? 'US' : country === 'uk' ? 'GB' : country === 'uae' ? 'AE' : country;
+  if (countryCode === 'IN') {
+    return DISTRICTS_BY_STATE[state] ?? [{ value: OTHER_VALUE, label: 'Other' }];
+  }
+  const stateRecord = State.getStatesOfCountry(countryCode).find(
+    (item) => normalize(item.name) === state,
+  );
+  const cities = stateRecord ? City.getCitiesOfState(countryCode, stateRecord.isoCode) : [];
+  if (cities.length) {
+    return [
+      ...cities.map((city) => ({ value: normalize(city.name), label: city.name })),
+      { value: OTHER_VALUE, label: 'Other' },
+    ];
+  }
+  return [{ value: OTHER_VALUE, label: 'Other' }];
 }
 
 function defaultChildOptions(parentValue: string, parentLabel?: string): LocationNode[] {
@@ -258,6 +288,25 @@ export function getVillages(mandal: string): LocationNode[] {
 export function getCities(district: string): LocationNode[] {
   if (!district || district === OTHER_VALUE) return [{ value: OTHER_VALUE, label: 'Other' }];
   return CITIES_BY_DISTRICT[district] ?? defaultChildOptions(district);
+}
+
+export function getStateCities(country: string, state: string): LocationNode[] {
+  if (!country || !state || country === OTHER_VALUE || state === OTHER_VALUE) {
+    return [{ value: OTHER_VALUE, label: 'Other' }];
+  }
+  const countryCode =
+    country === 'india' ? 'IN' : country === 'usa' ? 'US' : country === 'uk' ? 'GB' : country === 'uae' ? 'AE' : country;
+  const stateRecord = State.getStatesOfCountry(countryCode).find(
+    (item) => normalize(item.name) === state,
+  );
+  const cities = stateRecord ? City.getCitiesOfState(countryCode, stateRecord.isoCode) : [];
+  if (cities.length) {
+    return [
+      ...cities.map((city) => ({ value: normalize(city.name), label: city.name })),
+      { value: OTHER_VALUE, label: 'Other' },
+    ];
+  }
+  return [{ value: OTHER_VALUE, label: 'Other' }];
 }
 
 export function getLabel(options: LocationNode[], value: string): string {

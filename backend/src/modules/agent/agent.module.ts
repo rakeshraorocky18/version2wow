@@ -1,11 +1,20 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { POSTGRES_CONNECTION } from '../../config/database.constants';
+import {
+  POSTGRES_CONNECTION,
+  SQLITE_CONNECTION,
+} from '../../config/database.constants';
 import { AuthModule } from '../auth/auth.module';
 import { User } from '../auth/entities/user.entity';
+import { ChatModule } from '../chat/chat.module';
+import { NotificationsModule } from '../notifications/notifications.module';
+import { NotificationDeliveryLogEntity } from '../notifications/entities/notification-delivery-log.entity';
+import { Match } from '../matchmaking/entities/match.entity';
+import { Neo4jModule } from '../../neo4j/neo4j.module';
 
 import { AgentProfileEntity } from './common/entities/agent-profile.entity';
 import { AgentCustomerEntity } from './common/entities/agent-customer.entity';
+import { AgentCustomerMatchEntity } from './common/entities/agent-customer-match.entity';
 import { AgentNoteEntity } from './common/entities/agent-note.entity';
 import { AgentDocumentEntity } from './common/entities/agent-document.entity';
 import { AgentWorksheetEntity } from './common/entities/agent-worksheet.entity';
@@ -29,18 +38,24 @@ import { AgentActivityService } from './activity-log/activity-log.service';
 @Module({
   imports: [
     AuthModule,
+    ChatModule,
+    NotificationsModule,
+    Neo4jModule,
     TypeOrmModule.forFeature(
       [
         User,
         AgentProfileEntity,
         AgentCustomerEntity,
+        AgentCustomerMatchEntity,
         AgentNoteEntity,
         AgentDocumentEntity,
         AgentWorksheetEntity,
         AgentActivityEntity,
+        NotificationDeliveryLogEntity,
       ],
       POSTGRES_CONNECTION,
     ),
+    TypeOrmModule.forFeature([Match], SQLITE_CONNECTION),
   ],
   controllers: [
     AgentAuthController,

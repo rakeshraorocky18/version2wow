@@ -21,7 +21,7 @@ import {
   FAMILY_STATUS_OPTIONS,
   FAMILY_TYPE_OPTIONS,
   GENDER_OPTIONS,
-  HEIGHT_OPTIONS,
+  HEIGHT_FEET_INCH_OPTIONS,
   KUJA_DOSHAM_OPTIONS,
   LIVING_WITH_DIVORCED_OPTIONS,
   LIVING_WITH_WIDOWED_OPTIONS,
@@ -35,10 +35,13 @@ import {
   RELIGION_OPTIONS,
   SUB_CASTE_OPTIONS,
   YES_NO_OPTIONS,
+  getCasteOptionsForReligion,
+  getSubCasteOptionsForCaste,
 } from '../../../lib/agent/formOptions';
 import FamilyAssets from './FamilyAssets';
 import LocationPicker from './LocationPicker';
 import SearchableSelect from './SearchableSelect';
+import { COUNTRIES, getStateCities, getStates } from '../../../lib/agent/locationData';
 import {
   FormField,
   FormGrid,
@@ -90,6 +93,75 @@ function OptionWithOther({
 
 function digitsOnly(value: string, maxLen = 10): string {
   return value.replace(/\D/g, '').slice(0, maxLen);
+}
+
+const AGE_OPTIONS = Array.from({ length: 43 }, (_, i) => {
+  const age = String(18 + i);
+  return { value: age, label: age };
+});
+
+function CountryStateCityFields({
+  value,
+  onChange,
+  labelPrefix = '',
+}: {
+  value: Partial<LocationFields> | string | undefined;
+  onChange: (value: LocationFields) => void;
+  labelPrefix?: string;
+}) {
+  const loc = typeof value === 'object' && value ? { ...emptyLocation(), ...value } : emptyLocation();
+  const label = (field: string) => (labelPrefix ? `${labelPrefix} ${field}` : field);
+  const update = (patch: Partial<LocationFields>) => {
+    const next = { ...loc, ...patch };
+    if (patch.country !== undefined && patch.country !== loc.country) {
+      next.state = '';
+      next.stateOther = '';
+      next.city = '';
+      next.cityOther = '';
+    }
+    if (patch.state !== undefined && patch.state !== loc.state) {
+      next.city = '';
+      next.cityOther = '';
+    }
+    onChange(next);
+  };
+
+  return (
+    <>
+      <FormField label={label('Country')}>
+        <SearchableSelect
+          value={loc.country}
+          onChange={(v) => update({ country: v })}
+          options={COUNTRIES}
+          otherValue={loc.countryOther}
+          onOtherChange={(v) => update({ countryOther: v })}
+          otherPlaceholder="Enter country"
+        />
+      </FormField>
+      <FormField label={label('State')}>
+        <SearchableSelect
+          value={loc.state}
+          onChange={(v) => update({ state: v })}
+          options={getStates(loc.country)}
+          disabled={!loc.country}
+          otherValue={loc.stateOther}
+          onOtherChange={(v) => update({ stateOther: v })}
+          otherPlaceholder="Enter state"
+        />
+      </FormField>
+      <FormField label={label('City')}>
+        <SearchableSelect
+          value={loc.city}
+          onChange={(v) => update({ city: v })}
+          options={getStateCities(loc.country, loc.state)}
+          disabled={!loc.state}
+          otherValue={loc.cityOther}
+          onOtherChange={(v) => update({ cityOther: v })}
+          otherPlaceholder="Enter city"
+        />
+      </FormField>
+    </>
+  );
 }
 
 function SiblingList({
@@ -149,13 +221,27 @@ function SiblingList({
               <FormField label="Married Status">
                 <FormSelect
                   value={item.maritalStatus}
-                  onChange={(v) => updateItem(item.id, { maritalStatus: v })}
+                  onChange={(v) =>
+                    updateItem(item.id, {
+                      maritalStatus: v,
+                      spouseName: v === 'married' ? item.spouseName : '',
+                    })
+                  }
                   options={[
                     { value: 'married', label: 'Married' },
                     { value: 'unmarried', label: 'Unmarried' },
                   ]}
                 />
               </FormField>
+              {item.maritalStatus === 'married' && (
+                <FormField label={`Married To (${singular === 'Brother' ? 'Wife' : 'Husband'} Name)`}>
+                  <FormInput
+                    value={item.spouseName || ''}
+                    onChange={(v) => updateItem(item.id, { spouseName: v })}
+                    placeholder={singular === 'Brother' ? 'Enter wife name' : 'Enter husband name'}
+                  />
+                </FormField>
+              )}
               <FormField label="Qualification">
                 <SearchableSelect
                   value={item.qualification}
@@ -207,12 +293,12 @@ function ProfilePhotoField({
       label="Profile Photo"
       required={required}
       error={errors?.profilePhoto}
-      className="md:col-span-2"
+      className="mb-4 md:col-span-2"
     >
       <label className="flex flex-col items-center justify-center gap-2 p-6 border-2 border-dashed border-gray-200 rounded-xl cursor-pointer hover:border-wow-primary/50 transition bg-wow-bg/30">
-        {photoPreview ? (
+        {photoPreview || form.existingProfilePhotoUrl ? (
           <img
-            src={photoPreview}
+            src={photoPreview || form.existingProfilePhotoUrl || ''}
             alt="Profile preview"
             className="w-28 h-28 rounded-full object-cover border-2 border-white shadow-md"
           />
@@ -220,7 +306,11 @@ function ProfilePhotoField({
           <Upload className="w-8 h-8 text-wow-muted" />
         )}
         <span className="text-sm text-wow-muted text-center px-2">
-          {form.profilePhoto ? form.profilePhoto.name : 'Click to upload profile photo'}
+          {form.profilePhoto
+            ? form.profilePhoto.name
+            : form.existingProfilePhotoUrl
+              ? 'Current profile photo. Click to replace'
+              : 'Click to upload profile photo'}
         </span>
         <input
           type="file"
@@ -243,6 +333,7 @@ export function PersonalStep({ form, errors, update, updatePersonal }: StepProps
   return (
     <WizardSection icon="👤" title="Personal Details">
       <FormGrid>
+        <ProfilePhotoField form={form} errors={errors} update={update} required />
         <FormField label="First Name" required error={errors.firstName}>
           <FormInput value={form.firstName} onChange={(v) => update({ firstName: v })} />
         </FormField>
@@ -276,8 +367,8 @@ export function PersonalStep({ form, errors, update, updatePersonal }: StepProps
           <SearchableSelect
             value={(form.personalDetails.height as string) || ''}
             onChange={(v) => updatePersonal('height', v)}
-            options={HEIGHT_OPTIONS}
-            placeholder="Select height (cm)"
+            options={HEIGHT_FEET_INCH_OPTIONS}
+            placeholder="Select height"
           />
         </FormField>
         <FormField label="Weight (kg)">
@@ -324,11 +415,38 @@ export function PersonalStep({ form, errors, update, updatePersonal }: StepProps
             placeholder="name@example.com"
           />
         </FormField>
+        <FormField label="About" className="md:col-span-2">
+          <FormTextarea
+            value={(form.personalDetails.about as string) || ''}
+            onChange={(v) => updatePersonal('about', v)}
+          />
+        </FormField>
+      </FormGrid>
+    </WizardSection>
+  );
+}
+
+/* ─── 2. Religion Details ─── */
+export function ReligionStep({ form, update, updatePersonal }: StepProps) {
+  const casteOptions = getCasteOptionsForReligion(form.religion);
+  const subCasteOptions = getSubCasteOptionsForCaste(form.caste);
+
+  return (
+    <WizardSection
+      icon="🛕"
+      title="Religion Details"
+      subtitle="Religion, caste, subcaste, and mother tongue details."
+    >
+      <FormGrid>
         <FormField label="Religion">
           <OptionWithOther
             value={form.religion}
             otherValue={form.religionOther}
-            onChange={(v) => update({ religion: v })}
+            onChange={(v) => {
+              update({ religion: v, caste: '', casteOther: '' });
+              updatePersonal('subCaste', '');
+              updatePersonal('subCasteOther', '');
+            }}
             onOtherChange={(v) => update({ religionOther: v })}
             options={RELIGION_OPTIONS}
             placeholder="Religion"
@@ -338,9 +456,13 @@ export function PersonalStep({ form, errors, update, updatePersonal }: StepProps
           <OptionWithOther
             value={form.caste}
             otherValue={form.casteOther}
-            onChange={(v) => update({ caste: v })}
+            onChange={(v) => {
+              update({ caste: v });
+              updatePersonal('subCaste', '');
+              updatePersonal('subCasteOther', '');
+            }}
             onOtherChange={(v) => update({ casteOther: v })}
-            options={CASTE_OPTIONS}
+            options={form.religion ? casteOptions : CASTE_OPTIONS}
             placeholder="Caste"
           />
         </FormField>
@@ -350,7 +472,7 @@ export function PersonalStep({ form, errors, update, updatePersonal }: StepProps
             otherValue={(form.personalDetails.subCasteOther as string) || ''}
             onChange={(v) => updatePersonal('subCaste', v)}
             onOtherChange={(v) => updatePersonal('subCasteOther', v)}
-            options={SUB_CASTE_OPTIONS}
+            options={form.caste ? subCasteOptions : SUB_CASTE_OPTIONS}
             placeholder="Sub Caste"
           />
         </FormField>
@@ -364,20 +486,13 @@ export function PersonalStep({ form, errors, update, updatePersonal }: StepProps
             placeholder="Mother Tongue"
           />
         </FormField>
-        <ProfilePhotoField form={form} errors={errors} update={update} required />
-        <FormField label="About" className="md:col-span-2">
-          <FormTextarea
-            value={(form.personalDetails.about as string) || ''}
-            onChange={(v) => updatePersonal('about', v)}
-          />
-        </FormField>
       </FormGrid>
     </WizardSection>
   );
 }
 
 /* ─── 2. Horoscope Details ─── */
-export function HoroscopeStep({ form, update, updatePersonal }: StepProps) {
+export function HoroscopeStep({ form, errors, update, updatePersonal }: StepProps) {
   const hasHoroscope = ((form.personalDetails.hasHoroscope as string) || '').toLowerCase();
   const showFull = hasHoroscope === 'yes';
   const showBasic = hasHoroscope === 'yes' || hasHoroscope === 'no';
@@ -416,7 +531,15 @@ export function HoroscopeStep({ form, update, updatePersonal }: StepProps) {
           <FormGrid>
             {showFull && (
               <>
-                <FormField label="Star (Nakshatra)">
+                <FormField label="Rashi" required error={errors.rasi}>
+                  <SearchableSelect
+                    value={(form.personalDetails.rasi as string) || ''}
+                    onChange={(v) => updatePersonal('rasi', v)}
+                    options={RASI_OPTIONS}
+                    placeholder="Select rashi"
+                  />
+                </FormField>
+                <FormField label="Star / Nakshatra">
                   <SearchableSelect
                     value={(form.personalDetails.star as string) || ''}
                     onChange={(v) => updatePersonal('star', v)}
@@ -429,14 +552,6 @@ export function HoroscopeStep({ form, update, updatePersonal }: StepProps) {
                     value={(form.personalDetails.padam as string) || ''}
                     onChange={(v) => updatePersonal('padam', v)}
                     options={PADAM_OPTIONS}
-                  />
-                </FormField>
-                <FormField label="Rasi">
-                  <SearchableSelect
-                    value={(form.personalDetails.rasi as string) || ''}
-                    onChange={(v) => updatePersonal('rasi', v)}
-                    options={RASI_OPTIONS}
-                    placeholder="Select rasi"
                   />
                 </FormField>
                 <FormField label="Gothram">
@@ -467,7 +582,7 @@ export function HoroscopeStep({ form, update, updatePersonal }: StepProps) {
             title="Place of Birth"
             value={birthPlace}
             onChange={(v) => updatePersonal('birthPlace', v)}
-            mode="city"
+            mode="full"
           />
 
           {showFull && (
@@ -695,7 +810,10 @@ export function FamilyStep({ form, errors, updatePersonal, updateFamily }: StepP
     entries: {},
   };
   const nativePlace = (form.personalDetails.nativePlace as LocationFields) || emptyLocation();
-  const settledPlace = (form.personalDetails.settledPlace as LocationFields) || emptyLocation();
+  const fatherLifeStatus = ((form.familyDetails.fatherLifeStatus as string) || 'alive').toLowerCase();
+  const motherLifeStatus = ((form.familyDetails.motherLifeStatus as string) || 'alive').toLowerCase();
+  const fatherAlive = fatherLifeStatus !== 'deceased';
+  const motherAlive = motherLifeStatus !== 'deceased';
 
   return (
     <WizardSection icon="👨‍👩‍👧" title="Family Details">
@@ -707,12 +825,6 @@ export function FamilyStep({ form, errors, updatePersonal, updateFamily }: StepP
           mode="native"
           labelPrefix="Native"
         />
-        <LocationPicker
-          title="Settled Place"
-          value={settledPlace}
-          onChange={(v) => updatePersonal('settledPlace', v)}
-          mode="city"
-        />
 
         <div>
           <h3 className="text-sm font-medium text-wow-text mb-3">Father</h3>
@@ -723,25 +835,46 @@ export function FamilyStep({ form, errors, updatePersonal, updateFamily }: StepP
                 onChange={(v) => updateFamily('fatherName', v)}
               />
             </FormField>
-            <FormField label="Age">
-              <FormInput
-                value={(form.familyDetails.fatherAge as string) || ''}
-                onChange={(v) => updateFamily('fatherAge', v)}
+            <FormField label="Life Status">
+              <FormSelect
+                value={fatherLifeStatus}
+                onChange={(v) => {
+                  updateFamily('fatherLifeStatus', v);
+                  if (v === 'deceased') {
+                    updateFamily('fatherAge', '');
+                    updateFamily('fatherQualification', '');
+                    updateFamily('fatherProfession', '');
+                  }
+                }}
+                options={[
+                  { value: 'alive', label: 'Living' },
+                  { value: 'deceased', label: 'Late' },
+                ]}
               />
             </FormField>
-            <FormField label="Qualification">
-              <SearchableSelect
-                value={(form.familyDetails.fatherQualification as string) || ''}
-                onChange={(v) => updateFamily('fatherQualification', v)}
-                options={QUALIFICATION_OPTIONS}
-              />
-            </FormField>
-            <FormField label="Occupation">
-              <FormInput
-                value={(form.familyDetails.fatherProfession as string) || ''}
-                onChange={(v) => updateFamily('fatherProfession', v)}
-              />
-            </FormField>
+            {fatherAlive && (
+              <>
+                <FormField label="Age">
+                  <FormInput
+                    value={(form.familyDetails.fatherAge as string) || ''}
+                    onChange={(v) => updateFamily('fatherAge', v)}
+                  />
+                </FormField>
+                <FormField label="Qualification">
+                  <SearchableSelect
+                    value={(form.familyDetails.fatherQualification as string) || ''}
+                    onChange={(v) => updateFamily('fatherQualification', v)}
+                    options={QUALIFICATION_OPTIONS}
+                  />
+                </FormField>
+                <FormField label="Occupation">
+                  <FormInput
+                    value={(form.familyDetails.fatherProfession as string) || ''}
+                    onChange={(v) => updateFamily('fatherProfession', v)}
+                  />
+                </FormField>
+              </>
+            )}
           </FormGrid>
         </div>
 
@@ -754,25 +887,46 @@ export function FamilyStep({ form, errors, updatePersonal, updateFamily }: StepP
                 onChange={(v) => updateFamily('motherName', v)}
               />
             </FormField>
-            <FormField label="Age">
-              <FormInput
-                value={(form.familyDetails.motherAge as string) || ''}
-                onChange={(v) => updateFamily('motherAge', v)}
+            <FormField label="Life Status">
+              <FormSelect
+                value={motherLifeStatus}
+                onChange={(v) => {
+                  updateFamily('motherLifeStatus', v);
+                  if (v === 'deceased') {
+                    updateFamily('motherAge', '');
+                    updateFamily('motherQualification', '');
+                    updateFamily('motherProfession', '');
+                  }
+                }}
+                options={[
+                  { value: 'alive', label: 'Living' },
+                  { value: 'deceased', label: 'Late' },
+                ]}
               />
             </FormField>
-            <FormField label="Qualification">
-              <SearchableSelect
-                value={(form.familyDetails.motherQualification as string) || ''}
-                onChange={(v) => updateFamily('motherQualification', v)}
-                options={QUALIFICATION_OPTIONS}
-              />
-            </FormField>
-            <FormField label="Occupation">
-              <FormInput
-                value={(form.familyDetails.motherProfession as string) || ''}
-                onChange={(v) => updateFamily('motherProfession', v)}
-              />
-            </FormField>
+            {motherAlive && (
+              <>
+                <FormField label="Age">
+                  <FormInput
+                    value={(form.familyDetails.motherAge as string) || ''}
+                    onChange={(v) => updateFamily('motherAge', v)}
+                  />
+                </FormField>
+                <FormField label="Qualification">
+                  <SearchableSelect
+                    value={(form.familyDetails.motherQualification as string) || ''}
+                    onChange={(v) => updateFamily('motherQualification', v)}
+                    options={QUALIFICATION_OPTIONS}
+                  />
+                </FormField>
+                <FormField label="Occupation">
+                  <FormInput
+                    value={(form.familyDetails.motherProfession as string) || ''}
+                    onChange={(v) => updateFamily('motherProfession', v)}
+                  />
+                </FormField>
+              </>
+            )}
           </FormGrid>
         </div>
 
@@ -818,6 +972,10 @@ export function FamilyStep({ form, errors, updatePersonal, updateFamily }: StepP
 
 /* ─── 6. Education & Career ─── */
 export function EducationStep({ form, update, updateEducation }: StepProps) {
+  const employmentType = ((form.educationDetails.employmentType as string) || '').toLowerCase();
+  const showEmployee = employmentType === 'employee';
+  const showBusiness = employmentType === 'business' || employmentType === 'self employed';
+
   return (
     <WizardSection icon="💼" title="Education & Career">
       <FormGrid>
@@ -831,60 +989,112 @@ export function EducationStep({ form, update, updateEducation }: StepProps) {
             placeholder="Highest Qualification"
           />
         </FormField>
-        <FormField label="Education">
+        <FormField label="Education Details">
           <FormInput
             value={
               (form.educationDetails.education as string) ||
-              (form.educationDetails.institution as string) ||
               ''
             }
             onChange={(v) => {
               updateEducation('education', v);
-              updateEducation('institution', v);
             }}
             placeholder="e.g. B.Tech Computer Science"
           />
         </FormField>
-        <FormField label="Occupation">
-          <OptionWithOther
-            value={form.occupation}
-            otherValue={form.occupationOther}
-            onChange={(v) => update({ occupation: v })}
-            onOtherChange={(v) => update({ occupationOther: v })}
-            options={OCCUPATION_OPTIONS}
-            placeholder="Occupation"
-          />
-        </FormField>
-        <FormField label="Designation">
+        <FormField label="College Name">
           <FormInput
-            value={(form.educationDetails.designation as string) || ''}
-            onChange={(v) => updateEducation('designation', v)}
+            value={(form.educationDetails.collegeName as string) || ''}
+            onChange={(v) => {
+              updateEducation('collegeName', v);
+              updateEducation('institution', v);
+            }}
+            placeholder="College / University name"
           />
         </FormField>
-        <FormField label="Office / Business Name">
+        <FormField label="College Place">
           <FormInput
-            value={(form.educationDetails.officeName as string) || ''}
-            onChange={(v) => updateEducation('officeName', v)}
+            value={(form.educationDetails.collegePlace as string) || ''}
+            onChange={(v) => updateEducation('collegePlace', v)}
+            placeholder="City / place"
           />
         </FormField>
-        <FormField label="Company Name">
-          <FormInput
-            value={(form.educationDetails.company as string) || ''}
-            onChange={(v) => updateEducation('company', v)}
+        <FormField label="Occupation Type">
+          <FormSelect
+            value={(form.educationDetails.employmentType as string) || ''}
+            onChange={(v) => {
+              updateEducation('employmentType', v);
+              update({ occupation: v });
+              updateEducation('company', '');
+              updateEducation('role', '');
+              updateEducation('designation', '');
+              updateEducation('salary', '');
+              updateEducation('businessName', '');
+              updateEducation('businessIncome', '');
+              updateEducation('businessLocation', '');
+              updateEducation('workLocation', emptyLocation());
+            }}
+            options={[
+              { value: 'employee', label: 'Employee' },
+              { value: 'business', label: 'Business' },
+              { value: 'self employed', label: 'Self Employed' },
+              { value: 'not working', label: 'Not Working' },
+            ]}
           />
         </FormField>
-        <FormField label="Business Name">
-          <FormInput
-            value={(form.educationDetails.businessName as string) || ''}
-            onChange={(v) => updateEducation('businessName', v)}
-          />
-        </FormField>
-        <FormField label="Work Location">
-          <FormInput
-            value={(form.educationDetails.workLocation as string) || ''}
-            onChange={(v) => updateEducation('workLocation', v)}
-          />
-        </FormField>
+        {showEmployee && (
+          <>
+            <FormField label="Company Name">
+              <FormInput
+                value={(form.educationDetails.company as string) || ''}
+                onChange={(v) => updateEducation('company', v)}
+              />
+            </FormField>
+            <FormField label="Role">
+              <FormInput
+                value={(form.educationDetails.role as string) || ''}
+                onChange={(v) => {
+                  updateEducation('role', v);
+                  updateEducation('designation', v);
+                }}
+              />
+            </FormField>
+            <FormField label="Salary">
+              <FormInput
+                value={(form.educationDetails.salary as string) || ''}
+                onChange={(v) => updateEducation('salary', v)}
+              />
+            </FormField>
+            <CountryStateCityFields
+              value={form.educationDetails.workLocation as Partial<LocationFields> | string | undefined}
+              onChange={(v) => updateEducation('workLocation', v)}
+              labelPrefix="Work"
+            />
+          </>
+        )}
+        {showBusiness && (
+          <>
+            <FormField label="Business Name">
+              <FormInput
+                value={(form.educationDetails.businessName as string) || ''}
+                onChange={(v) => updateEducation('businessName', v)}
+              />
+            </FormField>
+            <FormField label="Income">
+              <FormInput
+                value={(form.educationDetails.businessIncome as string) || ''}
+                onChange={(v) => updateEducation('businessIncome', v)}
+              />
+            </FormField>
+            <CountryStateCityFields
+              value={form.educationDetails.businessLocation as Partial<LocationFields> | string | undefined}
+              onChange={(v) => {
+                updateEducation('businessLocation', v);
+                updateEducation('workLocation', v);
+              }}
+              labelPrefix="Business"
+            />
+          </>
+        )}
       </FormGrid>
     </WizardSection>
   );
@@ -894,37 +1104,87 @@ export function EducationStep({ form, update, updateEducation }: StepProps) {
 export function PartnerStep({ form, updatePartner }: StepProps) {
   const preferredLocation =
     (form.partnerPreferences.preferredLocation as LocationFields) || emptyLocation();
+  const preferredReligion = (form.partnerPreferences.religion as string) || '';
+  const preferredCaste = (form.partnerPreferences.caste as string) || '';
+  const preferredCasteOptions = getCasteOptionsForReligion(preferredReligion);
+  const preferredSubCasteOptions = getSubCasteOptionsForCaste(preferredCaste);
 
   return (
     <WizardSection icon="❤️" title="Partner Preferences">
       <FormGrid>
-        <FormField label="Preferred Age Range">
-          <FormInput
-            value={(form.partnerPreferences.ageRange as string) || ''}
-            onChange={(v) => updatePartner('ageRange', v)}
-            placeholder="e.g. 25-30"
-          />
-        </FormField>
+        <div className="grid grid-cols-2 gap-3 md:col-span-2">
+          <FormField label="Min Age">
+            <FormSelect
+              value={(form.partnerPreferences.minAge as string) || ''}
+              onChange={(v) => {
+                updatePartner('minAge', v);
+                updatePartner(
+                  'ageRange',
+                  [v, form.partnerPreferences.maxAge as string].filter(Boolean).join('-'),
+                );
+              }}
+              options={AGE_OPTIONS}
+            />
+          </FormField>
+          <FormField label="Max Age">
+            <FormSelect
+              value={(form.partnerPreferences.maxAge as string) || ''}
+              onChange={(v) => {
+                updatePartner('maxAge', v);
+                updatePartner(
+                  'ageRange',
+                  [form.partnerPreferences.minAge as string, v].filter(Boolean).join('-'),
+                );
+              }}
+              options={AGE_OPTIONS}
+            />
+          </FormField>
+        </div>
+        <div className="grid grid-cols-2 gap-3 md:col-span-2">
+          <FormField label="Min Height">
+            <SearchableSelect
+              value={(form.partnerPreferences.minHeight as string) || ''}
+              onChange={(v) => updatePartner('minHeight', v)}
+              options={HEIGHT_FEET_INCH_OPTIONS}
+              placeholder="Min height"
+            />
+          </FormField>
+          <FormField label="Max Height">
+            <SearchableSelect
+              value={(form.partnerPreferences.maxHeight as string) || ''}
+              onChange={(v) => updatePartner('maxHeight', v)}
+              options={HEIGHT_FEET_INCH_OPTIONS}
+              placeholder="Max height"
+            />
+          </FormField>
+        </div>
         <FormField label="Preferred Religion">
           <SearchableSelect
-            value={(form.partnerPreferences.religion as string) || ''}
-            onChange={(v) => updatePartner('religion', v)}
+            value={preferredReligion}
+            onChange={(v) => {
+              updatePartner('religion', v);
+              updatePartner('caste', '');
+              updatePartner('subCaste', '');
+            }}
             options={RELIGION_OPTIONS}
             placeholder="Preferred religion"
           />
         </FormField>
         <FormField label="Preferred Caste">
           <SearchableSelect
-            value={(form.partnerPreferences.caste as string) || ''}
-            onChange={(v) => updatePartner('caste', v)}
-            options={CASTE_OPTIONS}
+            value={preferredCaste}
+            onChange={(v) => {
+              updatePartner('caste', v);
+              updatePartner('subCaste', '');
+            }}
+            options={preferredReligion ? preferredCasteOptions : CASTE_OPTIONS}
           />
         </FormField>
         <FormField label="Preferred Sub Caste">
           <SearchableSelect
             value={(form.partnerPreferences.subCaste as string) || ''}
             onChange={(v) => updatePartner('subCaste', v)}
-            options={SUB_CASTE_OPTIONS}
+            options={preferredCaste ? preferredSubCasteOptions : SUB_CASTE_OPTIONS}
           />
         </FormField>
         <FormField label="Preferred Qualification">
@@ -973,93 +1233,75 @@ export function PartnerStep({ form, updatePartner }: StepProps) {
   );
 }
 
-/* ─── 8. Documents ─── */
-const DOC_SLOTS: { key: string; label: string; type: AgentDocumentType; multiple?: boolean }[] = [
-  { key: 'gallery', label: 'Gallery Photos', type: 'customer_photo', multiple: true },
-  { key: 'aadhaar', label: 'Aadhaar', type: 'aadhaar' },
-  { key: 'pan', label: 'PAN', type: 'pan' },
-  { key: 'horoscope', label: 'Horoscope Upload', type: 'horoscope' },
-];
+/* ─── 8. Photos ─── */
+export function GalleryPhotosStep({ form, update }: StepProps) {
+  const galleryPhotos = form.pendingDocuments.filter((doc) => doc.type === 'customer_photo');
+  const otherDocs = form.pendingDocuments.filter((doc) => doc.type !== 'customer_photo');
 
-export function DocumentsStep({ form, errors, update }: StepProps) {
-  const addDocument = (type: AgentDocumentType, label: string, file: File) => {
-    if (type === 'horoscope') {
-      update({
-        pendingDocuments: [
-          ...form.pendingDocuments.filter((d) => d.type !== 'horoscope'),
-          { id: crypto.randomUUID(), type, file, label },
-        ],
-      });
-      return;
-    }
-    update({
-      pendingDocuments: [
-        ...form.pendingDocuments,
-        { id: crypto.randomUUID(), type, file, label },
-      ],
-    });
+  const addPhotos = (files: File[]) => {
+    const allowed = Math.max(0, 6 - galleryPhotos.length);
+    const nextPhotos = files.slice(0, allowed).map((file) => ({
+      id: crypto.randomUUID(),
+      type: 'customer_photo' as AgentDocumentType,
+      file,
+      label: 'Gallery Photo',
+    }));
+    update({ pendingDocuments: [...otherDocs, ...galleryPhotos, ...nextPhotos] });
+  };
+
+  const removePhoto = (id: string) => {
+    update({ pendingDocuments: form.pendingDocuments.filter((doc) => doc.id !== id) });
   };
 
   return (
     <WizardSection
-      icon="📄"
-      title="Documents"
-      subtitle="Upload supporting documents. Profile photo can also be set or updated here."
+      icon="📷"
+      title="Photos & Submit"
+      subtitle="Add up to 6 gallery photos. Use Submit Customer when ready."
     >
-      <FormGrid className="mb-8">
-        <ProfilePhotoField form={form} errors={errors} update={update} />
-      </FormGrid>
+      <div className="space-y-4">
+        <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-[#E5C8D5] bg-[#FFFBFC] p-8 text-center transition hover:border-wow-primary/50">
+          <Upload className="h-8 w-8 text-wow-muted" />
+          <span className="text-sm font-medium text-wow-text">Add gallery photos</span>
+          <span className="text-xs text-wow-muted">{galleryPhotos.length}/6 photos selected</span>
+          <input
+            type="file"
+            className="hidden"
+            accept="image/*"
+            multiple
+            disabled={galleryPhotos.length >= 6}
+            onChange={(e) => {
+              addPhotos(Array.from(e.target.files || []));
+              e.target.value = '';
+            }}
+          />
+        </label>
 
-      <div>
-        <h3 className="text-sm font-medium text-wow-text mb-4">Upload Documents</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {DOC_SLOTS.map((slot) => (
-            <FormField key={slot.key} label={slot.label}>
-              <label className="flex items-center gap-3 p-4 border border-dashed border-gray-200 rounded-xl cursor-pointer hover:border-wow-primary/50">
-                <Upload className="w-5 h-5 text-wow-muted flex-shrink-0" />
-                <span className="text-sm text-wow-muted">
-                  Choose file{slot.multiple ? '(s)' : ''}
-                </span>
-                <input
-                  type="file"
-                  className="hidden"
-                  accept=".pdf,image/*"
-                  multiple={slot.multiple}
-                  onChange={(e) => {
-                    const files = Array.from(e.target.files || []);
-                    files.forEach((file) => addDocument(slot.type, slot.label, file));
-                    e.target.value = '';
-                  }}
-                />
-              </label>
-            </FormField>
-          ))}
-        </div>
-
-        {form.pendingDocuments.length > 0 && (
-          <ul className="mt-4 space-y-2">
-            {form.pendingDocuments.map((doc) => (
-              <li
-                key={doc.id}
-                className="flex items-center justify-between p-3 rounded-lg bg-wow-bg/60 text-sm"
-              >
-                <span>
-                  {doc.label}: {doc.file.name}
-                </span>
-                <button
-                  type="button"
-                  className="text-red-500 hover:text-red-700"
-                  onClick={() =>
-                    update({
-                      pendingDocuments: form.pendingDocuments.filter((d) => d.id !== doc.id),
-                    })
-                  }
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </li>
+        {galleryPhotos.length > 0 && (
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+            {galleryPhotos.map((photo) => (
+              <div key={photo.id} className="rounded-2xl border border-gray-100 bg-white p-3 shadow-sm">
+                <div className="aspect-square overflow-hidden rounded-xl bg-wow-bg">
+                  <img
+                    src={URL.createObjectURL(photo.file)}
+                    alt={photo.file.name}
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+                <div className="mt-2 flex items-center justify-between gap-2">
+                  <p className="truncate text-xs text-wow-muted">{photo.file.name}</p>
+                  <button
+                    type="button"
+                    className="rounded-lg p-1 text-red-500 hover:bg-red-50"
+                    onClick={() => removePhoto(photo.id)}
+                    aria-label="Remove photo"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
             ))}
-          </ul>
+          </div>
         )}
       </div>
     </WizardSection>
