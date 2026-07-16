@@ -1,132 +1,138 @@
-import { useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import toast from "react-hot-toast";
-import api from "../lib/api";
-import { Eye, EyeOff } from "lucide-react";
+import { useState } from 'react';
+import { useLocation, useNavigate, Link } from 'react-router-dom';
+import toast from 'react-hot-toast';
+import { Lock, Eye, EyeOff } from 'lucide-react';
+import api from '../lib/api';
+import AuthBlossomShell from '../components/auth/AuthBlossomShell';
+import WowLogo from '../components/brand/WowLogo';
 
 const ResetPassword = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { email, otp } = (location.state || {}) as { email?: string; otp?: string };
 
-  const { email, otp } = location.state || {};
-
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [showNewPassword, setShowNewPassword] = useState(false);
-const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
-  const handleResetPassword = async (
-    e: React.FormEvent<HTMLFormElement>
-  ) => {
+  const handleResetPassword = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     if (!newPassword || !confirmPassword) {
-      toast.error("Please fill all fields");
+      toast.error('Please fill all fields');
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      toast.error("Passwords do not match");
+      toast.error('Passwords do not match');
       return;
     }
 
     try {
       setLoading(true);
-
-      await api.post("/auth/reset-password", {
+      await api.post('/auth/reset-password', {
         email,
         otp,
         newPassword,
       });
-
-      toast.success("Password reset successfully");
-
-      navigate("/login");
-    } catch (error: any) {
+      toast.success('Password reset successfully');
+      navigate('/login');
+    } catch (error: unknown) {
       toast.error(
-        error.response?.data?.message || "Failed to reset password"
+        (error as { response?: { data?: { message?: string } } })?.response?.data
+          ?.message || 'Failed to reset password',
       );
     } finally {
       setLoading(false);
     }
   };
-   if (!email || !otp) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <p className="mb-4">Invalid password reset session.</p>
 
-          <button
-            onClick={() => navigate("/forgot-password")}
-            className="text-blue-600 underline"
-          >
+  if (!email || !otp) {
+    return (
+      <AuthBlossomShell>
+        <div className="auth-card text-center">
+          <div className="flex justify-center mb-6">
+            <WowLogo to="/" />
+          </div>
+          <p className="mb-4 text-gray-600">Invalid password reset session.</p>
+          <Link to="/forgot-password" className="auth-link text-sm">
             Go to Forgot Password
-          </button>
+          </Link>
         </div>
-      </div>
+      </AuthBlossomShell>
     );
   }
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="bg-white shadow-lg rounded-lg p-8 w-full max-w-md">
+    <AuthBlossomShell>
+      <form onSubmit={handleResetPassword} className="auth-card soft-fade-in">
+        <div className="flex justify-center mb-6">
+          <WowLogo to="/" />
+        </div>
 
-        <h2 className="text-2xl font-bold text-center mb-6">
-          Reset Password
-        </h2>
+        <h1 className="text-2xl font-bold text-gray-900 text-center">Reset Password</h1>
+        <p className="text-sm text-gray-500 text-center mt-1.5 mb-7">
+          Choose a new password for your account.
+        </p>
 
-        <form onSubmit={handleResetPassword} className="space-y-4">
+        <div className="space-y-3.5">
+          <div className="auth-input-wrap">
+            <Lock className="auth-input-icon w-4 h-4" />
+            <input
+              className="auth-input has-toggle"
+              type={showPassword ? 'text' : 'password'}
+              placeholder="New Password"
+              required
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              autoComplete="new-password"
+            />
+            <button
+              type="button"
+              className="auth-input-action"
+              onClick={() => setShowPassword((v) => !v)}
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+            >
+              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
+          </div>
 
-            <div className="relative">
-  <input
-    type={showNewPassword ? "text" : "password"}
-    placeholder="New Password"
-    required
-    className="w-full border rounded-lg p-3 pr-12"
-    value={newPassword}
-    onChange={(e) => setNewPassword(e.target.value)}
-  />
+          <div className="auth-input-wrap">
+            <Lock className="auth-input-icon w-4 h-4" />
+            <input
+              className="auth-input has-toggle"
+              type={showConfirm ? 'text' : 'password'}
+              placeholder="Confirm Password"
+              required
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              autoComplete="new-password"
+            />
+            <button
+              type="button"
+              className="auth-input-action"
+              onClick={() => setShowConfirm((v) => !v)}
+              aria-label={showConfirm ? 'Hide password' : 'Show password'}
+            >
+              {showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
+          </div>
+        </div>
 
-  <button
-    type="button"
-    onClick={() => setShowNewPassword(!showNewPassword)}
-    className="absolute inset-y-0 right-3 flex items-center text-gray-500"
-  >
-    {showNewPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-  </button>
-</div>
+        <button type="submit" disabled={loading} className="auth-btn-primary mt-6">
+          {loading ? 'Resetting...' : 'Reset Password'}
+        </button>
 
-          <div className="relative">
-  <input
-    type={showConfirmPassword ? "text" : "password"}
-    placeholder="Confirm Password"
-    required
-    className="w-full border rounded-lg p-3 pr-12"
-    value={confirmPassword}
-    onChange={(e) => setConfirmPassword(e.target.value)}
-  />
-
-  <button
-    type="button"
-    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-    className="absolute inset-y-0 right-3 flex items-center text-gray-500"
-  >
-    {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-  </button>
-</div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-pink-600 text-white py-3 rounded-lg hover:bg-pink-700"
-          >
-            {loading ? "Resetting..." : "Reset Password"}
-          </button>
-
-        </form>
-
-      </div>
-    </div>
+        <p className="text-center text-sm text-gray-500 mt-6">
+          Back to{' '}
+          <Link to="/login" className="auth-link">
+            Login
+          </Link>
+        </p>
+      </form>
+    </AuthBlossomShell>
   );
 };
 

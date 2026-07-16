@@ -1,5 +1,5 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { BadRequestException, ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
@@ -26,6 +26,24 @@ async function bootstrap() {
       whitelist: true,
       forbidNonWhitelisted: false,
       transform: true,
+      transformOptions: { enableImplicitConversion: true },
+      exceptionFactory: (errors) => {
+        const details = errors.map((err) => ({
+          property: err.property,
+          value: err.value,
+          constraints: err.constraints,
+        }));
+        // Surface the real validation failure in the Nest terminal (not just HTTP 400).
+        console.error(
+          '[ValidationPipe] Bad Request — validation failed:',
+          JSON.stringify(details, null, 2),
+        );
+        return new BadRequestException({
+          statusCode: 400,
+          message: 'Validation failed',
+          errors: details,
+        });
+      },
     }),
   );
 

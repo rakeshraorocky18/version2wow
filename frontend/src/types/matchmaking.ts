@@ -31,6 +31,10 @@ export interface MatchFilters {
   caste: string;
   minAge: string;
   maxAge: string;
+  city: string;
+  diet: string;
+  occupation: string;
+  income: string;
   horoscopeMatch: boolean;
 }
 
@@ -87,5 +91,9 @@ export const EMPTY_FILTERS: MatchFilters = {
   caste: '',
   minAge: '',
   maxAge: '',
+  city: '',
+  diet: '',
+  occupation: '',
+  income: '',
   horoscopeMatch: false,
 };

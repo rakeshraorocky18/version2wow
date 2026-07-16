@@ -3,13 +3,13 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { SQLITE_CONNECTION, POSTGRES_CONNECTION } from './config/database.constants';
+import { Neo4jModule } from './neo4j/neo4j.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { MatchmakingModule } from './modules/matchmaking/matchmaking.module';
 import { ChatModule } from './modules/chat/chat.module';
 import { VendorsModule } from './modules/vendors/vendors.module';
 import { PlannerModule } from './modules/planner/planner.module';
-import { NotificationsModule } from './modules/notifications/notifications.module';
 import { BookingsModule } from './modules/bookings/bookings.module';
 import { EventsModule } from './modules/events/events.module';
 import { HoneymoonModule } from './modules/honeymoon/honeymoon.module';
@@ -19,7 +19,8 @@ import { VendorProfilesModule } from './modules/vendor-profiles/vendor-profiles.
 import { MailModule } from './common/mail/mail.module';
 import { VendorAuthModule } from './modules/vendor-auth/vendor-auth.module';
 import { VendorDashboardModule } from './modules/vendor-dashboard/vendor-dashboard.module';
-
+import { AgentModule } from './modules/agent/agent.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -28,6 +29,7 @@ import { VendorDashboardModule } from './modules/vendor-dashboard/vendor-dashboa
     }),
 
     MailModule,
+    Neo4jModule,
 
     TypeOrmModule.forRootAsync({
       name: SQLITE_CONNECTION,
@@ -83,6 +85,7 @@ import { VendorDashboardModule } from './modules/vendor-dashboard/vendor-dashboa
     VendorProfilesModule,
     VendorAuthModule,
     VendorDashboardModule,
+    AgentModule, 
   ],
 })
 export class AppModule {}

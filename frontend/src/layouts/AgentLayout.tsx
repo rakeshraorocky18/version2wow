@@ -1,0 +1,98 @@
+import { useState } from 'react';
+import { Outlet, Navigate, Link, useLocation } from 'react-router-dom';
+import {
+  LayoutDashboard,
+  Users,
+  UserPlus,
+  ClipboardList,
+  History,
+  Settings,
+  LogOut,
+} from 'lucide-react';
+import AgentHeader from '../components/agent/AgentHeader';
+import { useAgentAuthStore } from '../store/agent/agentAuthStore';
+
+const mobileItems = [
+  { title: 'Dashboard', path: '/agent/dashboard', icon: LayoutDashboard },
+  { title: 'Customers', path: '/agent/customers', icon: Users },
+  { title: 'Add Customer', path: '/agent/customers/new', icon: UserPlus },
+  { title: 'Worksheet', path: '/agent/worksheet', icon: ClipboardList },
+  { title: 'Activity Log', path: '/agent/activity', icon: History },
+  { title: 'Settings', path: '/agent/settings', icon: Settings },
+];
+
+export default function AgentLayout() {
+  const isAuthenticated = useAgentAuthStore((s) => s.isAuthenticated);
+  const logout = useAgentAuthStore((s) => s.logout);
+  const location = useLocation();
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Customer context (/agent/customers/:id and nested pages) — hide agent shell
+  // until the agent returns to the portal (e.g. customers list / dashboard).
+  // Keep chrome on /agent/customers and /agent/customers/new.
+  const isCustomerContext =
+    /^\/agent\/customers\/(?!new(?:\/|$))[^/]+(?:\/.*)?$/.test(
+      location.pathname,
+    );
+
+  if (!isAuthenticated) {
+    return <Navigate to="/agent/login" replace />;
+  }
+
+  if (isCustomerContext) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-[#FFF8F3] via-[#FAF8FB] to-[#F7EBEF]">
+        <main className="min-h-screen overflow-auto p-4 md:p-6 lg:p-8">
+          <Outlet />
+        </main>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-[#F8F9FB]">
+      <div className="flex min-h-screen flex-col">
+        <AgentHeader
+          mobileOpen={mobileOpen}
+          onToggleMobileNav={() => setMobileOpen((v) => !v)}
+        />
+
+        {mobileOpen && (
+          <div className="md:hidden border-b border-gray-100 bg-white px-4 py-3 space-y-1">
+            {mobileItems.map((item) => {
+              const Icon = item.icon;
+              const active = location.pathname.startsWith(item.path);
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  onClick={() => setMobileOpen(false)}
+                  className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm ${
+                    active ? 'bg-pink-50 text-[#E91E63]' : 'text-gray-800'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  {item.title}
+                </Link>
+              );
+            })}
+            <button
+              onClick={() => {
+                logout();
+                setMobileOpen(false);
+              }}
+              className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-red-600"
+            >
+              <LogOut className="w-4 h-4" />
+              Logout
+            </button>
+          </div>
+        )}
+
+        <main className="mx-auto w-full max-w-7xl flex-1 overflow-auto p-4 md:p-6 lg:p-8">
+          <Outlet />
+        </main>
+      </div>
+    </div>
+  );
+}

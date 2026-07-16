@@ -21,11 +21,15 @@ import {
   ChatHiddenContactDocument,
   ChatHistoryClear,
   ChatHistoryClearDocument,
+  ChatThreadSettings,
+  ChatThreadSettingsDocument,
 } from './schemas/message.schema';
 import {
   SendMessageDto,
   UpdateChatPrivacyDto,
   ScheduleMeetingDto,
+  UpdateThreadSettingsDto,
+  ReportUserDto,
 } from './dto/chat.dto';
 import { Match } from '../matchmaking/entities/match.entity';
 import { MatchStatus, ChatRestrictionMode, ChatMeetingStatus } from '../../common/enums';
@@ -36,6 +40,7 @@ type ConversationRecord = Conversation & Record<string, unknown>;
 type MessageRecord = Message & Record<string, unknown>;
 type PrivacyRecord = ChatPrivacySettings & Record<string, unknown>;
 type MeetingRecord = ChatMeeting & Record<string, unknown>;
+type ThreadSettingsRecord = ChatThreadSettings & Record<string, unknown>;
 
 @Injectable()
 export class ChatServiceMongodb {
@@ -52,6 +57,8 @@ export class ChatServiceMongodb {
     private hiddenContactModel: Model<ChatHiddenContactDocument>,
     @InjectModel(ChatHistoryClear.name)
     private historyClearModel: Model<ChatHistoryClearDocument>,
+    @InjectModel(ChatThreadSettings.name)
+    private threadSettingsModel: Model<ChatThreadSettingsDocument>,
     @InjectRepository(Match, SQLITE_CONNECTION)
     private matchRepository: Repository<Match>,
     private usersService: UsersService,
@@ -98,18 +105,24 @@ export class ChatServiceMongodb {
     return Array.from(await this.getHiddenUserIds(userId));
   }
 
-  private async findAcceptedMatchesForUser(userId: string): Promise<Match[]> {
+  /** Accepted + blocked matches that should appear in the chat list. */
+  private async findChatMatchesForUser(userId: string): Promise<Match[]> {
     const resolvedUserId = await this.resolveUserId(userId);
     const profile = await this.usersService.getProfileOrNull(resolvedUserId);
     const selfIds = new Set([userId, resolvedUserId]);
     if (profile?.id) selfIds.add(profile.id as string);
 
-    const accepted = await this.matchRepository.find({
-      where: { status: MatchStatus.ACCEPTED },
+    const rows = await this.matchRepository.find({
+      where: [{ status: MatchStatus.ACCEPTED }, { status: MatchStatus.BLOCKED }],
       order: { updatedAt: 'DESC' },
     });
 
-    return accepted.filter((m) => selfIds.has(m.senderId) || selfIds.has(m.receiverId));
+    return rows.filter((m) => selfIds.has(m.senderId) || selfIds.has(m.receiverId));
+  }
+
+  private async findAcceptedMatchesForUser(userId: string): Promise<Match[]> {
+    const chatMatches = await this.findChatMatchesForUser(userId);
+    return chatMatches.filter((m) => m.status === MatchStatus.ACCEPTED);
   }
 
   private partnerIdFromMatch(match: Match, selfIds: Set<string>): string {
@@ -234,12 +247,28 @@ export class ChatServiceMongodb {
   }
 
   async hasAcceptedMatch(userA: string, userB: string): Promise<boolean> {
+    const match = await this.findPairMatch(userA, userB);
+    return match?.status === MatchStatus.ACCEPTED;
+  }
+
+  /** Can open/view the thread (accepted or blocked). */
+  async hasChatAccess(userA: string, userB: string): Promise<boolean> {
+    const match = await this.findPairMatch(userA, userB);
+    return match?.status === MatchStatus.ACCEPTED || match?.status === MatchStatus.BLOCKED;
+  }
+
+  async isBlockedWith(userA: string, userB: string): Promise<boolean> {
+    const match = await this.findPairMatch(userA, userB);
+    return match?.status === MatchStatus.BLOCKED;
+  }
+
+  private async findPairMatch(userA: string, userB: string): Promise<Match | null> {
     const resolvedB = await this.resolveUserId(userB);
     const profileB = await this.usersService.getProfileOrNull(resolvedB);
     const bIds = new Set([userB, resolvedB]);
     if (profileB?.id) bIds.add(profileB.id as string);
 
-    const matches = await this.findAcceptedMatchesForUser(userA);
+    const matches = await this.findChatMatchesForUser(userA);
     const resolvedA = await this.resolveUserId(userA);
     const profileA = await this.usersService.getProfileOrNull(resolvedA);
     const aIds = new Set([userA, resolvedA]);
@@ -248,12 +277,16 @@ export class ChatServiceMongodb {
     for (const match of matches) {
       const rawPartner = this.partnerIdFromMatch(match, aIds);
       const partnerId = await this.resolveUserId(rawPartner);
-      if (bIds.has(rawPartner) || bIds.has(partnerId)) return true;
+      if (bIds.has(rawPartner) || bIds.has(partnerId)) return match;
     }
-    return false;
+    return null;
   }
 
   private async assertCanChat(senderId: string, receiverId: string): Promise<void> {
+    if (await this.isBlockedWith(senderId, receiverId)) {
+      throw new ForbiddenException('Messaging is disabled because this user is blocked');
+    }
+
     const receiverPrivacy = await this.getPrivacySettings(receiverId);
     if (!receiverPrivacy.allowMessages) {
       throw new ForbiddenException('This user is not accepting messages right now');
@@ -272,6 +305,58 @@ export class ChatServiceMongodb {
     if (!receiverPrivacy.allowMediaSharing) {
       throw new ForbiddenException('This user has disabled media sharing');
     }
+  }
+
+  private async getOrCreateThreadSettings(
+    userId: string,
+    otherUserId: string,
+  ): Promise<ThreadSettingsRecord> {
+    const resolvedUser = await this.resolveUserId(userId);
+    const resolvedOther = await this.resolveUserId(otherUserId);
+    let row = await this.threadSettingsModel
+      .findOne({ userId: resolvedUser, otherUserId: resolvedOther })
+      .exec();
+    if (!row) {
+      row = await this.threadSettingsModel.create({
+        userId: resolvedUser,
+        otherUserId: resolvedOther,
+        muted: false,
+        disappearingSeconds: 0,
+      });
+    }
+    return this.toPlain<ThreadSettingsRecord>(row);
+  }
+
+  async getThreadSettings(userId: string, otherUserId: string): Promise<ThreadSettingsRecord> {
+    const canView = await this.hasChatAccess(userId, otherUserId);
+    if (!canView) {
+      throw new ForbiddenException('You can only manage settings for matched chats');
+    }
+    return this.getOrCreateThreadSettings(userId, otherUserId);
+  }
+
+  async updateThreadSettings(
+    userId: string,
+    otherUserId: string,
+    dto: UpdateThreadSettingsDto,
+  ): Promise<ThreadSettingsRecord> {
+    const settings = await this.getThreadSettings(userId, otherUserId);
+    if (dto.muted !== undefined) settings.muted = dto.muted;
+    if (dto.disappearingSeconds !== undefined) {
+      settings.disappearingSeconds = dto.disappearingSeconds;
+    }
+    await this.threadSettingsModel
+      .updateOne(
+        { userId: settings.userId, otherUserId: settings.otherUserId },
+        {
+          $set: {
+            muted: settings.muted,
+            disappearingSeconds: settings.disappearingSeconds,
+          },
+        },
+      )
+      .exec();
+    return settings;
   }
 
   async sendMessage(senderId: string, dto: SendMessageDto): Promise<MessageRecord> {
@@ -317,13 +402,27 @@ export class ChatServiceMongodb {
         .exec();
     }
 
-    const message = await this.messageModel.create({
+    const senderThread = await this.getOrCreateThreadSettings(senderId, dto.receiverId);
+    const receiverThread = await this.getOrCreateThreadSettings(dto.receiverId, senderId);
+    const disappearSeconds = Math.max(
+      Number(senderThread.disappearingSeconds || 0),
+      Number(receiverThread.disappearingSeconds || 0),
+    );
+
+    const messagePayload: Record<string, unknown> = {
       senderId: resolvedSender,
       receiverId: resolvedReceiver,
       content: dto.content,
       type: dto.type || 'text',
       mediaUrl: dto.mediaUrl,
-    });
+      isRead: false,
+      deletedFor: [],
+    };
+    if (disappearSeconds > 0) {
+      messagePayload.expiresAt = new Date(Date.now() + disappearSeconds * 1000);
+    }
+
+    const message = await this.messageModel.create(messagePayload);
 
     return this.toPlain<MessageRecord>(message);
   }
@@ -338,7 +437,8 @@ export class ChatServiceMongodb {
     const selfIds = new Set([userId, resolvedUserId]);
     if (profile?.id) selfIds.add(profile.id as string);
 
-    const matches = await this.findAcceptedMatchesForUser(userId);
+    const matches = await this.findChatMatchesForUser(userId);
+    const hidden = await this.getHiddenUserIds(userId);
 
     const selfIdList = Array.from(selfIds);
     const conversations = await this.conversationModel
@@ -364,6 +464,8 @@ export class ChatServiceMongodb {
       subtitle: string;
       photo?: string;
       lastMessageAt?: Date;
+      isBlocked?: boolean;
+      muted?: boolean;
     }> = [];
 
     const seenPartners = new Set<string>();
@@ -373,6 +475,8 @@ export class ChatServiceMongodb {
       const partnerUserId = await this.resolveUserId(rawPartner);
       if (seenPartners.has(partnerUserId)) continue;
       seenPartners.add(partnerUserId);
+
+      if (hidden.has(partnerUserId) || hidden.has(rawPartner)) continue;
 
       const partnerProfile = await this.usersService.getProfileOrNull(partnerUserId);
       const wizard = (partnerProfile?.wizardProfile || {}) as Record<string, unknown>;
@@ -387,14 +491,20 @@ export class ChatServiceMongodb {
 
       const conv = convByOther.get(partnerUserId) || convByOther.get(rawPartner);
       const clearedAt = await this.getEffectiveClearedAt(userId, partnerUserId, conv ?? null);
+      const thread = await this.getOrCreateThreadSettings(userId, partnerUserId);
+      const isBlocked = match.status === MatchStatus.BLOCKED;
       contacts.push({
         userId: partnerUserId,
         name,
-        subtitle: clearedAt
-          ? 'Mutual match — say hello!'
-          : conv?.lastMessage || 'Mutual match — say hello!',
+        subtitle: isBlocked
+          ? 'Blocked'
+          : clearedAt
+            ? 'Mutual match — say hello!'
+            : conv?.lastMessage || 'Mutual match — say hello!',
         photo: photo || undefined,
         lastMessageAt: clearedAt ? match.updatedAt : conv?.lastMessageAt || match.updatedAt,
+        isBlocked,
+        muted: !!thread.muted,
       });
     }
 
@@ -408,13 +518,15 @@ export class ChatServiceMongodb {
   }
 
   async getMessages(userId: string, otherUserId: string, page = 1, limit = 50) {
-    const canView = await this.hasAcceptedMatch(userId, otherUserId);
+    const canView = await this.hasChatAccess(userId, otherUserId);
     if (!canView) {
-      throw new ForbiddenException('You can only view messages with accepted matches');
+      throw new ForbiddenException('You can only view messages with matched chats');
     }
 
     const conv = await this.findConversation(userId, otherUserId);
     const clearedAfter = await this.getEffectiveClearedAt(userId, otherUserId, conv);
+    const resolvedUser = await this.resolveUserId(userId);
+    const now = Date.now();
 
     const selfIds = await this.getSelfIds(userId);
     const otherIds = await this.getSelfIds(otherUserId);
@@ -434,11 +546,76 @@ export class ChatServiceMongodb {
         if (clearedAfter && new Date(m.createdAt as Date).getTime() <= clearedAfter.getTime()) {
           return false;
         }
+        const deletedFor = (m.deletedFor as string[]) || [];
+        if (deletedFor.includes(userId) || deletedFor.includes(resolvedUser)) {
+          return false;
+        }
+        if (m.expiresAt && new Date(m.expiresAt as Date).getTime() <= now) {
+          return false;
+        }
         return true;
       });
 
     const pageMessages = messages.slice(skip, skip + limit);
-    return { messages: pageMessages, total: messages.length, cleared: !!clearedAfter };
+    await this.markConversationRead(userId, otherUserId);
+    const isBlocked = await this.isBlockedWith(userId, otherUserId);
+    const thread = await this.getOrCreateThreadSettings(userId, otherUserId);
+    return {
+      messages: pageMessages,
+      total: messages.length,
+      cleared: !!clearedAfter,
+      isBlocked,
+      muted: !!thread.muted,
+      disappearingSeconds: Number(thread.disappearingSeconds || 0),
+    };
+  }
+
+  async getSharedMedia(userId: string, otherUserId: string, kind: 'media' | 'links' | 'docs' = 'media') {
+    const result = await this.getMessages(userId, otherUserId, 1, 500);
+    const messages = (result.messages || []) as unknown as MessageRecord[];
+    const items = messages.filter((m) => {
+      if (kind === 'media') return m.type === 'image' || m.type === 'video';
+      if (kind === 'docs') return m.type === 'file';
+      if (kind === 'links') {
+        return m.type === 'text' && typeof m.content === 'string' && /https?:\/\/[^\s]+/i.test(m.content);
+      }
+      return false;
+    });
+    return { items, kind };
+  }
+
+  async reportUser(reporterId: string, dto: ReportUserDto) {
+    const canReport = await this.hasChatAccess(reporterId, dto.userId);
+    if (!canReport) {
+      throw new ForbiddenException('You can only report users from your chats');
+    }
+    // Soft report log — stored as a system-style message marker for ops review
+    await this.messageModel.create({
+      senderId: await this.resolveUserId(reporterId),
+      receiverId: await this.resolveUserId(dto.userId),
+      content: `[REPORT] ${dto.reason || 'No reason provided'}`,
+      type: 'report',
+      isRead: true,
+      deletedFor: [await this.resolveUserId(reporterId), await this.resolveUserId(dto.userId)],
+    });
+    return { success: true };
+  }
+
+  async markConversationRead(userId: string, otherUserId: string): Promise<{ success: boolean; marked: number }> {
+    const selfIds = Array.from(await this.getSelfIds(userId));
+    const otherIds = Array.from(await this.getSelfIds(otherUserId));
+
+    // Use native collection update to avoid Mongoose casting quirks on boolean filters
+    const result = await this.messageModel.collection.updateMany(
+      {
+        senderId: { $in: otherIds },
+        receiverId: { $in: selfIds },
+        isRead: { $ne: true },
+      },
+      { $set: { isRead: true, readAt: new Date() } },
+    );
+
+    return { success: true, marked: result.modifiedCount ?? 0 };
   }
 
   private messagePreview(message: MessageRecord | null): string | null {
@@ -449,7 +626,11 @@ export class ChatServiceMongodb {
     return message.content as string;
   }
 
-  async deleteMessage(userId: string, messageId: string): Promise<{ success: boolean }> {
+  async deleteMessage(
+    userId: string,
+    messageId: string,
+    mode: 'me' | 'everyone' = 'everyone',
+  ): Promise<{ success: boolean }> {
     const message = await this.messageModel.findOne({ id: messageId }).exec();
     if (!message) {
       throw new NotFoundException('Message not found');
@@ -457,17 +638,35 @@ export class ChatServiceMongodb {
 
     const plain = this.toPlain(message);
     const resolvedUser = await this.resolveUserId(userId);
-    if (plain.senderId !== userId && plain.senderId !== resolvedUser) {
-      throw new ForbiddenException('You can only delete your own messages');
-    }
-
     const senderResolved = await this.resolveUserId(plain.senderId as string);
     const receiverResolved = await this.resolveUserId(plain.receiverId as string);
+
+    const isParticipant =
+      plain.senderId === userId ||
+      plain.senderId === resolvedUser ||
+      plain.receiverId === userId ||
+      plain.receiverId === resolvedUser;
+    if (!isParticipant) {
+      throw new ForbiddenException('You can only delete messages from your chats');
+    }
+
     const canDeleteInChat =
-      (await this.hasAcceptedMatch(userId, senderResolved)) ||
-      (await this.hasAcceptedMatch(userId, receiverResolved));
+      (await this.hasChatAccess(userId, senderResolved)) ||
+      (await this.hasChatAccess(userId, receiverResolved));
     if (!canDeleteInChat) {
       throw new ForbiddenException('You can only delete messages from matched chats');
+    }
+
+    if (mode === 'me') {
+      const deletedFor = Array.from(
+        new Set([...(plain.deletedFor as string[] | undefined) || [], resolvedUser]),
+      );
+      await this.messageModel.updateOne({ id: plain.id }, { $set: { deletedFor } }).exec();
+      return { success: true };
+    }
+
+    if (plain.senderId !== userId && plain.senderId !== resolvedUser) {
+      throw new ForbiddenException('You can only delete your own messages for everyone');
     }
 
     await this.messageModel.deleteOne({ id: plain.id }).exec();
@@ -500,10 +699,11 @@ export class ChatServiceMongodb {
     return { success: true };
   }
 
+  /** Clear history for the current user; contact stays in the list. */
   async deleteConversation(userId: string, otherUserId: string): Promise<{ success: boolean }> {
-    const canDelete = await this.hasAcceptedMatch(userId, otherUserId);
+    const canDelete = await this.hasChatAccess(userId, otherUserId);
     if (!canDelete) {
-      throw new ForbiddenException('You can only delete chats with accepted matches');
+      throw new ForbiddenException('You can only clear chats with matched contacts');
     }
 
     await this.unhideContact(userId, otherUserId);
@@ -511,6 +711,17 @@ export class ChatServiceMongodb {
 
     const resolvedUser = await this.resolveUserId(userId);
     const resolvedOther = await this.resolveUserId(otherUserId);
+    const selfIds = await this.getSelfIds(userId);
+    const otherIds = await this.getSelfIds(otherUserId);
+
+    await this.messageModel.collection.updateMany(
+      {
+        senderId: { $in: Array.from(otherIds) },
+        receiverId: { $in: Array.from(selfIds) },
+        isRead: { $ne: true },
+      },
+      { $set: { isRead: true, readAt: new Date() } },
+    );
 
     let conversation = await this.findConversation(userId, otherUserId);
 
@@ -533,8 +744,54 @@ export class ChatServiceMongodb {
     return { success: true };
   }
 
+  /** Remove chat from the list (hide). History is also cleared for this user. */
+  async hideConversation(userId: string, otherUserId: string): Promise<{ success: boolean }> {
+    await this.deleteConversation(userId, otherUserId);
+    await this.hideContact(userId, otherUserId);
+    return { success: true };
+  }
+
   async getUnreadCount(userId: string): Promise<number> {
-    return this.messageModel.countDocuments({ receiverId: userId, isRead: false }).exec();
+    const selfIds = Array.from(await this.getSelfIds(userId));
+    const unreadDocs = await this.messageModel.collection
+      .find({
+        receiverId: { $in: selfIds },
+        isRead: { $ne: true },
+      })
+      .toArray();
+
+    if (!unreadDocs.length) return 0;
+
+    let count = 0;
+    const clearedCache = new Map<string, Date | null>();
+    const resolvedUser = await this.resolveUserId(userId);
+    const now = Date.now();
+
+    for (const msg of unreadDocs) {
+      const senderId = String(msg.senderId || '');
+      if (!senderId) continue;
+
+      const canChat = await this.hasChatAccess(userId, senderId);
+      if (!canChat) continue;
+      if (await this.isBlockedWith(userId, senderId)) continue;
+
+      const deletedFor = (msg.deletedFor as string[]) || [];
+      if (deletedFor.includes(userId) || deletedFor.includes(resolvedUser)) continue;
+      if (msg.expiresAt && new Date(msg.expiresAt as Date).getTime() <= now) continue;
+
+      let clearedAfter = clearedCache.get(senderId);
+      if (clearedAfter === undefined) {
+        const conv = await this.findConversation(userId, senderId);
+        clearedAfter = await this.getEffectiveClearedAt(userId, senderId, conv);
+        clearedCache.set(senderId, clearedAfter);
+      }
+      if (clearedAfter && msg.createdAt && new Date(msg.createdAt as Date).getTime() <= clearedAfter.getTime()) {
+        continue;
+      }
+      count += 1;
+    }
+
+    return count;
   }
 
   async getPrivacySettings(userId: string): Promise<PrivacyRecord> {

@@ -2,6 +2,7 @@ import {
   Injectable,
   UnauthorizedException,
   ConflictException,
+  Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -20,9 +21,13 @@ import {
 } from './dto/auth.dto';
 import { generateOTP } from '../../common/utils/otp';
 import { POSTGRES_CONNECTION } from '../../config/database.constants';
+import { Neo4jService } from '../../neo4j/neo4j.service';
+import { UserRole } from '../../common/enums';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     @InjectRepository(User, POSTGRES_CONNECTION)
     private usersRepository: Repository<User>,
@@ -31,6 +36,7 @@ export class AuthService {
     private jwtService: JwtService,
     private configService: ConfigService,
     private readonly mailService: MailService,
+    private readonly neo4jService: Neo4jService,
   ) {}
 
   async register(registerDto: RegisterDto) {
@@ -50,6 +56,27 @@ export class AuthService {
     });
 
     await this.usersRepository.save(user);
+
+    // Minimal Neo4j User node (id + gender hint from role). No profile data stored.
+    try {
+      const gender =
+        registerDto.role === UserRole.BRIDE
+          ? 'Female'
+          : registerDto.role === UserRole.GROOM
+            ? 'Male'
+            : null;
+      await this.neo4jService.upsertUserNode({
+        id: user.id,
+        gender,
+        profileCompleted: false,
+      });
+    } catch (error) {
+      this.logger.warn(
+        `Neo4j user node creation skipped for ${user.id}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
 
     const tokens = await this.generateTokens(user);
     await this.updateRefreshToken(user.id, tokens.refreshToken);

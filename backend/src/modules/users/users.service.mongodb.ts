@@ -819,6 +819,11 @@ export class UsersService implements OnModuleInit {
     if (filters.maritalStatus) query.maritalStatus = filters.maritalStatus;
     if (filters.education) query.education = { $regex: filters.education, $options: 'i' };
     if (filters.occupation) query.occupation = { $regex: filters.occupation, $options: 'i' };
+    if (filters.income) {
+      const incomeRegex = { $regex: String(filters.income), $options: 'i' };
+      const incomeClause = { $or: [{ income: incomeRegex }, { annualIncome: incomeRegex }] };
+      query.$and = [...((query.$and as object[]) || []), incomeClause];
+    }
     if (filters.workingStatus === 'working') {
       query.occupation = { $exists: true, $nin: [null, ''] };
     }

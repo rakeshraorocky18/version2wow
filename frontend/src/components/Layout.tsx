@@ -1,12 +1,14 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../store/authStore';
 import AppFooter from './AppFooter';
 import { FooterPaginationProvider, useFooterPagination } from '../context/FooterPaginationContext';
-import { useAcceptedInterests, useReceivedInterests, useShortlist } from '../hooks/useMatchmaking';
+import { useReceivedInterests, useShortlist } from '../hooks/useMatchmaking';
+import { useChatSocket } from '../hooks/useChatSocket';
 import api from '../lib/api';
+import WowLogo from './brand/WowLogo';
 import {
   Heart,
   MessageCircle,
@@ -46,8 +48,11 @@ function FooterPaginationReset() {
 
 export default function Layout() {
   const location = useLocation();
+  const queryClient = useQueryClient();
   const isMatchesPage = location.pathname.startsWith('/app/matches');
   const isDashboardPage = location.pathname === '/app';
+  const isChatPage = location.pathname.startsWith('/app/chat');
+  const isClientPage = location.pathname.startsWith('/app/clients/');
   const logout = useAuthStore((state) => state.logout);
   const user = useAuthStore((state) => state.user);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -57,11 +62,36 @@ export default function Layout() {
 
   // Notification counts from existing hooks
   const { data: receivedInterests = [] } = useReceivedInterests();
-  const { data: acceptedInterests = [] } = useAcceptedInterests();
   const pendingMatchCount = receivedInterests.filter((m) => m.status === 'pending').length;
   const { data: shortlistData } = useShortlist();
-  const acceptedCount = acceptedInterests.length;
   const shortlistCount = shortlistData?.profiles?.length ?? 0;
+  const { data: unreadChat } = useQuery({
+    queryKey: ['chat-unread'],
+    queryFn: async () => {
+      const { data } = await api.get<{ unreadCount: number }>('/chat/unread');
+      return data.unreadCount ?? 0;
+    },
+    staleTime: 0,
+    refetchInterval: isChatPage ? 5_000 : 10_000,
+    refetchOnWindowFocus: true,
+    refetchOnMount: 'always',
+  });
+  const chatUnreadCount = unreadChat ?? 0;
+
+  // Live-update chat badge when a new message arrives
+  useChatSocket({
+    onNewMessage: () => {
+      queryClient.invalidateQueries({ queryKey: ['chat-unread'] });
+      queryClient.invalidateQueries({ queryKey: ['chat-contacts'] });
+    },
+  });
+
+  // When entering chat page, refresh unread immediately
+  useEffect(() => {
+    if (!isChatPage) return;
+    queryClient.invalidateQueries({ queryKey: ['chat-unread'] });
+  }, [isChatPage, queryClient]);
+
   const { data: events = [] } = useQuery({
     queryKey: ['layout-events-count'],
     queryFn: async () => {
@@ -94,7 +124,7 @@ export default function Layout() {
   // Helper: get badge count for nav item
   function getBadgeCount(badge?: string): number {
     if (badge === 'matches') return pendingMatchCount;
-    if (badge === 'chat') return acceptedCount;
+    if (badge === 'chat') return chatUnreadCount;
     if (badge === 'events') return eventCount;
     if (badge === 'saved') return shortlistCount;
     return 0;
@@ -118,7 +148,8 @@ export default function Layout() {
       <main className="relative z-10 flex flex-1 flex-col w-full px-4 sm:px-6 lg:px-8 py-6">
 
         {/* ── Navbar ─────────────────────────────────────── */}
-        <header
+        {!isClientPage && (
+         <header
           onMouseEnter={() => {
             setIsNavHovered(true);
             setIsNavVisible(true);
@@ -140,26 +171,15 @@ export default function Layout() {
               : ''
             }
           `}
-        >
+          >
+      
           <div className="flex items-center justify-between h-16 px-4 sm:px-5 lg:px-6">
 
             {/* Logo */}
-            <Link to="/app" className="flex items-center gap-3 group">
-              <motion.span
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.98 }}
-                className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-[#B76E79] to-[#D69BA6] text-white shadow-[0_4px_14px_rgba(183,110,121,0.35)]"
-              >
-                <Heart size={18} fill="currentColor" />
+            <Link to="/app" className="flex items-center group">
+              <motion.span whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }}>
+                <WowLogo variant="header" />
               </motion.span>
-              <div>
-                <span className="text-xl font-display font-bold bg-gradient-to-r from-[#B76E79] to-[#D69BA6] bg-clip-text text-transparent">
-                  WOW
-                </span>
-                <p className="hidden sm:block text-[10px] font-medium text-[#6B6670] -mt-0.5 leading-none">
-                  World of Weddings
-                </p>
-              </div>
             </Link>
 
             {/* Desktop nav */}
@@ -310,15 +330,15 @@ export default function Layout() {
             </nav>
           )}
         </header>
-
+        )}
         {/* Main content — flex-1 pushes footer to viewport bottom on short pages */}
         <div className="mt-5 flex flex-1 flex-col">
           <FooterPaginationProvider>
             <FooterPaginationReset />
-            <div className="flex-1">
+            <div className={`flex-1 ${isChatPage ? 'flex min-h-0 flex-col' : ''}`}>
               <Outlet />
             </div>
-            <AppFooter />
+            {!isClientPage && <AppFooter />}
           </FooterPaginationProvider>
         </div>
       </main>
