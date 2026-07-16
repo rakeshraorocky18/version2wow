@@ -31,18 +31,6 @@ export default function AgentDashboard() {
       tone: 'from-wow-primary/20 to-wow-primary/5',
     },
     {
-      title: "Today's Tasks",
-      value: data?.todaysTasks ?? 0,
-      icon: ClipboardList,
-      tone: 'from-purple-200/40 to-purple-50',
-    },
-    {
-      title: 'Overdue Tasks',
-      value: data?.overdueTasks ?? 0,
-      icon: AlertTriangle,
-      tone: 'from-red-200/50 to-red-50',
-    },
-    {
       title: 'Active Customers',
       value: data?.activeCustomers ?? 0,
       icon: UserCheck,
@@ -53,6 +41,18 @@ export default function AgentDashboard() {
       value: data?.pendingProfiles ?? 0,
       icon: Clock,
       tone: 'from-blue-200/50 to-blue-50',
+    },
+    {
+      title: "Today's Tasks",
+      value: data?.todaysTasks ?? 0,
+      icon: ClipboardList,
+      tone: 'from-purple-200/40 to-purple-50',
+    },
+    {
+      title: 'Overdue Tasks',
+      value: data?.overdueTasks ?? 0,
+      icon: AlertTriangle,
+      tone: 'from-red-200/50 to-red-50',
     },
   ];
 
@@ -78,7 +78,7 @@ export default function AgentDashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
         {isLoading
           ? Array.from({ length: 5 }).map((_, i) => <StatCardSkeleton key={i} />)
           : stats.map((stat) => {
@@ -123,16 +123,16 @@ export default function AgentDashboard() {
               }
             />
           ) : (
-            <ul className="space-y-3">
+            <ul className="space-y-1">
               {(data?.recentlyAddedCustomers ?? []).map((c) => {
                 const name = `${c.firstName} ${c.lastName || ''}`.trim();
                 return (
                   <li key={c.id}>
                     <Link
                       to={`/agent/customers/${c.id}`}
-                      className="flex items-center justify-between gap-3 p-3 rounded-xl hover:bg-wow-bg transition"
+                      className="flex items-center gap-3 p-3 rounded-xl hover:bg-wow-bg transition"
                     >
-                      <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
                         <CustomerAvatar
                           name={name}
                           imageUrl={getCustomerProfileImageUrl(c)}
@@ -143,7 +143,10 @@ export default function AgentDashboard() {
                           <p className="text-xs text-wow-muted">{c.customerCode}</p>
                         </div>
                       </div>
-                      <StatusBadge status={c.status} />
+                      <div className="flex items-center gap-2">
+                        <StatusBadge status={c.status} />
+                        <ArrowRight className="w-4 h-4 text-wow-muted flex-shrink-0" />
+                      </div>
                     </Link>
                   </li>
                 );

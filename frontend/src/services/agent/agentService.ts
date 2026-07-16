@@ -218,7 +218,17 @@ export const agentService = {
     page?: number;
     limit?: number;
   }): Promise<Paginated<WorksheetTask>> => {
-    const { data } = await agentApi.get('/agent/worksheet', { params });
+    const queryParams: Record<string, string | number> = {};
+
+    if (params?.status) queryParams.status = params.status;
+    if (params?.dueDate) queryParams.dueDate = params.dueDate;
+    if (params?.page != null) queryParams.page = params.page;
+    if (params?.limit != null) queryParams.limit = params.limit;
+
+    const { data } = await agentApi.get('/agent/worksheet', {
+      params: queryParams,
+    });
+
     return data;
   },
 
