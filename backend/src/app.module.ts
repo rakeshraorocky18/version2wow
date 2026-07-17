@@ -10,7 +10,6 @@ import { MatchmakingModule } from './modules/matchmaking/matchmaking.module';
 import { ChatModule } from './modules/chat/chat.module';
 import { VendorsModule } from './modules/vendors/vendors.module';
 import { PlannerModule } from './modules/planner/planner.module';
-import { NotificationsModule } from './modules/notifications/notifications.module';
 import { BookingsModule } from './modules/bookings/bookings.module';
 import { EventsModule } from './modules/events/events.module';
 import { HoneymoonModule } from './modules/honeymoon/honeymoon.module';
@@ -21,7 +20,7 @@ import { MailModule } from './common/mail/mail.module';
 import { VendorAuthModule } from './modules/vendor-auth/vendor-auth.module';
 import { VendorDashboardModule } from './modules/vendor-dashboard/vendor-dashboard.module';
 import { AgentModule } from './modules/agent/agent.module';
-
+import { NotificationsModule } from './modules/notifications/notifications.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -86,7 +85,7 @@ import { AgentModule } from './modules/agent/agent.module';
     VendorProfilesModule,
     VendorAuthModule,
     VendorDashboardModule,
-    AgentModule,
+    AgentModule, 
   ],
 })
 export class AppModule {}

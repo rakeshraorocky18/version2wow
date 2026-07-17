@@ -33,9 +33,12 @@ import ResetPassword from "./pages/ResetPassword";
 import VendorRoutes from './vendor/routes/VendorRoutes';
 import AgentRoutes from './routes/AgentRoutes';
 import BookingForm from './pages/BookingForm';
-
+import SingleClientPage from "./pages/agent/SingleClientPage";
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+
+  console.log("isAuthenticated:", isAuthenticated);
+
   return isAuthenticated ? <>{children}</> : <Navigate to="/login" />;
 }
 
@@ -56,7 +59,12 @@ function App() {
           </PrivateRoute>
         }
       >
+         
+         
+
+
         <Route index element={<Dashboard />} />
+        <Route path="clients/:id" element={<SingleClientPage />} />
         <Route path="matches" element={<Matches />} />
         <Route path="matches/:id" element={<MatchProfile />} />
         <Route path="chat" element={<Chat />} />
@@ -79,8 +87,7 @@ function App() {
         <Route path="profile/details" element={<ProfileDetails />} />
         <Route path="profile/photos" element={<ProfilePhotos />} />
         <Route path="profile" element={<ProfileRouter />} />
-       
-      </Route>
+         </Route>
       <Route path="/vendor/*" element={<VendorRoutes />} />
       <Route path="/agent/*" element={<AgentRoutes />} />
     </Routes>

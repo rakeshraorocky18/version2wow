@@ -23,18 +23,38 @@ export const useAuthStore = create<AuthState>((set) => ({
   isLoading: false,
 
   login: async (email: string, password: string) => {
-    set({ isLoading: true });
-    try {
-      const { data } = await api.post('/auth/login', { email, password });
-      localStorage.setItem('accessToken', data.accessToken);
-      localStorage.setItem('refreshToken', data.refreshToken);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      set({ user: data.user, isAuthenticated: true, isLoading: false });
-    } catch (error) {
-      set({ isLoading: false });
-      throw error;
-    }
-  },
+  set({ isLoading: true });
+
+  try {
+    const { data } = await api.post('/auth/login', {
+      email,
+      password,
+    });
+
+    // Debug logs
+    console.log("Login API Response:", data);
+
+    localStorage.setItem('accessToken', data.accessToken);
+    localStorage.setItem('refreshToken', data.refreshToken);
+    localStorage.setItem('user', JSON.stringify(data.user));
+
+    console.log("Access Token:", localStorage.getItem("accessToken"));
+    console.log("Refresh Token:", localStorage.getItem("refreshToken"));
+    console.log("User:", localStorage.getItem("user"));
+
+    set({
+      user: data.user,
+      isAuthenticated: true,
+      isLoading: false,
+    });
+
+    console.log("isAuthenticated set to true");
+  } catch (error) {
+    console.error("Login Error:", error);
+    set({ isLoading: false });
+    throw error;
+  }
+},
 
   register: async (email: string, password: string, role: string, phone?: string) => {
     set({ isLoading: true });

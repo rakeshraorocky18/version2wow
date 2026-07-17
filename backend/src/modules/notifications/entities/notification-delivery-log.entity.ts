@@ -8,32 +8,32 @@ import {
 @Entity('notification_delivery_logs')
 export class NotificationDeliveryLogEntity {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @Column()
-  userId: string;
+  userId!: string;
 
   @Column()
-  title: string;
+  title!: string;
 
   @Column({ type: 'text' })
-  body: string;
+  body!: string;
 
   @Column()
-  type: string;
+  type!: string;
 
   @Column({ type: 'simple-json', nullable: true })
-  data: Record<string, unknown> | null;
+  data!: Record<string, unknown> | null;
 
   @Column({ default: 'sent' })
-  status: string;
+  status!: string;
 
   @Column({ nullable: true })
-  channel: string;
+  channel!: string;
 
   @Column({ nullable: true })
-  errorMessage: string;
+  errorMessage!: string;
 
   @CreateDateColumn()
-  createdAt: Date;
+  createdAt!: Date;
 }

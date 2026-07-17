@@ -43,11 +43,17 @@ export default function Login() {
     try {
       await login(email, password);
       void remember;
-      toast.success('Welcome back!');
-      navigate('/app');
+
+      console.log("After login:");
+      console.log("accessToken =", localStorage.getItem("accessToken"));
+      console.log("refreshToken =", localStorage.getItem("refreshToken"));
+      console.log("user =", localStorage.getItem("user"));
+
+      toast.success("Welcome back!");
+      navigate("/app");
     } catch {
-      toast.error('Invalid email or password');
-    }
+      toast.error("Invalid email or password");
+    } 
   };
 
   return (
