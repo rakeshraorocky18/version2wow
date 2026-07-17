@@ -84,11 +84,23 @@ export default function AgentDashboard() {
           : stats.map((stat) => {
               const Icon = stat.icon;
               return (
-                <div
+                <Link
                   key={stat.title}
-                  className={`card bg-gradient-to-br ${stat.tone} border-0`}
+                  to={
+                    stat.title === 'Total Customers'
+                      ? '/agent/customers'
+                      : stat.title === 'Active Customers'
+                      ? '/agent/customers?status=active'
+                      : stat.title === 'Pending Profiles'
+                      ? '/agent/customers?status=pending'
+                      : stat.title === "Today's Tasks"
+                      ? '/agent/worksheet'
+                      : '/agent/worksheet?filter=overdue'
+                  }
+                  className={`card bg-gradient-to-br ${stat.tone} border-0 block cursor-pointer hover:shadow-lg transition`}
                 >
                   <div className="flex items-start justify-between">
+
                     <div>
                       <p className="text-sm text-wow-muted">{stat.title}</p>
                       <p className="text-3xl font-semibold text-wow-text mt-2">
@@ -99,7 +111,7 @@ export default function AgentDashboard() {
                       <Icon className="w-5 h-5 text-wow-primary" />
                     </div>
                   </div>
-                </div>
+                </Link>
               );
             })}
       </div>
