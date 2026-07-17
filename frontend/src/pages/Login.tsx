@@ -41,12 +41,11 @@ export default function Login() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-<<<<<<< Updated upstream
+
       await login(email, password);
       void remember;
       toast.success('Welcome back!');
       navigate('/app');
-=======
         await login(email, password);
 
         console.log("After login:");
@@ -56,7 +55,7 @@ export default function Login() {
 
         toast.success("Welcome back!");
         navigate("/app");
->>>>>>> Stashed changes
+        // Stashed changes
     } catch {
       toast.error('Invalid email or password');
     }

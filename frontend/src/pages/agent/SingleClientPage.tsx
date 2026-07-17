@@ -1,4 +1,4 @@
-import  { useState } from "react";
+import { useState, useEffect } from "react";
 
 import ClientHeader from "../../components/agent/ClientHeader";
 import Matches from "../../components/agent/Matches";
@@ -15,6 +15,30 @@ const [activeTab,setActiveTab]=useState("matches");
 
 
 const [notificationOpen,setNotificationOpen]=useState(false);
+const [notifications,setNotifications]=useState([]);
+
+const [notificationCount,setNotificationCount]=useState(0);
+
+ const loadNotifications = async () => {
+
+        const userId = 1; // temporary
+
+        const notificationResponse =
+            await getNotifications(userId);
+
+        setNotifications(notificationResponse.data);
+
+        const unreadResponse =
+            await getUnreadNotificationCount(userId);
+
+        setNotificationCount(unreadResponse.data);
+
+    };
+     useEffect(() => {
+
+        loadNotifications();
+
+    }, []);
 
 
 
