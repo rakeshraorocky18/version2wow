@@ -504,7 +504,26 @@ export class MatchmakingService {
     match.status = MatchStatus.REJECTED;
     match.senderId = await this.resolveUserId(match.senderId);
     match.receiverId = receiverUserId;
-    return this.matchRepository.save(match);
+    const saved = await this.matchRepository.save(match);
+
+const rejector = await this.usersService.getProfileOrNull(normalizedUser);
+
+const rejectorName =
+[
+ (rejector as any)?.firstName,
+ (rejector as any)?.lastName
+]
+.filter(Boolean)
+.join(" ") || "Someone";
+
+await this.notificationsService.sendNotification({
+    userId: match.senderId,
+    title: "Interest Rejected",
+    body: `${rejectorName} rejected your interest.`,
+    type: "match",
+});
+
+return saved;
   }
 
   /** Block a user — Neo4j BLOCKED relationship; dual-write SQLite for chat. */

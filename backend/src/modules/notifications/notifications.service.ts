@@ -26,17 +26,30 @@ export class NotificationsService {
     try {
       // TODO: Integrate with FCM/APNs for push notifications
       // TODO: Integrate with SMS/Email services
-      console.log(`[Notification] To: ${payload.userId} - ${payload.title}: ${payload.body}`);
+     console.log(
+ `[Notification] To: ${payload.userId} - ${payload.title}: ${payload.body}`
+);
 
-      await this.deliveryLogRepo.save({
-        userId: payload.userId,
-        title: payload.title,
-        body: payload.body,
-        type: payload.type,
-        data: payload.data ?? null,
-        status: 'sent',
-        channel: 'console',
-      });
+// Save notification for frontend
+await this.notificationRepository.save({
+    userId: Number(payload.userId),
+    type: payload.type,
+    title: payload.title,
+    message: payload.body,
+    isRead: false,
+});
+
+// Save delivery log
+await this.deliveryLogRepo.save({
+    userId: payload.userId,
+    title: payload.title,
+    body: payload.body,
+    type: payload.type,
+    data: payload.data ?? null,
+    status: 'sent',
+    channel: 'console',
+});
+    
     } catch (error) {
       await this.deliveryLogRepo.save({
         userId: payload.userId,
