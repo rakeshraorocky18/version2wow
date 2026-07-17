@@ -41,24 +41,19 @@ export default function Login() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-
       await login(email, password);
       void remember;
-      toast.success('Welcome back!');
-      navigate('/app');
-        await login(email, password);
 
-        console.log("After login:");
-        console.log("accessToken =", localStorage.getItem("accessToken"));
-        console.log("refreshToken =", localStorage.getItem("refreshToken"));
-        console.log("user =", localStorage.getItem("user"));
+      console.log("After login:");
+      console.log("accessToken =", localStorage.getItem("accessToken"));
+      console.log("refreshToken =", localStorage.getItem("refreshToken"));
+      console.log("user =", localStorage.getItem("user"));
 
-        toast.success("Welcome back!");
-        navigate("/app");
-        // Stashed changes
+      toast.success("Welcome back!");
+      navigate("/app");
     } catch {
-      toast.error('Invalid email or password');
-    }
+      toast.error("Invalid email or password");
+    } 
   };
 
   return (
