@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useMemo, useState, useEffect, useRef } from 'react';
+import { useMutation } from '@tanstack/react-query';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
   ArrowLeft,
@@ -11,16 +12,20 @@ import {
   Eye,
   Heart,
   History,
+  Image as ImageIcon,
   Loader2,
   MessageCircle,
+  Paperclip,
   Search,
   Send,
   Sparkles,
   Star,
   StickyNote,
+  Trash2,
   UserRound,
   X,
 } from 'lucide-react';
+import api from '../../lib/api';
 import { getPhotoUrl } from '../../lib/profileUtils';
 import type { ReactNode } from 'react';
 import {
@@ -122,6 +127,89 @@ function ProfileAvatar({ name, src, size = 'h-14 w-14' }: { name: string; src?: 
   return (
     <div className={`${size} flex shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#FFF0F4] text-wow-primary`}>
       {src ? <img src={src} alt={name} className="h-full w-full object-cover" /> : initials(name) || <UserRound className="h-5 w-5" />}
+    </div>
+  );
+}
+
+function MessageBubble({
+  message,
+  isMine,
+  onDeleteForMe,
+  onDeleteForEveryone,
+  deleting,
+}: {
+  message: { id?: string; _id?: string; senderId: string; content: string; type?: string; mediaUrl?: string; createdAt?: string };
+  isMine: boolean;
+  onDeleteForMe: () => void;
+  onDeleteForEveryone?: () => void;
+  deleting: boolean;
+}) {
+  const mediaSrc = message.mediaUrl ? getPhotoUrl(message.mediaUrl) : '';
+  const isCallLog = message.type === 'audio_call' || message.type === 'video_call';
+  const messageTime = message.createdAt
+    ? new Date(message.createdAt).toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : '';
+
+  return (
+    <div className={`group flex ${isMine ? 'justify-end' : 'justify-start'}`}>
+      <div
+        className={`relative max-w-[75%] rounded-2xl px-4 py-3 text-sm ${
+          isCallLog
+            ? 'border border-gray-200 bg-gray-50 text-gray-700'
+            : isMine
+            ? 'bg-wow-primary text-white'
+            : 'bg-white text-wow-text'
+        }`}
+      >
+        <div className={`absolute -top-2 ${isMine ? '-left-2' : '-right-2'} flex gap-1 opacity-0 transition group-hover:opacity-100`}>
+          <button
+            type="button"
+            onClick={onDeleteForMe}
+            disabled={deleting}
+            className="rounded-full border border-gray-200 bg-white p-1 text-gray-500 shadow-sm hover:text-red-600 disabled:opacity-60"
+            title="Delete for me"
+          >
+            <Trash2 size={12} />
+          </button>
+          {isMine && onDeleteForEveryone && (
+            <button
+              type="button"
+              onClick={onDeleteForEveryone}
+              disabled={deleting}
+              className="rounded-full border border-gray-200 bg-white p-1 text-gray-500 shadow-sm hover:text-red-700 disabled:opacity-60"
+              title="Delete for everyone"
+            >
+              <Ban size={12} />
+            </button>
+          )}
+        </div>
+        {message.type === 'image' && mediaSrc ? (
+          <a href={mediaSrc} target="_blank" rel="noopener noreferrer">
+            <img src={mediaSrc} alt="Shared" className="max-h-48 rounded-md object-cover" />
+          </a>
+        ) : message.type === 'video' && mediaSrc ? (
+          <video src={mediaSrc} controls className="max-h-48 rounded-md" />
+        ) : message.type === 'file' && mediaSrc ? (
+          <a
+            href={mediaSrc}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`underline ${isMine ? 'text-white' : 'text-wow-primary'}`}
+          >
+            📎 {message.content || 'Download file'}
+          </a>
+        ) : (
+          message.content
+        )}
+        {messageTime && (
+          <p className={`mt-2 text-[10px] ${isCallLog ? 'text-gray-500' : isMine ? 'text-white/80' : 'text-gray-500'}`}>
+            {messageTime}
+          </p>
+        )}
+      </div>
     </div>
   );
 }
@@ -324,6 +412,7 @@ function notificationTarget(notification: AgentCustomerNotification, customerId:
 export default function CustomerDetailsWorkspace() {
   const { customerId = '' } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<WorkspaceTab>('matches');
   const [historyCategory, setHistoryCategory] = useState<HistoryCategory>('friends');
   const [draftFilters, setDraftFilters] = useState<AgentMatchFilters>(EMPTY_MATCH_FILTERS);
@@ -333,8 +422,22 @@ export default function CustomerDetailsWorkspace() {
   const [page, setPage] = useState(1);
   const [activeChatProfileId, setActiveChatProfileId] = useState<string | undefined>();
   const [message, setMessage] = useState('');
+  const [chatSearch, setChatSearch] = useState('');
   const [recommendationsOpen, setRecommendationsOpen] = useState(true);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Initialize active tab and chat target from URL search params (e.g. ?section=chat&profileId=...)
+  useEffect(() => {
+    const section = searchParams.get('section') as WorkspaceTab | null;
+    const profileId = searchParams.get('profileId') || undefined;
+    if (section) {
+      setActiveTab(section);
+    }
+    if (profileId) {
+      setActiveChatProfileId(profileId);
+    }
+  }, [searchParams]);
 
   const workspace = useAgentCustomerWorkspace(customerId);
   const matchesPayload = useMemo<AgentMatchSearchPayload>(
@@ -354,6 +457,53 @@ export default function CustomerDetailsWorkspace() {
   const chat = useAgentCustomerChat(customerId, { profileId: activeChatProfileId, page: 1, limit: 50 }, activeTab === 'chat');
   const action = useAgentCustomerAction(customerId);
   const sendMessage = useSendAgentCustomerChatMessage(customerId);
+  const selectedReceiverId = activeChatProfileId || chat.data?.activeProfileId;
+
+  useEffect(() => {
+    if (activeTab !== 'chat') return;
+    if (!activeChatProfileId && chat.data?.activeProfileId) {
+      setActiveChatProfileId(chat.data.activeProfileId);
+    }
+  }, [activeTab, activeChatProfileId, chat.data?.activeProfileId]);
+
+  const filteredChatContacts = useMemo(() => {
+    const contacts = chat.data?.contacts || [];
+    const query = chatSearch.trim().toLowerCase();
+    if (!query) return contacts;
+    return contacts.filter((contact) =>
+      contact.name.toLowerCase().includes(query) || contact.subtitle.toLowerCase().includes(query),
+    );
+  }, [chat.data?.contacts, chatSearch]);
+
+  const uploadMediaMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      const { data } = await api.post('/chat/media', formData);
+      return data as { mediaUrl: string; type: string };
+    },
+    onSuccess: (data) => {
+      if (!selectedReceiverId) return;
+      sendMessage.mutate({
+        receiverId: selectedReceiverId,
+        content:
+          data.type === 'image'
+            ? 'Photo'
+            : data.type === 'video'
+            ? 'Video'
+            : 'File',
+        type: data.type,
+        mediaUrl: data.mediaUrl,
+      });
+    },
+    onError: () => toast.error('Could not upload file'),
+  });
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) uploadMediaMutation.mutate(file);
+    e.target.value = '';
+  };
 
   const customer = workspace.data?.customer;
   const customerName = customer ? fullName(customer.firstName, customer.lastName) : '';
@@ -569,7 +719,12 @@ export default function CustomerDetailsWorkspace() {
               <div className="p-4">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-wow-muted" />
-                  <input className="input-field !pl-10" placeholder="Search accepted matches..." />
+                  <input
+                    value={chatSearch}
+                    onChange={(e) => setChatSearch(e.target.value)}
+                    className="input-field !pl-10"
+                    placeholder="Search accepted matches..."
+                  />
                 </div>
               </div>
               <div className="max-h-[30rem] overflow-y-auto">
@@ -578,13 +733,13 @@ export default function CustomerDetailsWorkspace() {
                 ) : !chat.data?.contacts.length ? (
                   <p className="p-6 text-sm text-wow-muted">Only accepted matches can chat.</p>
                 ) : (
-                  chat.data.contacts.map((contact) => (
+                  filteredChatContacts.map((contact) => (
                     <button
                       key={contact.userId}
                       type="button"
                       onClick={() => setActiveChatProfileId(contact.userId)}
                       className={`flex w-full items-center gap-3 border-b border-gray-50 p-4 text-left hover:bg-[#FFF8FB] ${
-                        (activeChatProfileId || chat.data?.activeProfileId) === contact.userId ? 'bg-[#FFF0F4]' : ''
+                        selectedReceiverId === contact.userId ? 'bg-[#FFF0F4]' : ''
                       }`}
                     >
                       <ProfileAvatar name={contact.name} />
@@ -608,32 +763,65 @@ export default function CustomerDetailsWorkspace() {
                 <p className="text-xs text-wow-muted">Read receipts, attachments, emoji, and typing indicators use the existing chat channel.</p>
               </div>
               <div className="flex-1 space-y-3 overflow-y-auto bg-[#FAF8FB] p-4">
-                {(chat.data?.messages.messages || []).length === 0 ? (
+                {(!chat.data?.messages.messages || chat.data.messages.messages.length === 0) ? (
                   <div className="flex min-h-[20rem] items-center justify-center text-center text-sm text-wow-muted">
                     Select an accepted match to start chatting.
                   </div>
                 ) : (
-                  [...(chat.data?.messages.messages || [])].reverse().map((msg) => (
-                    <div key={msg.id || msg._id} className={`flex ${msg.senderId === customerId ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-[75%] rounded-2xl px-4 py-2 text-sm ${msg.senderId === customerId ? 'bg-wow-primary text-white' : 'bg-white text-wow-text'}`}>
-                        <p>{msg.content}</p>
-                        <p className={`mt-1 text-[10px] ${msg.senderId === customerId ? 'text-white/70' : 'text-wow-muted'}`}>
-                          {formatTime(msg.createdAt)} {msg.isRead ? ' · Read' : ''}
-                        </p>
-                      </div>
-                    </div>
+                  [...chat.data.messages.messages].reverse().map((message) => (
+                    <MessageBubble
+                      key={message.id || message._id}
+                      message={message}
+                      isMine={selectedReceiverId ? message.senderId !== selectedReceiverId : false}
+                      deleting={false}
+                      onDeleteForMe={() => {
+                        // no delete support in agent chat yet
+                      }}
+                      onDeleteForEveryone={undefined}
+                    />
                   ))
                 )}
               </div>
               <div className="border-t border-gray-100 p-4">
                 <div className="flex gap-2">
-                  <button className="rounded-xl border border-gray-200 px-3 text-wow-muted">😊</button>
-                  <button className="rounded-xl border border-gray-200 px-3 text-wow-muted">Attach</button>
-                  <input value={message} onChange={(e) => setMessage(e.target.value)} className="input-field flex-1" placeholder="Type a message..." />
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*,video/*,.pdf"
+                    className="hidden"
+                    onChange={handleFileSelect}
+                  />
                   <button
-                    disabled={!message.trim() || sendMessage.isPending || !(activeChatProfileId || chat.data?.activeProfileId)}
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploadMediaMutation.isPending || !selectedReceiverId}
+                    className="rounded-xl border border-gray-200 p-2 text-gray-500 hover:bg-gray-50 disabled:opacity-60"
+                    title="Share media"
+                  >
+                    {uploadMediaMutation.isPending ? (
+                      <ImageIcon size={18} className="animate-pulse" />
+                    ) : (
+                      <Paperclip size={18} />
+                    )}
+                  </button>
+                  <input
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && selectedReceiverId && sendMessage.mutate({ receiverId: selectedReceiverId, content: message }, {
+                      onSuccess: () => {
+                        setMessage('');
+                        toast.success('Message sent');
+                      },
+                      onError: (err: unknown) => toast.error(getErrorMessage(err, 'Unable to send message')),
+                    })}
+                    className="input-field flex-1"
+                    placeholder="Type a message..."
+                  />
+                  <button
+                    type="button"
+                    disabled={!message.trim() || sendMessage.isPending || !selectedReceiverId}
                     onClick={() => {
-                      const receiverId = activeChatProfileId || chat.data?.activeProfileId;
+                      const receiverId = selectedReceiverId;
                       if (!receiverId) return;
                       sendMessage.mutate(
                         { receiverId, content: message },
@@ -698,7 +886,12 @@ export default function CustomerDetailsWorkspace() {
                     if (historyCategory === 'friends') {
                       return (
                         <>
-                          <button onClick={() => navigate(`/agent/customers/${customerId}/profile/${item.profile.id}`)} className="btn-secondary !px-3 !py-2 text-sm">View Profile</button>
+                          <button
+                            onClick={() => navigate(`/agent/customers/${customerId}/profile/${item.profile.id}?hideNav=true&returnTo=/agent/customers/${customerId}`)}
+                            className="btn-secondary !px-3 !py-2 text-sm"
+                          >
+                            View Profile
+                          </button>
                           <button onClick={() => { setActiveChatProfileId(item.profile.id); setActiveTab('chat'); }} className="btn-primary !px-3 !py-2 text-sm">Open Chat</button>
                         </>
                       );
@@ -708,7 +901,12 @@ export default function CustomerDetailsWorkspace() {
                         <>
                           <button onClick={() => runAction('accept-interest', item.profile.id)} className="btn-primary !px-3 !py-2 text-sm"><CheckCircle2 className="mr-1 inline h-4 w-4" />Accept</button>
                           <button onClick={() => runAction('decline-interest', item.profile.id)} className="btn-secondary !px-3 !py-2 text-sm">Decline</button>
-                          <button onClick={() => navigate(`/agent/customers/${customerId}/profile/${item.profile.id}`)} className="btn-secondary !px-3 !py-2 text-sm">View Profile</button>
+                          <button
+                            onClick={() => navigate(`/agent/customers/${customerId}/profile/${item.profile.id}?hideNav=true&returnTo=/agent/customers/${customerId}`)}
+                            className="btn-secondary !px-3 !py-2 text-sm"
+                          >
+                            View Profile
+                          </button>
                         </>
                       );
                     }
@@ -717,7 +915,12 @@ export default function CustomerDetailsWorkspace() {
                         <>
                           <span className="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-700"><Clock3 className="mr-1 inline h-4 w-4" />Pending</span>
                           <button onClick={() => runAction('withdraw-interest', item.profile.id)} className="btn-secondary !px-3 !py-2 text-sm">Withdraw</button>
-                          <button onClick={() => navigate(`/agent/customers/${customerId}/profile/${item.profile.id}`)} className="btn-secondary !px-3 !py-2 text-sm">View Profile</button>
+                          <button
+                            onClick={() => navigate(`/agent/customers/${customerId}/profile/${item.profile.id}?hideNav=true&returnTo=/agent/customers/${customerId}`)}
+                            className="btn-secondary !px-3 !py-2 text-sm"
+                          >
+                            View Profile
+                          </button>
                         </>
                       );
                     }
@@ -732,13 +935,23 @@ export default function CustomerDetailsWorkspace() {
                     if (historyCategory === 'blocked') {
                       return (
                         <>
-                          <button onClick={() => navigate(`/agent/customers/${customerId}/profile/${item.profile.id}`)} className="btn-secondary !px-3 !py-2 text-sm">View Profile</button>
+                          <button
+                            onClick={() => navigate(`/agent/customers/${customerId}/profile/${item.profile.id}?hideNav=true&returnTo=/agent/customers/${customerId}`)}
+                            className="btn-secondary !px-3 !py-2 text-sm"
+                          >
+                            View Profile
+                          </button>
                           <button onClick={() => runAction('unblock', item.profile.id)} className="btn-primary !px-3 !py-2 text-sm">Unblock</button>
                         </>
                       );
                     }
                     return (
-                      <button onClick={() => navigate(`/agent/customers/${customerId}/profile/${item.profile.id}`)} className="btn-secondary !px-3 !py-2 text-sm">View Profile</button>
+                      <button
+                        onClick={() => navigate(`/agent/customers/${customerId}/profile/${item.profile.id}?hideNav=true&returnTo=/agent/customers/${customerId}`)}
+                        className="btn-secondary !px-3 !py-2 text-sm"
+                      >
+                        View Profile
+                      </button>
                     );
                   }}
                 />

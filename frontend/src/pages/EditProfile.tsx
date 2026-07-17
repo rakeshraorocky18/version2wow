@@ -27,7 +27,8 @@ import {
 import toast from 'react-hot-toast';
 import api from '../lib/api';
 import { getPhotoUrl } from '../lib/profileUtils';
-import { Country, State, City } from 'country-state-city';
+import { LocationSelects } from '../components/profile/LocationSelects';
+import { QUALIFICATION_OPTIONS } from '../lib/agent/formOptions';
 import {
   RELIGION_OPTIONS,
   getCastesForReligion,
@@ -335,26 +336,6 @@ export default function EditProfile({ managedMode = false }: { managedMode?: boo
   }, [managedMode, existing?.gender]);
 
   const sectionTitle = useMemo(() => SECTIONS[step], [step]);
-  const countries = useMemo(() => Country.getAllCountries(), []);
-  const selectedCountry = useMemo(
-    () => countries.find((c) => c.name === form.country),
-    [countries, form.country],
-  );
-  const states = useMemo(
-    () => (selectedCountry ? State.getStatesOfCountry(selectedCountry.isoCode) : []),
-    [selectedCountry],
-  );
-  const selectedState = useMemo(
-    () => states.find((s) => s.name === form.state),
-    [states, form.state],
-  );
-  const cities = useMemo(
-    () =>
-      selectedCountry && selectedState
-        ? City.getCitiesOfState(selectedCountry.isoCode, selectedState.isoCode)
-        : [],
-    [selectedCountry, selectedState],
-  );
 
   const update = (key: string, value: any) => {
     setForm((prev) => {
@@ -387,7 +368,7 @@ export default function EditProfile({ managedMode = false }: { managedMode?: boo
       if (key === 'caste') {
         next.subCaste = '';
       }
-      if (key === 'highestQualification' && value !== 'Other') {
+      if (key === 'highestQualification' && value !== 'other') {
         next.qualificationOther = '';
       }
       if (key === 'currentlyWorking') {
@@ -916,7 +897,7 @@ export default function EditProfile({ managedMode = false }: { managedMode?: boo
                         {EDUCATION_OPTIONS.map((v) => <option key={v} value={v}>{v}</option>)}
                       </select>
                     </FormField>
-                    {form.highestQualification === 'Other' && (
+                    {String(form.highestQualification).toLowerCase() === 'other' && (
                       <FormField label="Specify Qualification" htmlFor="qualificationOther">
                         <input id="qualificationOther" className={inputClass()} value={form.qualificationOther || ''} onChange={(e) => update('qualificationOther', e.target.value)} />
                       </FormField>
@@ -1183,18 +1164,22 @@ export default function EditProfile({ managedMode = false }: { managedMode?: boo
 
               {step === 4 && (
                 <>
-                  <FormField label="Country" htmlFor="country" required error={errors.country}>
-                    <input id="country" list="countries-list" className={inputClass(errors.country)} value={form.country || ''} onChange={(e) => update('country', e.target.value)} />
-                    <datalist id="countries-list">{countries.map((c) => <option key={c.isoCode} value={c.name} />)}</datalist>
-                  </FormField>
-                  <FormField label="State" htmlFor="state" required error={errors.state}>
-                    <input id="state" list="states-list" className={inputClass(errors.state)} value={form.state || ''} onChange={(e) => update('state', e.target.value)} disabled={!form.country} />
-                    <datalist id="states-list">{states.map((s) => <option key={s.isoCode} value={s.name} />)}</datalist>
-                  </FormField>
-                  <FormField label="City" htmlFor="city" required error={errors.city}>
-                    <input id="city" list="cities-list" className={inputClass(errors.city)} value={form.city || ''} onChange={(e) => update('city', e.target.value)} disabled={!form.state} />
-                    <datalist id="cities-list">{cities.map((c) => <option key={`${c.name}-${c.latitude}-${c.longitude}`} value={c.name} />)}</datalist>
-                  </FormField>
+                  <LocationSelects
+                    country={form.country || ''}
+                    state={form.state || ''}
+                    city={form.city || ''}
+                    errors={{ country: errors.country, state: errors.state, city: errors.city }}
+                    onCountryChange={(value) => {
+                      update('country', value);
+                      update('state', '');
+                      update('city', '');
+                    }}
+                    onStateChange={(value) => {
+                      update('state', value);
+                      update('city', '');
+                    }}
+                    onCityChange={(value) => update('city', value)}
+                  />
                   <FormField label="Pincode" htmlFor="pincode">
                     <input id="pincode" className={inputClass()} value={form.pincode || ''} onChange={(e) => update('pincode', e.target.value)} />
                   </FormField>
@@ -1219,9 +1204,9 @@ export default function EditProfile({ managedMode = false }: { managedMode?: boo
                   <FormField label="Father's Name" htmlFor="fatherName">
                     <input id="fatherName" className={inputClass()} value={form.fatherName || ''} onChange={(e) => update('fatherName', e.target.value)} />
                   </FormField>
-                  <FormField label="Father Alive" htmlFor="fatherAlive">
+                  <FormField label="Father Late?" htmlFor="fatherAlive">
                     <select id="fatherAlive" className={inputClass()} value={String(form.fatherAlive)} onChange={(e) => update('fatherAlive', e.target.value === 'true')}>
-                      <option value="true">Yes</option><option value="false">No</option>
+                      <option value="true">No</option><option value="false">Yes</option>
                     </select>
                   </FormField>
                   {form.fatherAlive && (
@@ -1232,9 +1217,9 @@ export default function EditProfile({ managedMode = false }: { managedMode?: boo
                   <FormField label="Mother's Name" htmlFor="motherName">
                     <input id="motherName" className={inputClass()} value={form.motherName || ''} onChange={(e) => update('motherName', e.target.value)} />
                   </FormField>
-                  <FormField label="Mother Alive" htmlFor="motherAlive">
+                  <FormField label="Mother Late?" htmlFor="motherAlive">
                     <select id="motherAlive" className={inputClass()} value={String(form.motherAlive)} onChange={(e) => update('motherAlive', e.target.value === 'true')}>
-                      <option value="true">Yes</option><option value="false">No</option>
+                      <option value="true">No</option><option value="false">Yes</option>
                     </select>
                   </FormField>
                   {form.motherAlive && (

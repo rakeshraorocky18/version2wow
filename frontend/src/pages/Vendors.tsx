@@ -1,8 +1,7 @@
 import { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { Star, MapPin, IndianRupee, Search } from 'lucide-react';
 import api from '../lib/api';
-import toast from 'react-hot-toast';
 import { useNavigate } from "react-router-dom";
 
 const categories = [
@@ -56,7 +55,6 @@ interface CitySuggestionResponse {
 
 export default function Vendors() {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const [category, setCategory] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [city, setCity] = useState('');

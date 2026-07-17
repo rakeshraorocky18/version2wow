@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, Search } from 'lucide-react';
-import { OTHER_VALUE } from '../../../lib/agent/formOptions';
+import { OTHER_VALUE } from '../../../lib/agent/locationData';
 
 export interface SelectOption {
   value: string;

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import {
@@ -166,6 +166,9 @@ function StatusPill({ status }: { status: MatchStatus }) {
 export default function MatchFullProfile() {
   const { customerId = '', matchedProfileId = '' } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
+  const hideNav = searchParams.get('hideNav') === 'true';
+  const returnTo = searchParams.get('returnTo') || `/agent/customers/${customerId}`;
+  const navigate = useNavigate();
   const [tab, setTab] = useState<TabId>('overview');
   const [messageInput, setMessageInput] = useState('');
   const [activity, setActivity] = useState<ProfileActivity>(() =>
@@ -472,14 +475,15 @@ export default function MatchFullProfile() {
       <div className="sticky top-3 z-20 rounded-2xl border border-pink-100 bg-white/95 px-3 py-2 shadow-[0_8px_28px_rgba(182,106,138,0.12)] backdrop-blur">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <Link
-            to="/agent/customers"
+            to={returnTo}
             className="inline-flex items-center gap-1.5 rounded-xl px-2.5 py-2 text-sm font-medium text-wow-primary transition hover:bg-[#FFF5F7]"
           >
             <ArrowLeft className="h-4 w-4" /> Back to Customers
           </Link>
 
-          <nav className="flex flex-wrap items-center gap-1.5" aria-label="Profile workspace">
-            {NAV_ITEMS.map((item) => {
+          {!hideNav && (
+            <nav className="flex flex-wrap items-center gap-1.5" aria-label="Profile workspace">
+              {NAV_ITEMS.map((item) => {
               const Icon = item.icon;
               const active = activeSection === item.id;
               const badge =
@@ -521,7 +525,8 @@ export default function MatchFullProfile() {
                 </Link>
               );
             })}
-          </nav>
+            </nav>
+          )}
         </div>
       </div>
 
@@ -614,7 +619,7 @@ export default function MatchFullProfile() {
               {isAccepted ? (
                 <button
                   type="button"
-                  onClick={() => setSection('chat')}
+                  onClick={() => navigate(`/agent/customers/${customerId}?section=chat&profileId=${matchedProfileId}`)}
                   className="btn-primary inline-flex items-center gap-2 !rounded-2xl !px-5 !py-2.5 text-sm shadow-lg shadow-wow-primary/25"
                 >
                   <MessageCircle className="h-4 w-4" /> Chat

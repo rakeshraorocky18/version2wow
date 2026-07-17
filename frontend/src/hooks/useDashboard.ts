@@ -242,7 +242,6 @@ function getOwnProfileInterests(
 }
 
 function getOwnProfileAboutPoints(
-  profile: Record<string, unknown> | null | undefined,
   form: ProfileForm,
 ): string[] {
   const bio = String(form.bio ?? '').trim();
@@ -315,7 +314,7 @@ function mapOwnProfileCardData(
     completionPercent,
     interests: getOwnProfileInterests(profile, form),
     sectionProgress: buildOwnProfileSectionProgress(form),
-    aboutPoints: getOwnProfileAboutPoints(profile, form),
+    aboutPoints: getOwnProfileAboutPoints(form),
   };
 }
 

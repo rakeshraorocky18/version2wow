@@ -153,8 +153,6 @@ const VendorBookings = () => {
     }
   };
 
-  const [loading, setLoading] = useState(true);
-
   const fetchBookings = async () => {
     try {
       const vendorResponse = await vendorApi.get("/vendors/me");
@@ -168,8 +166,6 @@ const VendorBookings = () => {
       setBookings(response.data || []);
     } catch (error) {
       console.error("Error fetching bookings:", error);
-    } finally {
-      setLoading(false);
     }
   }; 
 

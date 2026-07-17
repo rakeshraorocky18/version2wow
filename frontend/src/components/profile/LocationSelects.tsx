@@ -1,27 +1,10 @@
 import { useMemo } from 'react';
-import { Country, State, City } from 'country-state-city';
+import { COUNTRIES_BY_NAME, getStateCities, getStates } from '../../lib/agent/locationData';
 
 export function useLocationOptions(countryName?: string, stateName?: string) {
-  const countries = useMemo(() => Country.getAllCountries(), []);
-  const selectedCountry = useMemo(
-    () => countries.find((c) => c.name === countryName),
-    [countries, countryName],
-  );
-  const states = useMemo(
-    () => (selectedCountry ? State.getStatesOfCountry(selectedCountry.isoCode) : []),
-    [selectedCountry],
-  );
-  const selectedState = useMemo(
-    () => states.find((s) => s.name === stateName),
-    [states, stateName],
-  );
-  const cities = useMemo(
-    () =>
-      selectedCountry && selectedState
-        ? City.getCitiesOfState(selectedCountry.isoCode, selectedState.isoCode)
-        : [],
-    [selectedCountry, selectedState],
-  );
+  const countries = useMemo(() => COUNTRIES_BY_NAME, []);
+  const states = useMemo(() => getStates(countryName || ''), [countryName]);
+  const cities = useMemo(() => getStateCities(countryName || '', stateName || ''), [countryName, stateName]);
 
   return { countries, states, cities };
 }
