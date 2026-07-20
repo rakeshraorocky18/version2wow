@@ -82,16 +82,16 @@ export default function ChatOverflowMenu({
       {!showMore ? (
         <>
           <button type="button" onClick={onSearch} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-            <Search size={14} /> Search
+            <Search size={14} /> Search in chat
           </button>
           <button type="button" onClick={onMedia} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-            <ImageIcon size={14} /> Media
+            <ImageIcon size={14} /> Shared media
           </button>
           <button type="button" onClick={onLinks} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-            <Link2 size={14} /> Links
+            <Link2 size={14} /> Shared links
           </button>
           <button type="button" onClick={onDocs} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-            <FileText size={14} /> Docs
+            <FileText size={14} /> Shared documents
           </button>
           <button type="button" onClick={onToggleMute} disabled={busy} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-60">
             <BellOff size={14} /> {muted ? 'Unmute notifications' : 'Mute notifications'}
@@ -122,7 +122,7 @@ export default function ChatOverflowMenu({
             <Flag size={14} /> Report
           </button>
           <button type="button" onClick={onBlock} disabled={busy} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-700 hover:bg-red-50 disabled:opacity-60">
-            <Ban size={14} /> Block
+            <Ban size={14} /> Block user
           </button>
           <button type="button" onClick={onClearChat} disabled={busy} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 disabled:opacity-60">
             <Eraser size={14} /> Clear chat
