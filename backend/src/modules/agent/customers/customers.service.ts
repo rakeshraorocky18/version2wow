@@ -150,8 +150,14 @@ export class AgentCustomersService {
       );
     }
 
-    if (query.status) {
-      qb.andWhere('c.status = :status', { status: query.status });
+    if (query.status === AgentCustomerStatus.PENDING) {
+      qb.andWhere('c.profileCompletion < :completion', {
+        completion: 100,
+      });
+    } else if (query.status) {
+      qb.andWhere('c.status = :status', {
+        status: query.status,
+      });
     }
 
     const sortBy = query.sortBy ?? 'date';
@@ -230,6 +236,12 @@ export class AgentCustomersService {
     Object.assign(customer, dto);
     await this.recomputeCompletion(customer);
 
+  if (customer.profileCompletion === 100) {
+    customer.status = AgentCustomerStatus.ACTIVE;
+  } else {
+    customer.status = AgentCustomerStatus.PENDING;
+  }
+
     const saved = await this.customerRepo.save(customer);
 
     await this.activityService.log({
@@ -247,9 +259,20 @@ export class AgentCustomersService {
   }
 
   async refreshCompletion(customerId: string) {
-    const customer = await this.customerRepo.findOne({ where: { id: customerId } });
+    const customer = await this.customerRepo.findOne({
+      where: { id: customerId },
+    });
+
     if (!customer) return;
+
     await this.recomputeCompletion(customer);
+
+    if (customer.profileCompletion === 100) {
+      customer.status = AgentCustomerStatus.ACTIVE;
+    } else {
+      customer.status = AgentCustomerStatus.PENDING;
+    }
+
     await this.customerRepo.save(customer);
   }
 
