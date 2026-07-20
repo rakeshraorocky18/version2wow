@@ -225,7 +225,7 @@ export default function CustomerDetails() {
             to={`/agent/customers/${resolvedId}`}
             className="inline-flex items-center gap-1 text-sm text-wow-muted hover:text-wow-primary mb-2"
           >
-            <ArrowLeft className="w-4 h-4" /> Back to match workspace
+            <ArrowLeft className="w-4 h-4" /> Back to customers
           </Link>
           <div className="flex flex-wrap items-center gap-3">
             <CustomerAvatar

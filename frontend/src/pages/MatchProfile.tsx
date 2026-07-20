@@ -105,21 +105,26 @@ export default function MatchProfile() {
     apiRelationship?.partnerUserId ||
     profileRef.userId;
 
-  const pendingMatchId =
-    apiRelationship?.matchId ||
-    receivedInterests.find(
-      (m) =>
-        m.status === 'pending' &&
-        (m.senderId === profileRef.userId ||
-          m.senderProfile?.id === profileRef.id ||
-          m.partnerUserId === profileRef.userId),
-    )?.id ||
-    null;
+  // Find pending match ID from received interests
+  const receivedMatch = receivedInterests.find((m) => {
+    if (m.status !== 'pending') return false;
+    // Check if this profile is the sender of the received interest
+    const senderMatch =
+      m.senderId === profileRef.userId ||
+      m.senderId === profile?.userId ||
+      m.senderProfile?.id === profileRef.id ||
+      m.senderProfile?.userId === profileRef.userId;
+    return senderMatch;
+  });
+
+  const pendingMatchId = apiRelationship?.matchId || receivedMatch?.id || null;
 
   const isOwnProfile = Boolean(
     currentUser?.id && profile?.userId && currentUser.id === profile.userId,
   );
   const needsOwnProfile = !myProfile?.id;
+  
+  // Show Accept/Decline buttons if: 1) not own profile, 2) received interest status, 3) have match ID
   const showAcceptDecline =
     !isOwnProfile && interestStatus === 'pending_received' && Boolean(pendingMatchId);
 
@@ -180,9 +185,14 @@ export default function MatchProfile() {
     if (!pendingMatchId) return;
     try {
       await acceptInterest.mutateAsync(pendingMatchId);
-      toast.success('Interest accepted — full profile unlocked');
-      await refetch();
-    } catch {
+      toast.success('Interest accepted! You can now chat');
+      // Refetch all related data to update UI
+      await Promise.all([
+        refetch(),
+        // Refetch lists to update accepted interests
+        new Promise((resolve) => setTimeout(resolve, 500)),
+      ]);
+    } catch (error) {
       toast.error('Could not accept interest');
     }
   };

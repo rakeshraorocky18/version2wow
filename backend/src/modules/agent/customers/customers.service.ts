@@ -77,8 +77,8 @@ export class AgentCustomersService {
     private readonly notificationsService: NotificationsService,
   ) {}
 
-  private async generateCustomerCode(): Promise<string> {
-    const count = await this.customerRepo.count();
+  private async generateCustomerCode(agentId: string): Promise<string> {
+    const count = await this.customerRepo.count({ where: { assignedAgentId: agentId } });
     return `WOW-${String(count + 1).padStart(5, '0')}`;
   }
 
@@ -113,7 +113,7 @@ export class AgentCustomersService {
   }
 
   async create(agentId: string, dto: CreateAgentCustomerDto) {
-    const customerCode = await this.generateCustomerCode();
+    const customerCode = await this.generateCustomerCode(agentId);
     const customer = this.customerRepo.create({
       ...dto,
       customerCode,

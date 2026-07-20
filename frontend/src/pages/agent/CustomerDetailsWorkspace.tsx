@@ -723,7 +723,7 @@ export default function CustomerDetailsWorkspace() {
                     value={chatSearch}
                     onChange={(e) => setChatSearch(e.target.value)}
                     className="input-field !pl-10"
-                    placeholder="Search accepted matches..."
+                    placeholder="Search matches..."
                   />
                 </div>
               </div>
