@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { HoneymoonPackageEntity, HoneymoonBookingEntity } from './entities/honeymoon.entity';
 import { CreatePackageDto, BookPackageDto, SearchPackagesDto } from './dto/honeymoon.dto';
 import { SQLITE_CONNECTION } from '../../config/database.constants';
+import { fetchJsonWithTimeout } from '../../common/utils/fetch-with-timeout';
 
 type ExternalPackage = {
   id: string;
@@ -123,10 +124,12 @@ export class HoneymoonService {
       geoUrl.searchParams.set('name', destination);
       geoUrl.searchParams.set('apikey', apiKey);
 
-      const geoRes = await fetch(geoUrl.toString());
-      if (!geoRes.ok) return [];
-      const geo = (await geoRes.json()) as { lat?: number; lon?: number; name?: string; country?: string };
-      if (typeof geo.lat !== 'number' || typeof geo.lon !== 'number') return [];
+      const geo = await fetchJsonWithTimeout<{ lat?: number; lon?: number; name?: string; country?: string }>(
+        geoUrl.toString(),
+        undefined,
+        1800,
+      );
+      if (!geo || typeof geo.lat !== 'number' || typeof geo.lon !== 'number') return [];
 
       const radiusUrl = new URL('https://api.opentripmap.com/0.1/en/places/radius');
       radiusUrl.searchParams.set('radius', '50000');
@@ -136,10 +139,13 @@ export class HoneymoonService {
       radiusUrl.searchParams.set('limit', String(limit));
       radiusUrl.searchParams.set('apikey', apiKey);
 
-      const placesRes = await fetch(radiusUrl.toString());
-      if (!placesRes.ok) return [];
+      const places = await fetchJsonWithTimeout<Array<{ xid?: string; name?: string; rate?: number }>>(
+        radiusUrl.toString(),
+        undefined,
+        1800,
+      );
+      if (!places) return [];
 
-      const places = (await placesRes.json()) as Array<{ xid?: string; name?: string; rate?: number }>;
       const nights = Math.max(3, Number(filters.minDuration) || 5);
 
       return places
@@ -183,12 +189,10 @@ export class HoneymoonService {
       geoUrl.searchParams.set('language', 'en');
       geoUrl.searchParams.set('format', 'json');
 
-      const res = await fetch(geoUrl.toString());
-      if (!res.ok) return [];
-
-      const data = (await res.json()) as {
+      const data = await fetchJsonWithTimeout<{
         results?: Array<{ name?: string; country?: string; latitude?: number; longitude?: number }>;
-      };
+      }>(geoUrl.toString(), undefined, 1800);
+      if (!data) return [];
 
       const nights = Math.max(3, Number(filters.minDuration) || 5);
       const results = data.results || [];

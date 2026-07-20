@@ -32,7 +32,7 @@ export class NotificationsService {
 
 // Save notification for frontend
 await this.notificationRepository.save({
-    userId: Number(payload.userId),
+    userId: payload.userId,
     type: payload.type,
     title: payload.title,
     message: payload.body,
@@ -100,7 +100,7 @@ await this.deliveryLogRepo.save({
   return await this.notificationRepository.save(dto);
 }
 
-async findAll(userId: number) {
+async findAll(userId: string) {
   return await this.notificationRepository.find({
     where: {
       userId,
@@ -117,7 +117,7 @@ async markAsRead(id: number) {
   });
 }
 
-async unreadCount(userId: number) {
+async unreadCount(userId: string) {
   return await this.notificationRepository.count({
     where: {
       userId,

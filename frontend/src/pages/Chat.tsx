@@ -177,11 +177,49 @@ function buildContactsFromAccepted(
   });
 }
 
-export default function Chat() {
+type ChatProps = {
+  embedded?: boolean;
+  initialUserId?: string | null;
+  agentMode?: boolean;
+  agentCustomerId?: string;
+  agentContacts?: Array<{
+    userId: string;
+    name: string;
+    subtitle: string;
+    photo?: string;
+    lastMessageAt?: string;
+    isBlocked?: boolean;
+    muted?: boolean;
+    onlineStatus?: boolean;
+    unreadCount?: number;
+  }>;
+  agentMessages?: Array<{
+    id?: string;
+    _id?: string;
+    senderId: string;
+    content: string;
+    type?: string;
+    mediaUrl?: string;
+    createdAt?: string;
+  }>;
+  onAgentSendMessage?: (payload: { receiverId: string; content: string; type?: string; mediaUrl?: string }) => void;
+  agentLoading?: boolean;
+};
+
+export default function Chat({
+  embedded = false,
+  initialUserId,
+  agentMode = false,
+  agentCustomerId,
+  agentContacts = [],
+  agentMessages = [],
+  onAgentSendMessage,
+  agentLoading = false,
+}: ChatProps) {
   const SEEN_STORAGE_KEY = 'wow_chat_seen';
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const preselectedUserId = searchParams.get('userId');
+  const preselectedUserId = initialUserId ?? searchParams.get('userId');
   const currentUserId = useAuthStore((state) => state.user?.id);
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
   const [messageInput, setMessageInput] = useState('');
@@ -207,10 +245,13 @@ export default function Chat() {
   const { data: acceptedMatches = [], isLoading: matchesLoading } = useAcceptedInterests();
 
   const { data: serverContacts = [], isLoading: contactsLoading } = useQuery({
-    queryKey: ['chat-contacts', currentUserId],
-    enabled: !!currentUserId,
+    queryKey: agentMode ? ['agent-chat-contacts'] : ['chat-contacts', currentUserId],
+    enabled: !agentMode ? !!currentUserId : true,
     retry: false,
     queryFn: async () => {
+      if (agentMode) {
+        return agentContacts || [];
+      }
       try {
         const { data } = await api.get('/chat/contacts');
         return Array.isArray(data) ? (data as ChatContact[]) : [];
@@ -237,10 +278,10 @@ export default function Chat() {
     if (!preselectedUserId) return;
     const canonical = resolveCanonicalPartnerId(preselectedUserId, acceptedMatches);
     setSelectedConversation(canonical);
-    if (canonical !== preselectedUserId) {
+    if (canonical !== preselectedUserId && !embedded) {
       navigate(`/app/chat?userId=${canonical}`, { replace: true });
     }
-  }, [preselectedUserId, acceptedMatches, navigate]);
+  }, [preselectedUserId, acceptedMatches, navigate, embedded]);
 
   const activePartnerId = useMemo(
     () =>
@@ -276,6 +317,19 @@ export default function Chat() {
   });
 
   const contactList = useMemo(() => {
+    if (agentMode) {
+      // In agent mode, just use the serverContacts directly (which are agentContacts)
+      return serverContacts.map((c) => ({
+        userId: c.userId,
+        name: c.name,
+        subtitle: c.subtitle,
+        photo: c.photo ? (typeof c.photo === 'string' && c.photo.startsWith('http') ? c.photo : getPhotoUrl(c.photo)) : undefined,
+        lastMessageAt: c.lastMessageAt,
+        isBlocked: !!c.isBlocked,
+        muted: !!c.muted,
+      }));
+    }
+
     const fromMatches = buildContactsFromAccepted(acceptedMatches);
     const map = new Map<string, ChatContact>();
 
@@ -310,9 +364,9 @@ export default function Chat() {
       isBlocked: !!c.isBlocked,
       muted: !!c.muted,
     }));
-  }, [serverContacts, acceptedMatches]);
+  }, [serverContacts, acceptedMatches, agentMode]);
 
-  const listLoading = matchesLoading || contactsLoading;
+  const listLoading = agentMode ? agentLoading : (matchesLoading || contactsLoading);
 
   const filteredContacts = useMemo(() => {
     if (!searchQuery.trim()) return contactList;
@@ -348,11 +402,20 @@ export default function Chat() {
   }, [activePartnerId, selectedConversation, contactList, acceptedMatches]);
 
   const { data: messagesData } = useQuery({
-    queryKey: ['messages', activePartnerId],
+    queryKey: agentMode ? ['agent-messages', activePartnerId] : ['messages', activePartnerId],
     enabled: !!activePartnerId,
     staleTime: 0,
     refetchInterval: 5000,
     queryFn: async () => {
+      if (agentMode) {
+        return {
+          messages: agentMessages || [],
+          cleared: false,
+          isBlocked: false,
+          muted: false,
+          disappearingSeconds: 0,
+        };
+      }
       const { data } = await api.get(`/chat/messages?userId=${activePartnerId}`);
       return data as {
         messages: ChatMessage[];
@@ -428,6 +491,15 @@ export default function Chat() {
   const sendMessageMutation = useMutation({
     mutationFn: async (payload: { content: string; type?: string; mediaUrl?: string }) => {
       if (!activePartnerId) return;
+      if (agentMode && onAgentSendMessage) {
+        onAgentSendMessage({
+          receiverId: activePartnerId,
+          content: payload.content,
+          type: payload.type,
+          mediaUrl: payload.mediaUrl,
+        });
+        return;
+      }
       await api.post('/chat/messages', {
         receiverId: activePartnerId,
         content: payload.content,
@@ -437,8 +509,10 @@ export default function Chat() {
     },
     onSuccess: () => {
       setMessageInput('');
-      queryClient.invalidateQueries({ queryKey: ['messages', activePartnerId] });
-      queryClient.invalidateQueries({ queryKey: ['chat-contacts'] });
+      if (!agentMode) {
+        queryClient.invalidateQueries({ queryKey: ['messages', activePartnerId] });
+        queryClient.invalidateQueries({ queryKey: ['chat-contacts'] });
+      }
     },
     onError: (err: { response?: { data?: { message?: string } } }) => {
       toast.error(err.response?.data?.message || 'Unable to send message');
@@ -711,25 +785,29 @@ export default function Chat() {
     <div
       className={
         selectedConversation
-          ? 'flex min-h-[28rem] flex-col'
+          ? `flex ${embedded ? 'h-full min-h-[34rem]' : 'min-h-[28rem]'} flex-col`
           : 'h-auto'
       }
       style={
         selectedConversation
-          ? { height: 'calc(100vh - 17rem)', maxHeight: 'calc(100vh - 17rem)' }
+          ? embedded
+            ? { height: '34rem', maxHeight: '34rem' }
+            : { height: 'calc(100vh - 17rem)', maxHeight: 'calc(100vh - 17rem)' }
           : undefined
       }
     >
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-display font-bold text-gray-900">Messages</h1>
-        <button
-          type="button"
-          onClick={() => setShowPrivacy(true)}
-          className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
-        >
-          <Shield size={16} /> Privacy
-        </button>
-      </div>
+      {!embedded && (
+        <div className="mb-6 flex items-center justify-between">
+          <h1 className="text-2xl font-display font-bold text-gray-900">Messages</h1>
+          <button
+            type="button"
+            onClick={() => setShowPrivacy(true)}
+            className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
+          >
+            <Shield size={16} /> Privacy
+          </button>
+        </div>
+      )}
 
       <div
         className={`card flex min-h-0 overflow-hidden p-0 ${
@@ -816,9 +894,13 @@ export default function Chat() {
             ) : (
               <div className="p-8 text-center text-gray-400 text-sm">
                 <p>No matches to chat with yet.</p>
-                <Link to="/app/matches?tab=interests" className="mt-2 inline-block text-primary-600 hover:underline">
-                  View accepted matches
-                </Link>
+                {agentMode ? (
+                  <p className="mt-2 text-xs text-gray-500">Only accepted matches can chat.</p>
+                ) : (
+                  <Link to="/app/matches?tab=interests" className="mt-2 inline-block text-primary-600 hover:underline">
+                    View accepted matches
+                  </Link>
+                )}
               </div>
             )}
           </div>
@@ -827,16 +909,26 @@ export default function Chat() {
         {selectedConversation && (
           <div className="flex-1 flex flex-col min-h-0">
             <>
-              <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-                <div className="min-w-0">
-                  <h3 className="font-medium text-gray-900 truncate">
-                    {selectedContact?.name || 'Chat'}
-                    {isBlockedThread && (
-                      <span className="ml-2 rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-red-700">
-                        Blocked
-                      </span>
+              <div className="flex items-center justify-between border-b border-gray-200 p-4">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-100 text-lg">
+                    {selectedContact?.photo ? (
+                      <img src={selectedContact.photo} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      '💬'
                     )}
-                  </h3>
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="truncate font-medium text-gray-900">
+                      {selectedContact?.name || 'Chat'}
+                      {isBlockedThread && (
+                        <span className="ml-2 rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-red-700">
+                          Blocked
+                        </span>
+                      )}
+                    </h3>
+                    <p className="text-xs text-gray-500">Online</p>
+                  </div>
                 </div>
                 <div className="flex items-center gap-1">
                   {!isBlockedThread && (
