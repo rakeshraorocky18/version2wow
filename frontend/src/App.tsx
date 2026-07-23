@@ -34,6 +34,9 @@ import VendorRoutes from './vendor/routes/VendorRoutes';
 import AgentRoutes from './routes/AgentRoutes';
 import BookingForm from './pages/BookingForm';
 import SingleClientPage from "./pages/agent/SingleClientPage";
+import PublicProfile from './pages/PublicProfile';
+
+
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
@@ -88,6 +91,10 @@ function App() {
         <Route path="profile/photos" element={<ProfilePhotos />} />
         <Route path="profile" element={<ProfileRouter />} />
          </Route>
+      <Route
+        path="/public/profile/:profileId"
+        element={<PublicProfile />}
+      />
       <Route path="/vendor/*" element={<VendorRoutes />} />
       <Route path="/agent/*" element={<AgentRoutes />} />
     </Routes>

@@ -413,4 +413,10 @@ export const agentService = {
     });
     return data;
   },
+
+  getPublicProfile: async (profileId: string) => {
+    const { data } = await agentApi.get(`/public/profile/${profileId}`);
+    return data;
+  },
+
 };
