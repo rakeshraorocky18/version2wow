@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import {
@@ -43,6 +43,17 @@ type CallLogPayload = {
   status: 'missed' | 'ended';
 };
 
+function normalizeUserId(id?: string | null): string {
+  return id ? String(id).trim() : '';
+}
+
+function formatMessagePreview(message: ChatMessage): string {
+  if (message.type === 'image') return '📷 Photo';
+  if (message.type === 'video') return '🎬 Video';
+  if (message.type === 'file') return '📎 File';
+  return message.content || 'Message';
+}
+
 function MessageBubble({
   message,
   isMine,
@@ -65,16 +76,16 @@ function MessageBubble({
       })
     : '';
 
+  const bubbleClass = isCallLog
+    ? 'border border-gray-200 bg-gray-50 text-gray-700'
+    : isMine
+      ? 'bg-primary-600 text-white'
+      : 'bg-gray-100 text-gray-900';
+
   return (
     <div className={`group flex ${isMine ? 'justify-end' : 'justify-start'}`}>
       <div
-        className={`relative max-w-[75%] px-3 py-2 rounded-lg text-sm ${
-          isCallLog
-            ? 'border border-gray-200 bg-gray-50 text-gray-700'
-            : isMine
-              ? 'bg-primary-600 text-white'
-              : 'bg-gray-100 text-gray-900'
-        }`}
+        className={`relative max-w-[75%] px-3 py-2 rounded-lg text-sm ${bubbleClass}`}
       >
         <div
           className={`absolute -top-2 ${isMine ? '-left-2' : '-right-2'} flex gap-0.5 opacity-0 transition group-hover:opacity-100`}
@@ -210,7 +221,6 @@ export default function Chat({
   embedded = false,
   initialUserId,
   agentMode = false,
-  agentCustomerId,
   agentContacts = [],
   agentMessages = [],
   onAgentSendMessage,
@@ -223,6 +233,7 @@ export default function Chat({
   const currentUserId = useAuthStore((state) => state.user?.id);
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
   const [messageInput, setMessageInput] = useState('');
+  const [typingIndicator, setTypingIndicator] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showMenu, setShowMenu] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
@@ -232,6 +243,9 @@ export default function Chat({
   const [sharedPanel, setSharedPanel] = useState<'media' | 'links' | 'docs' | null>(null);
   const [activeCall, setActiveCall] = useState<{ callId: string; peerId: string; callType: CallType; isIncoming?: boolean } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement | null>(null);
+  const typingTimeoutRef = useRef<number | null>(null);
+  const lastTypingAtRef = useRef(0);
   const queryClient = useQueryClient();
   const [seenMap, setSeenMap] = useState<Record<string, string>>(() => {
     try {
@@ -244,8 +258,9 @@ export default function Chat({
 
   const { data: acceptedMatches = [], isLoading: matchesLoading } = useAcceptedInterests();
 
+  const normalizedCurrentUserId = useMemo(() => normalizeUserId(currentUserId), [currentUserId]);
   const { data: serverContacts = [], isLoading: contactsLoading } = useQuery({
-    queryKey: agentMode ? ['agent-chat-contacts'] : ['chat-contacts', currentUserId],
+    queryKey: agentMode ? ['agent-chat-contacts'] : ['chat-contacts', normalizedCurrentUserId],
     enabled: !agentMode ? !!currentUserId : true,
     retry: false,
     queryFn: async () => {
@@ -298,13 +313,46 @@ export default function Chat({
     }
   }, [selectedConversation, activePartnerId]);
 
-  useChatSocket({
+  const { emit } = useChatSocket({
     onNewMessage: () => {
       if (activePartnerId) {
         queryClient.invalidateQueries({ queryKey: ['messages', activePartnerId] });
       }
       queryClient.invalidateQueries({ queryKey: ['chat-contacts'] });
       queryClient.invalidateQueries({ queryKey: ['chat-unread'] });
+    },
+    onMessageDeleted: (data) => {
+      const partnerId = normalizeUserId(data.senderId) === normalizedCurrentUserId
+        ? normalizeUserId(data.receiverId)
+        : normalizeUserId(data.senderId);
+
+      if (activePartnerId && partnerId === activePartnerId) {
+        queryClient.setQueryData(['messages', activePartnerId], (old: any) => {
+          if (!old) return old;
+          return {
+            ...old,
+            messages: (old.messages || []).filter(
+              (message: ChatMessage) => (message.id || message._id) !== data.messageId,
+            ),
+            total: Math.max(0, (old.total || 0) - 1),
+          };
+        });
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['chat-contacts'] });
+      queryClient.invalidateQueries({ queryKey: ['chat-unread'] });
+    },
+    onUserTyping: (data) => {
+      const senderId = normalizeUserId(data.userId);
+      if (activePartnerId && senderId === activePartnerId && senderId !== normalizedCurrentUserId) {
+        setTypingIndicator(true);
+        if (typingTimeoutRef.current) {
+          window.clearTimeout(typingTimeoutRef.current);
+        }
+        typingTimeoutRef.current = window.setTimeout(() => {
+          setTypingIndicator(false);
+        }, 3000);
+      }
     },
     onIncomingCall: (call: IncomingCall) => {
       setActiveCall({
@@ -428,7 +476,11 @@ export default function Chat({
   });
 
   const displayMessages = useMemo(() => {
-    const msgs = messagesData?.messages ?? [];
+    const msgs = (messagesData?.messages ?? []).slice().sort((a, b) => {
+      const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return aTime - bTime;
+    });
     if (!showInChatSearch || !inChatSearch.trim()) return msgs;
     const q = inChatSearch.toLowerCase();
     return msgs.filter((m) => (m.content || '').toLowerCase().includes(q));
@@ -475,6 +527,14 @@ export default function Chat({
     };
   }, [activePartnerId, messagesData, queryClient]);
 
+  useEffect(() => {
+    if (typingTimeoutRef.current) {
+      window.clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = null;
+    }
+    setTypingIndicator(false);
+  }, [activePartnerId]);
+
   const markSeen = (partnerId: string, seenAt?: string) => {
     const timestamp = seenAt || new Date().toISOString();
     setSeenMap((prev) => {
@@ -500,22 +560,89 @@ export default function Chat({
         });
         return;
       }
-      await api.post('/chat/messages', {
-        receiverId: activePartnerId,
+
+      if (!emit) {
+        throw new Error('Chat socket is not connected');
+      }
+
+      return new Promise<ChatMessage>((resolve, reject) => {
+        emit(
+          'sendMessage',
+          {
+            receiverId: activePartnerId,
+            content: payload.content,
+            type: payload.type || 'text',
+            mediaUrl: payload.mediaUrl,
+          },
+          (response: any) => {
+            if (!response) {
+              return reject(new Error('No response from chat server'));
+            }
+            if (response.error) {
+              return reject(new Error(response.error));
+            }
+            resolve(response as ChatMessage);
+          },
+        );
+      });
+    },
+    onMutate: async (payload) => {
+      if (!activePartnerId || agentMode) return;
+      await queryClient.cancelQueries({ queryKey: ['messages', activePartnerId] });
+
+      const previousMessages = queryClient.getQueryData<{ messages: ChatMessage[] }>([
+        'messages',
+        activePartnerId,
+      ]);
+
+      const optimisticMessage: ChatMessage = {
+        id: `temp-${Date.now()}`,
+        senderId: currentUserId || '',
         content: payload.content,
         type: payload.type || 'text',
         mediaUrl: payload.mediaUrl,
+        createdAt: new Date().toISOString(),
+      };
+
+      queryClient.setQueryData(['messages', activePartnerId], (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          messages: [...(old.messages || []), optimisticMessage],
+          total: (old.total || 0) + 1,
+        };
       });
+
+      return { previousMessages, optimisticMessage };
     },
-    onSuccess: () => {
+    onError: (err: any, _variables, context) => {
+      if (activePartnerId && context?.previousMessages) {
+        queryClient.setQueryData(['messages', activePartnerId], context.previousMessages);
+      }
+      toast.error(err.response?.data?.message || err.message || 'Unable to send message');
+    },
+    onSuccess: (_message, _variables, context) => {
       setMessageInput('');
-      if (!agentMode) {
-        queryClient.invalidateQueries({ queryKey: ['messages', activePartnerId] });
+      if (!agentMode && activePartnerId) {
         queryClient.invalidateQueries({ queryKey: ['chat-contacts'] });
+        queryClient.setQueryData(['messages', activePartnerId], (old: any) => {
+          if (!old || !context?.optimisticMessage) return old;
+          const updated = {
+            ...old,
+            messages: (old.messages || []).map((message: ChatMessage) =>
+              message.id === context.optimisticMessage.id ? (_message as ChatMessage) : message,
+            ),
+          };
+          return updated;
+        });
+        const messagePreview = formatMessagePreview(_message as ChatMessage);
+        updateContactPreview(activePartnerId, messagePreview, (_message as ChatMessage).createdAt);
       }
     },
-    onError: (err: { response?: { data?: { message?: string } } }) => {
-      toast.error(err.response?.data?.message || 'Unable to send message');
+    onSettled: () => {
+      if (activePartnerId && !agentMode) {
+        queryClient.invalidateQueries({ queryKey: ['messages', activePartnerId] });
+      }
     },
   });
 
@@ -627,16 +754,58 @@ export default function Chat({
     onError: () => toast.error('Could not submit report'),
   });
 
+  const updateContactPreview = (partnerId: string, preview: string, timestamp?: string) => {
+    queryClient.setQueryData(['chat-contacts'], (old: any) => {
+      if (!Array.isArray(old)) return old;
+      return old.map((contact: ChatContact) =>
+        contact.userId === partnerId
+          ? { ...contact, subtitle: preview, lastMessageAt: timestamp || contact.lastMessageAt }
+          : contact,
+      );
+    });
+  };
+
   const deleteMessageMutation = useMutation({
     mutationFn: async ({ messageId, mode }: { messageId: string; mode: 'me' | 'everyone' }) => {
       await api.delete(`/chat/messages/${messageId}?mode=${mode}`);
     },
+    onMutate: async (variables) => {
+      if (!activePartnerId) return;
+      await queryClient.cancelQueries({ queryKey: ['messages', activePartnerId] });
+      const previousMessages = queryClient.getQueryData<{ messages: ChatMessage[] }>([
+        'messages',
+        activePartnerId,
+      ]);
+      queryClient.setQueryData(['messages', activePartnerId], (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          messages: (old.messages || []).filter(
+            (message: ChatMessage) => (message.id || message._id) !== variables.messageId,
+          ),
+          total: Math.max(0, (old.total || 1) - 1),
+        };
+      });
+      return { previousMessages };
+    },
     onSuccess: () => {
       toast.success('Message deleted');
-      queryClient.invalidateQueries({ queryKey: ['messages', activePartnerId] });
-      queryClient.invalidateQueries({ queryKey: ['chat-contacts'] });
+      if (activePartnerId) {
+        queryClient.invalidateQueries({ queryKey: ['chat-contacts'] });
+        queryClient.invalidateQueries({ queryKey: ['chat-unread'] });
+        const currentData = queryClient.getQueryData<{ messages: ChatMessage[] }>(['messages', activePartnerId]);
+        const latestMessage = currentData?.messages?.[currentData.messages.length - 1];
+        if (latestMessage) {
+          updateContactPreview(activePartnerId, formatMessagePreview(latestMessage), latestMessage.createdAt);
+        }
+      }
     },
-    onError: () => toast.error('Could not delete message'),
+    onError: (_error, _variables, context) => {
+      if (activePartnerId && context?.previousMessages) {
+        queryClient.setQueryData(['messages', activePartnerId], context.previousMessages);
+      }
+      toast.error('Could not delete message');
+    },
   });
 
   const uploadMediaMutation = useMutation({
@@ -655,6 +824,14 @@ export default function Chat({
     },
     onError: () => toast.error('Could not upload file'),
   });
+
+  const handleTyping = useCallback(() => {
+    if (!emit || !activePartnerId || isBlockedThread) return;
+    const now = Date.now();
+    if (now - lastTypingAtRef.current < 2000) return;
+    lastTypingAtRef.current = now;
+    emit('typing', { receiverId: activePartnerId });
+  }, [activePartnerId, emit, isBlockedThread]);
 
   const handleSend = () => {
     if (!messageInput.trim() || !activePartnerId || isBlockedThread) return;
@@ -780,6 +957,16 @@ export default function Chat({
     const contact = contactList.find((c) => c.userId === activePartnerId);
     markSeen(activePartnerId, contact?.lastMessageAt);
   }, [activePartnerId, displayMessages.length, contactList]);
+
+  useEffect(() => {
+    if (!activePartnerId) return;
+    requestAnimationFrame(() => {
+      const container = messagesContainerRef.current;
+      if (container) {
+        container.scrollTop = container.scrollHeight;
+      }
+    });
+  }, [activePartnerId, displayMessages.length, showInChatSearch, inChatSearch]);
 
   return (
     <div
@@ -927,7 +1114,9 @@ export default function Chat({
                         </span>
                       )}
                     </h3>
-                    <p className="text-xs text-gray-500">Online</p>
+                    <p className="text-xs text-gray-500">
+                      {typingIndicator && !isBlockedThread ? 'Typing...' : 'Online'}
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
@@ -1113,17 +1302,17 @@ export default function Chat({
                 </div>
               )}
 
-              <div className="flex-1 p-4 overflow-y-auto space-y-3">
+              <div ref={messagesContainerRef} className="flex-1 p-4 overflow-y-auto space-y-3">
                 {displayMessages.length > 0 ? (
-                  [...displayMessages].reverse().map((message: ChatMessage) => (
+                  displayMessages.map((message: ChatMessage) => (
                     <MessageBubble
                       key={message.id || message._id}
                       message={message}
-                      isMine={message.senderId === currentUserId}
+                      isMine={normalizeUserId(message.senderId) === normalizedCurrentUserId}
                       deleting={deleteMessageMutation.isPending}
                       onDeleteForMe={() => handleDeleteSingleMessage(message, 'me')}
                       onDeleteForEveryone={
-                        message.senderId === currentUserId
+                        normalizeUserId(message.senderId) === normalizedCurrentUserId
                           ? () => handleDeleteSingleMessage(message, 'everyone')
                           : undefined
                       }
@@ -1179,7 +1368,10 @@ export default function Chat({
                     <input
                       type="text"
                       value={messageInput}
-                      onChange={(e) => setMessageInput(e.target.value)}
+                      onChange={(e) => {
+                        setMessageInput(e.target.value);
+                        handleTyping();
+                      }}
                       onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                       placeholder="Type a message..."
                       className="flex-1 input-field text-sm py-2"

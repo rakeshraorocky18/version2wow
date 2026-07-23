@@ -11,16 +11,12 @@ import {
   Eye,
   Heart,
   History,
-  Image as ImageIcon,
-  Loader2,
   MessageCircle,
-  Paperclip,
   Search,
   Send,
   Sparkles,
   Star,
   StickyNote,
-  Trash2,
   UserRound,
   X,
 } from 'lucide-react';
@@ -126,89 +122,6 @@ function ProfileAvatar({ name, src, size = 'h-14 w-14' }: { name: string; src?: 
   return (
     <div className={`${size} flex shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#FFF0F4] text-wow-primary`}>
       {src ? <img src={src} alt={name} className="h-full w-full object-cover" /> : initials(name) || <UserRound className="h-5 w-5" />}
-    </div>
-  );
-}
-
-function MessageBubble({
-  message,
-  isMine,
-  onDeleteForMe,
-  onDeleteForEveryone,
-  deleting,
-}: {
-  message: { id?: string; _id?: string; senderId: string; content: string; type?: string; mediaUrl?: string; createdAt?: string };
-  isMine: boolean;
-  onDeleteForMe: () => void;
-  onDeleteForEveryone?: () => void;
-  deleting: boolean;
-}) {
-  const mediaSrc = message.mediaUrl ? getPhotoUrl(message.mediaUrl) : '';
-  const isCallLog = message.type === 'audio_call' || message.type === 'video_call';
-  const messageTime = message.createdAt
-    ? new Date(message.createdAt).toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit',
-      })
-    : '';
-
-  return (
-    <div className={`group flex ${isMine ? 'justify-end' : 'justify-start'}`}>
-      <div
-        className={`relative max-w-[75%] rounded-2xl px-4 py-3 text-sm ${
-          isCallLog
-            ? 'border border-gray-200 bg-gray-50 text-gray-700'
-            : isMine
-            ? 'bg-wow-primary text-white'
-            : 'bg-white text-wow-text'
-        }`}
-      >
-        <div className={`absolute -top-2 ${isMine ? '-left-2' : '-right-2'} flex gap-1 opacity-0 transition group-hover:opacity-100`}>
-          <button
-            type="button"
-            onClick={onDeleteForMe}
-            disabled={deleting}
-            className="rounded-full border border-gray-200 bg-white p-1 text-gray-500 shadow-sm hover:text-red-600 disabled:opacity-60"
-            title="Delete for me"
-          >
-            <Trash2 size={12} />
-          </button>
-          {isMine && onDeleteForEveryone && (
-            <button
-              type="button"
-              onClick={onDeleteForEveryone}
-              disabled={deleting}
-              className="rounded-full border border-gray-200 bg-white p-1 text-gray-500 shadow-sm hover:text-red-700 disabled:opacity-60"
-              title="Delete for everyone"
-            >
-              <Ban size={12} />
-            </button>
-          )}
-        </div>
-        {message.type === 'image' && mediaSrc ? (
-          <a href={mediaSrc} target="_blank" rel="noopener noreferrer">
-            <img src={mediaSrc} alt="Shared" className="max-h-48 rounded-md object-cover" />
-          </a>
-        ) : message.type === 'video' && mediaSrc ? (
-          <video src={mediaSrc} controls className="max-h-48 rounded-md" />
-        ) : message.type === 'file' && mediaSrc ? (
-          <a
-            href={mediaSrc}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={`underline ${isMine ? 'text-white' : 'text-wow-primary'}`}
-          >
-            📎 {message.content || 'Download file'}
-          </a>
-        ) : (
-          message.content
-        )}
-        {messageTime && (
-          <p className={`mt-2 text-[10px] ${isCallLog ? 'text-gray-500' : isMine ? 'text-white/80' : 'text-gray-500'}`}>
-            {messageTime}
-          </p>
-        )}
-      </div>
     </div>
   );
 }
@@ -453,7 +366,6 @@ export default function CustomerDetailsWorkspace() {
   const chat = useAgentCustomerChat(customerId, { profileId: activeChatProfileId, page: 1, limit: 50 }, activeTab === 'chat');
   const action = useAgentCustomerAction(customerId);
   const sendMessage = useSendAgentCustomerChatMessage(customerId);
-  const selectedReceiverId = activeChatProfileId || chat.data?.activeProfileId;
 
   useEffect(() => {
     if (activeTab !== 'chat') return;
@@ -674,14 +586,16 @@ export default function CustomerDetailsWorkspace() {
           embedded
           agentMode
           agentCustomerId={customerId}
+          initialUserId={activeChatProfileId}
+          onSelectContact={(userId) => setActiveChatProfileId(userId)}
           agentContacts={(chat.data?.contacts || []).map((c) => ({
             userId: c.userId,
             name: c.name,
             subtitle: c.subtitle,
             photo: c.photo ? getPhotoUrl(c.photo) : undefined,
-            lastMessageAt: c.lastMessageAt,
-            isBlocked: c.isBlocked,
-            muted: c.muted,
+            lastMessageAt: c.lastMessageAt ?? undefined,
+            isBlocked: c.isBlocked ?? undefined,
+            muted: c.muted ?? undefined,
             onlineStatus: c.onlineStatus,
             unreadCount: c.unreadCount,
           }))}
@@ -691,6 +605,7 @@ export default function CustomerDetailsWorkspace() {
               onSuccess: () => {
                 toast.success('Message sent');
                 chat.refetch();
+                notifications.refetch();
               },
               onError: (err: unknown) => toast.error(getErrorMessage(err, 'Unable to send message')),
             });

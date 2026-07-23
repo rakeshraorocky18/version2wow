@@ -1,5 +1,5 @@
 import { VendorCategory } from '../../../common/enums';
-import { IsEnum } from 'class-validator';
+import { IsEnum, ValidateIf } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { IsEmail, IsNotEmpty, IsString, MinLength } from 'class-validator';
 
@@ -22,6 +22,7 @@ export class VendorRegisterDto {
 
   @ApiProperty()
   @IsString()
+  @ValidateIf((_, value) => value !== undefined && value !== null && value !== '')
   phone!: string;
 }
 

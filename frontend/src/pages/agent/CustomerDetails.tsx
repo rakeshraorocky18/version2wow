@@ -28,7 +28,7 @@ const TABS = [
   { id: 'personal', label: 'Personal Details' },
   { id: 'family', label: 'Family Details' },
   { id: 'education', label: 'Education' },
-  { id: 'religion', label: 'Religion' },
+  { id: 'religion', label: 'Horoscope' },
   { id: 'partner', label: 'Partner Preferences' },
   { id: 'documents', label: 'Documents' },
   { id: 'notes', label: 'Notes' },
@@ -217,6 +217,12 @@ export default function CustomerDetails() {
   const json = (key: string) =>
     ((draft[key] as Record<string, unknown>) || {}) as Record<string, string>;
 
+  const resolveDisplayValue = (value: unknown, fallbackValue?: unknown) => {
+    const text = String(value ?? '').trim();
+    const fallback = String(fallbackValue ?? '').trim();
+    return text.toLowerCase() === 'other' && fallback ? fallback : text || fallback;
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
@@ -349,9 +355,9 @@ export default function CustomerDetails() {
 
         {tab === 'religion' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="Religion" value={draft.religion as string} editing={editing} onChange={(v) => setDraft({ ...draft, religion: v })} />
-            <Field label="Caste" value={draft.caste as string} editing={editing} onChange={(v) => setDraft({ ...draft, caste: v })} />
-            <Field label="Mother Tongue" value={draft.motherTongue as string} editing={editing} onChange={(v) => setDraft({ ...draft, motherTongue: v })} />
+            <Field label="Religion" value={resolveDisplayValue(draft.religion, draft.religionOther)} editing={editing} onChange={(v) => setDraft({ ...draft, religion: v })} />
+            <Field label="Caste" value={resolveDisplayValue(draft.caste, draft.casteOther)} editing={editing} onChange={(v) => setDraft({ ...draft, caste: v })} />
+            <Field label="Mother Tongue" value={resolveDisplayValue(draft.motherTongue, draft.motherTongueOther)} editing={editing} onChange={(v) => setDraft({ ...draft, motherTongue: v })} />
             <Field label="Gothra" value={json('religionDetails').gothra} editing={editing} onChange={(v) => updateJsonField('religionDetails', 'gothra', v)} />
             <Field label="Star / Raasi" value={json('religionDetails').star} editing={editing} onChange={(v) => updateJsonField('religionDetails', 'star', v)} />
           </div>

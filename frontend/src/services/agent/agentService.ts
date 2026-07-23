@@ -96,6 +96,10 @@ export type AgentCustomerChatContact = {
   subtitle: string;
   onlineStatus: boolean;
   unreadCount: number;
+  photo?: string | null;
+  lastMessageAt?: string | null;
+  isBlocked?: boolean | null;
+  muted?: boolean | null;
 };
 
 export type AgentCustomerChatMessage = {

@@ -428,8 +428,10 @@ export function PersonalStep({ form, errors, update, updatePersonal }: StepProps
 
 /* ─── 2. Religion Details ─── */
 export function ReligionStep({ form, update, updatePersonal }: StepProps) {
-  const casteOptions = getCasteOptionsForReligion(form.religion);
-  const subCasteOptions = getSubCasteOptionsForCaste(form.caste);
+  const isReligionOther = String(form.religion || '').trim().toLowerCase() === 'other';
+  const isCasteOther = String(form.caste || '').trim().toLowerCase() === 'other';
+  const casteOptions = isReligionOther ? CASTE_OPTIONS : getCasteOptionsForReligion(form.religion);
+  const subCasteOptions = isCasteOther ? SUB_CASTE_OPTIONS : getSubCasteOptionsForCaste(form.caste);
 
   return (
     <WizardSection
@@ -644,6 +646,9 @@ export function RelationshipStep({ form, updatePersonal }: StepProps) {
             value={(form.personalDetails.maritalStatus as string) || ''}
             onChange={(v) => {
               updatePersonal('maritalStatus', v);
+              if (v !== 'Divorced') {
+                updatePersonal('divorceReason', '');
+              }
               if (v === 'never married') {
                 updatePersonal('marriageDate', '');
                 updatePersonal('divorceDate', '');
@@ -670,13 +675,22 @@ export function RelationshipStep({ form, updatePersonal }: StepProps) {
             />
           </FormField>
           {isDivorced && (
-            <FormField label="Divorce Date">
-              <FormInput
-                type="date"
-                value={(form.personalDetails.divorceDate as string) || ''}
-                onChange={(v) => updatePersonal('divorceDate', v)}
-              />
-            </FormField>
+            <>
+              <FormField label="Divorce Date">
+                <FormInput
+                  type="date"
+                  value={(form.personalDetails.divorceDate as string) || ''}
+                  onChange={(v) => updatePersonal('divorceDate', v)}
+                />
+              </FormField>
+              <FormField label="Reason for Divorce" className="col-span-2">
+                <textarea
+                  className="min-h-[96px] w-full resize-y rounded-lg border border-[#D9C2CF] bg-white px-3 py-2 text-sm text-[#5D2B44] outline-none transition focus:border-[#C36A95]"
+                  value={(form.personalDetails.divorceReason as string) || ''}
+                  onChange={(e) => updatePersonal('divorceReason', e.target.value)}
+                />
+              </FormField>
+            </>
           )}
           {isSeparated && (
             <FormField label="Separation Date">

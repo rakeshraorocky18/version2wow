@@ -1,7 +1,4 @@
-import React from "react";
-
-
-function NotificationPanel({close}){
+function NotificationPanel({ close }: { close: () => void }){
 
 
 return(

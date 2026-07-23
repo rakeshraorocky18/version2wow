@@ -20,6 +20,10 @@ import { useChatSocket, type IncomingCall, type CallType } from '../../hooks/use
 import ChatOverflowMenu from '../chat/ChatOverflowMenu';
 import CallModal from '../chat/CallModal';
 
+function normalizeUserId(id?: string | null): string {
+  return id ? String(id).trim() : '';
+}
+
 type ChatContact = {
   userId: string;
   name: string;
@@ -52,6 +56,7 @@ type ChatProps = {
   agentContacts?: ChatContact[];
   agentMessages?: ChatMessage[];
   onAgentSendMessage?: (payload: { receiverId: string; content: string; type?: string; mediaUrl?: string }) => void;
+  onSelectContact?: (userId: string) => void;
   agentLoading?: boolean;
 };
 
@@ -141,14 +146,15 @@ export default function Chat({
   embedded = false,
   initialUserId,
   agentMode = false,
-  agentCustomerId,
   agentContacts = [],
   agentMessages = [],
   onAgentSendMessage,
+  onSelectContact,
   agentLoading = false,
 }: ChatProps) {
   const queryClient = useQueryClient();
   const currentUserId = useAgentAuthStore((state) => state.user?.id);
+  const normalizedCurrentUserId = useMemo(() => normalizeUserId(currentUserId), [currentUserId]);
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [messageInput, setMessageInput] = useState('');
@@ -214,14 +220,17 @@ export default function Chat({
 
   useEffect(() => {
     if (!selectedConversation && contactList.length > 0) {
-      setSelectedConversation(contactList[0].userId);
+      const firstId = contactList[0].userId;
+      setSelectedConversation(firstId);
+      onSelectContact?.(firstId);
     }
-  }, [contactList, selectedConversation]);
+  }, [contactList, onSelectContact, selectedConversation]);
 
   useEffect(() => {
     if (!initialUserId) return;
     setSelectedConversation(initialUserId);
-  }, [initialUserId]);
+    onSelectContact?.(initialUserId);
+  }, [initialUserId, onSelectContact]);
 
   const activePartnerId = selectedConversation;
 
@@ -272,17 +281,17 @@ export default function Chat({
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [displayMessages.length, showInChatSearch]);
 
-  useEffect(() => {
-    if (!messageInput.trim()) return;
-    setTypingIndicator(true);
-    const timer = window.setTimeout(() => setTypingIndicator(false), 1200);
-    return () => window.clearTimeout(timer);
-  }, [messageInput]);
-
   useChatSocket({
     onNewMessage: () => {
       queryClient.invalidateQueries({ queryKey: ['agent-portal-chat-messages', activePartnerId] });
       queryClient.invalidateQueries({ queryKey: ['agent-portal-chat-contacts'] });
+    },
+    onUserTyping: (data) => {
+      if (data.userId === activePartnerId) {
+        setTypingIndicator(true);
+        const timer = window.setTimeout(() => setTypingIndicator(false), 3000);
+        return () => window.clearTimeout(timer);
+      }
     },
     onIncomingCall: (call: IncomingCall) => {
       setActiveCall({ callId: call.callId, peerId: call.callerId, callType: call.callType, isIncoming: true });
@@ -409,7 +418,10 @@ export default function Chat({
   const openDeleteDialog = (message: ChatMessage) => {
     const id = message.id || message._id;
     if (!id) return;
-    setDeleteDialog({ messageIds: [id], allowEveryone: message.senderId === currentUserId });
+    setDeleteDialog({
+      messageIds: [id],
+      allowEveryone: normalizeUserId(message.senderId) === normalizedCurrentUserId,
+    });
   };
 
   const confirmDelete = (mode: 'me' | 'everyone') => {
@@ -507,6 +519,7 @@ export default function Chat({
                     type="button"
                     onClick={() => {
                       setSelectedConversation(contact.userId);
+                      onSelectContact?.(contact.userId);
                       setShowMenu(false);
                       setSharedPanel(null);
                       setShowInChatSearch(false);
@@ -686,7 +699,7 @@ export default function Chat({
                           <div className={`rounded-2xl p-1 ${selectionMode && id ? 'bg-primary-50' : ''}`}>
                             <MessageBubble
                               message={message}
-                              isMine={message.senderId === currentUserId}
+                              isMine={normalizeUserId(message.senderId) === normalizedCurrentUserId}
                               deleting={deleteMessageMutation.isPending}
                               searchQuery={inChatSearch}
                               onDelete={() => {

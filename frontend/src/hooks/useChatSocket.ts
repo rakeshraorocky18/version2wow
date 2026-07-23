@@ -15,6 +15,8 @@ export interface IncomingCall {
 
 export function useChatSocket(handlers?: {
   onNewMessage?: (message: unknown) => void;
+  onMessageDeleted?: (data: { messageId: string; senderId: string; receiverId: string }) => void;
+  onUserTyping?: (data: { userId: string }) => void;
   onIncomingCall?: (call: IncomingCall) => void;
   onCallAccepted?: (data: { callId: string; accepterId: string }) => void;
   onCallRejected?: (data: { callId: string }) => void;
@@ -38,6 +40,8 @@ export function useChatSocket(handlers?: {
     socketRef.current = socket;
 
     socket.on('newMessage', (msg) => handlersRef.current?.onNewMessage?.(msg));
+    socket.on('messageDeleted', (data) => handlersRef.current?.onMessageDeleted?.(data));
+    socket.on('userTyping', (data) => handlersRef.current?.onUserTyping?.(data));
     socket.on('call:incoming', (data) => handlersRef.current?.onIncomingCall?.(data));
     socket.on('call:accepted', (data) => handlersRef.current?.onCallAccepted?.(data));
     socket.on('call:rejected', (data) => handlersRef.current?.onCallRejected?.(data));
@@ -52,9 +56,17 @@ export function useChatSocket(handlers?: {
     };
   }, [userId]);
 
-  const emit = useCallback((event: string, data: unknown) => {
-    socketRef.current?.emit(event, data);
-  }, []);
+  const emit = useCallback(
+    (event: string, data: unknown, callback?: (response: unknown) => void) => {
+      if (!socketRef.current) return;
+      if (callback) {
+        socketRef.current.emit(event, data, callback);
+      } else {
+        socketRef.current.emit(event, data);
+      }
+    },
+    [],
+  );
 
   return { socket: socketRef, emit };
 }

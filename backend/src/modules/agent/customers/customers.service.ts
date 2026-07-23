@@ -1042,21 +1042,45 @@ export class AgentCustomersService {
       where: { customerId, status: AgentCustomerMatchStatus.ACCEPTED },
       order: { updatedAt: 'DESC' },
     });
+
+    const activeProfileId = query.profileId || accepted[0]?.profileId;
+
+    if (activeProfileId) {
+      await this.chatService.markConversationRead(customerId, activeProfileId);
+    }
+
+    const imageMap = await this.getProfileImageMap(accepted.map((r) => r.profileId));
+
     const contacts = await Promise.all(
       accepted.map(async (row) => {
         const profile = await this.findCandidateOrFail(row.profileId);
-        const unread = await this.chatService.getUnreadCount(customerId);
+        const unreadCount = await this.chatService.getUnreadCount(customerId, row.profileId);
+        const chatRes = await this.chatService.getMessages(customerId, row.profileId, 1, 1);
+        const lastMsg = (chatRes.messages || [])[0] as { type?: string; content?: string; createdAt?: string } | undefined;
+        let subtitle = 'Accepted match';
+        if (lastMsg) {
+          subtitle =
+            lastMsg.type === 'image'
+              ? '📷 Photo'
+              : lastMsg.type === 'video'
+                ? '🎬 Video'
+                : lastMsg.type === 'file'
+                  ? '📎 File'
+                  : lastMsg.content || 'Accepted match';
+        }
+
         return {
           userId: row.profileId,
           name: [profile.firstName, profile.lastName].filter(Boolean).join(' ').trim(),
-          subtitle: 'Accepted match',
+          subtitle,
+          photo: imageMap.get(row.profileId) ?? undefined,
+          lastMessageAt: lastMsg?.createdAt || row.updatedAt,
           onlineStatus: Date.now() - new Date(profile.updatedAt).getTime() < 24 * 60 * 60 * 1000,
-          unreadCount: unread,
+          unreadCount,
         };
       }),
     );
 
-    const activeProfileId = query.profileId || contacts[0]?.userId;
     const messages = activeProfileId
       ? await this.chatService.getMessages(customerId, activeProfileId, query.page, query.limit)
       : { messages: [], total: 0 };

@@ -45,8 +45,13 @@ export default function InterestRequestCard({
     profile?.id ||
     profile?.userId ||
     match.partnerUserId ||
-    (variant === 'received' ? match.senderId : match.receiverId);
-  const chatUserId = match.partnerUserId || profile?.userId;
+    (variant === 'received'
+      ? match.senderProfile?.id || match.senderProfile?.userId || match.senderId
+      : match.receiverProfile?.id || match.receiverProfile?.userId || match.receiverId);
+  const chatUserId =
+    match.partnerUserId ||
+    profile?.userId ||
+    (variant === 'received' ? match.senderProfile?.userId : match.receiverProfile?.userId);
   const name = profile ? `${profile.firstName || ''} ${profile.lastName || ''}`.trim() : 'Profile';
   const photoUrl = getPhotoUrl(getMainProfilePhoto(profile || {}));
   const status = match.status || 'pending';

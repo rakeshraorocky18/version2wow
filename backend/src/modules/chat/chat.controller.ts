@@ -26,6 +26,7 @@ import {
   ReportUserDto,
 } from './dto/chat.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { ChatGateway } from './chat.gateway';
 import {
   createImageFileFilter,
   createVideoFileFilter,
@@ -41,7 +42,10 @@ type UploadedMulterFile = { filename: string; mimetype: string };
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class ChatController {
-  constructor(private readonly chatService: ChatServiceMongodb) {}
+  constructor(
+    private readonly chatService: ChatServiceMongodb,
+    private readonly chatGateway: ChatGateway,
+  ) {}
 
   @Post('messages')
   @ApiOperation({ summary: 'Send a message (post-match only)' })
@@ -130,7 +134,11 @@ export class ChatController {
     @Param('messageId') messageId: string,
     @Query('mode') mode: 'me' | 'everyone' = 'everyone',
   ) {
-    return this.chatService.deleteMessage(req.user.id, messageId, mode);
+    const result = await this.chatService.deleteMessage(req.user.id, messageId, mode);
+    if (result.mode === 'everyone' && result.senderId && result.receiverId) {
+      this.chatGateway.notifyMessageDeleted(result.messageId, result.senderId, result.receiverId);
+    }
+    return result;
   }
 
   @Get('unread')

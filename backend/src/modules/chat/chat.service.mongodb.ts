@@ -32,9 +32,13 @@ import {
   ReportUserDto,
 } from './dto/chat.dto';
 import { Match } from '../matchmaking/entities/match.entity';
+import {
+  AgentCustomerMatchEntity,
+  AgentCustomerMatchStatus,
+} from '../agent/common/entities/agent-customer-match.entity';
 import { MatchStatus, ChatRestrictionMode, ChatMeetingStatus } from '../../common/enums';
 import { UsersService } from '../users/users.service.mongodb';
-import { SQLITE_CONNECTION } from '../../config/database.constants';
+import { POSTGRES_CONNECTION, SQLITE_CONNECTION } from '../../config/database.constants';
 
 type ConversationRecord = Conversation & Record<string, unknown>;
 type MessageRecord = Message & Record<string, unknown>;
@@ -61,6 +65,8 @@ export class ChatServiceMongodb {
     private threadSettingsModel: Model<ChatThreadSettingsDocument>,
     @InjectRepository(Match, SQLITE_CONNECTION)
     private matchRepository: Repository<Match>,
+    @InjectRepository(AgentCustomerMatchEntity, POSTGRES_CONNECTION)
+    private agentCustomerMatchRepo: Repository<AgentCustomerMatchEntity>,
     private usersService: UsersService,
   ) {}
 
@@ -248,13 +254,37 @@ export class ChatServiceMongodb {
 
   async hasAcceptedMatch(userA: string, userB: string): Promise<boolean> {
     const match = await this.findPairMatch(userA, userB);
-    return match?.status === MatchStatus.ACCEPTED;
+    if (match?.status === MatchStatus.ACCEPTED) return true;
+
+    if (this.agentCustomerMatchRepo) {
+      const rel = await this.agentCustomerMatchRepo.findOne({
+        where: [
+          { customerId: userA, profileId: userB, status: AgentCustomerMatchStatus.ACCEPTED },
+          { customerId: userB, profileId: userA, status: AgentCustomerMatchStatus.ACCEPTED },
+        ],
+      });
+      if (rel) return true;
+    }
+    return false;
   }
 
   /** Can open/view the thread (accepted or blocked). */
   async hasChatAccess(userA: string, userB: string): Promise<boolean> {
     const match = await this.findPairMatch(userA, userB);
-    return match?.status === MatchStatus.ACCEPTED || match?.status === MatchStatus.BLOCKED;
+    if (match?.status === MatchStatus.ACCEPTED || match?.status === MatchStatus.BLOCKED) return true;
+
+    if (this.agentCustomerMatchRepo) {
+      const rel = await this.agentCustomerMatchRepo.findOne({
+        where: [
+          { customerId: userA, profileId: userB },
+          { customerId: userB, profileId: userA },
+        ],
+      });
+      if (rel && (rel.status === AgentCustomerMatchStatus.ACCEPTED || rel.status === AgentCustomerMatchStatus.BLOCKED)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   async isBlockedWith(userA: string, userB: string): Promise<boolean> {
@@ -630,7 +660,13 @@ export class ChatServiceMongodb {
     userId: string,
     messageId: string,
     mode: 'me' | 'everyone' = 'everyone',
-  ): Promise<{ success: boolean }> {
+  ): Promise<{
+    success: boolean;
+    mode: 'me' | 'everyone';
+    senderId?: string;
+    receiverId?: string;
+    messageId: string;
+  }> {
     const message = await this.messageModel.findOne({ id: messageId }).exec();
     if (!message) {
       throw new NotFoundException('Message not found');
@@ -662,7 +698,7 @@ export class ChatServiceMongodb {
         new Set([...(plain.deletedFor as string[] | undefined) || [], resolvedUser]),
       );
       await this.messageModel.updateOne({ id: plain.id }, { $set: { deletedFor } }).exec();
-      return { success: true };
+      return { success: true, mode: 'me', messageId: plain.id };
     }
 
     if (plain.senderId !== userId && plain.senderId !== resolvedUser) {
@@ -696,7 +732,13 @@ export class ChatServiceMongodb {
         .exec();
     }
 
-    return { success: true };
+    return {
+      success: true,
+      mode: 'everyone',
+      senderId: senderResolved,
+      receiverId: receiverResolved,
+      messageId: plain.id,
+    };
   }
 
   /** Clear history for the current user; contact stays in the list. */
@@ -751,13 +793,20 @@ export class ChatServiceMongodb {
     return { success: true };
   }
 
-  async getUnreadCount(userId: string): Promise<number> {
+  async getUnreadCount(userId: string, senderUserId?: string): Promise<number> {
     const selfIds = Array.from(await this.getSelfIds(userId));
+    const senderFilterIds = senderUserId ? Array.from(await this.getSelfIds(senderUserId)) : null;
+
+    const findFilter: Record<string, unknown> = {
+      receiverId: { $in: selfIds },
+      isRead: { $ne: true },
+    };
+    if (senderFilterIds && senderFilterIds.length > 0) {
+      findFilter.senderId = { $in: senderFilterIds };
+    }
+
     const unreadDocs = await this.messageModel.collection
-      .find({
-        receiverId: { $in: selfIds },
-        isRead: { $ne: true },
-      })
+      .find(findFilter)
       .toArray();
 
     if (!unreadDocs.length) return 0;

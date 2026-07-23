@@ -44,7 +44,7 @@ export function LocationSelects({
         >
           <option value="">Select country</option>
           {countries.map((c) => (
-            <option key={c.isoCode} value={c.name}>{c.name}</option>
+            <option key={c.value} value={c.value}>{c.label}</option>
           ))}
         </select>
         {errors.country && <p className="mt-1 text-xs text-red-500">{errors.country}</p>}
@@ -59,7 +59,7 @@ export function LocationSelects({
         >
           <option value="">Select state</option>
           {states.map((s) => (
-            <option key={s.isoCode} value={s.name}>{s.name}</option>
+            <option key={s.value} value={s.value}>{s.label}</option>
           ))}
         </select>
         {errors.state && <p className="mt-1 text-xs text-red-500">{errors.state}</p>}
@@ -74,7 +74,7 @@ export function LocationSelects({
         >
           <option value="">Select city</option>
           {cities.map((c) => (
-            <option key={`${c.name}-${c.stateCode}`} value={c.name}>{c.name}</option>
+            <option key={c.value} value={c.value}>{c.label}</option>
           ))}
         </select>
         {errors.city && <p className="mt-1 text-xs text-red-500">{errors.city}</p>}

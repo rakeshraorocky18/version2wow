@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, Pencil } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { useAgentCustomer } from '../../hooks/agent/useAgent';
 import { displayValue } from '../../lib/agent/addCustomerUtils';
 import { getCustomerProfileImageUrl } from '../../lib/agent/customerAvatar';
@@ -24,7 +24,7 @@ function TabButtons() {
     { id: 'contact', label: 'Contact' },
     { id: 'family', label: 'Family' },
     { id: 'education', label: 'Education' },
-    { id: 'religion', label: 'Religion' },
+    { id: 'horoscope', label: 'Horoscope' },
     { id: 'partner', label: 'Partner' },
   ] as const;
   const [active, setActive] = useState<string>('personal');
@@ -88,7 +88,16 @@ export default function CustomerProfile() {
   const education = json(customer as unknown as Record<string, unknown>, 'educationDetails');
   const religion = json(customer as unknown as Record<string, unknown>, 'religionDetails');
   const partner = json(customer as unknown as Record<string, unknown>, 'partnerPreferences');
-  const manageUrl = `/agent/customers/${resolvedId}/manage`;
+  const religionRecord = customer as unknown as Record<string, unknown>;
+  const resolvedReligion = String(religionRecord.religion || '').trim();
+  const resolvedCaste = String(religionRecord.caste || '').trim();
+  const resolvedMotherTongue = String(religionRecord.motherTongue || '').trim();
+  const displayReligion = resolvedReligion.toLowerCase() === 'other' ? String((religionRecord.religionOther as string) || resolvedReligion) : resolvedReligion;
+  const displayCaste = resolvedCaste.toLowerCase() === 'other' ? String((religionRecord.casteOther as string) || resolvedCaste) : resolvedCaste;
+  const displayMotherTongue = resolvedMotherTongue.toLowerCase() === 'other' ? String((religionRecord.motherTongueOther as string) || resolvedMotherTongue) : resolvedMotherTongue;
+  const maritalStatus = String(personal.maritalStatus || '').trim();
+  const isDivorced = maritalStatus.toLowerCase() === 'divorced';
+  const displayDivorceReason = isDivorced ? String(personal.divorceReason || '') : '';
   const imageUrl = getCustomerProfileImageUrl(customer);
 
   return (
@@ -134,10 +143,12 @@ export default function CustomerProfile() {
                   <ReviewRow label="Email" value={customer.email || ''} />
                   <ReviewRow label="Gender" value={customer.gender || ''} />
                   <ReviewRow label="Date of Birth" value={customer.dateOfBirth || ''} />
-                  <ReviewRow label="Religion" value={customer.religion || ''} />
-                  <ReviewRow label="Caste" value={customer.caste || ''} />
-                  <ReviewRow label="Mother Tongue" value={customer.motherTongue || ''} />
-                  <ReviewRow label="Marital Status" value={String(personal.maritalStatus || '')} />
+                  <ReviewRow label="Religion" value={displayReligion || ''} />
+                  <ReviewRow label="Caste" value={displayCaste || ''} />
+                  <ReviewRow label="Mother Tongue" value={displayMotherTongue || ''} />
+                  <ReviewRow label="Marital Status" value={maritalStatus || ''} />
+                  {isDivorced && <ReviewRow label="Years Married" value={String(personal.yearsMarried || '')} />}
+                  {isDivorced && <ReviewRow label="Reason for Divorce" value={displayDivorceReason || ''} />}
                   <ReviewRow label="Height" value={String(personal.height || '')} />
                   <ReviewRow label="Weight" value={String(personal.weight || '')} />
                 </ProfileSection>
@@ -167,8 +178,8 @@ export default function CustomerProfile() {
                   <ReviewRow label="Work Location" value={String(education.workLocation || '')} />
                 </ProfileSection>
               ),
-              religion: (
-                <ProfileSection icon="🕉️" title="Religion">
+              horoscope: (
+                <ProfileSection icon="🕉️" title="Horoscope">
                   <ReviewRow label="Gothra" value={String(religion.gothra || personal.gothram || '')} />
                   <ReviewRow label="Star" value={String(religion.star || personal.star || '')} />
                   <ReviewRow label="Rasi" value={String(religion.rasi || personal.rasi || '')} />

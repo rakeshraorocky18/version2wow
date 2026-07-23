@@ -1,7 +1,8 @@
-import { IsString, IsOptional, IsEnum, IsNumber, IsArray, IsObject, IsDateString, IsBoolean, IsInt, Min } from 'class-validator';
+import { IsString, IsOptional, IsEnum, IsNumber, IsArray, IsObject, IsDateString, IsBoolean, IsInt, Min, ValidateIf } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { Gender } from '../../../common/enums';
+import { isIndianMobileNumber } from '../../../common/utils/validation.helpers';
 
 export class CreateProfileDto {
   @ApiProperty()
@@ -36,6 +37,11 @@ export class CreateProfileDto {
   @IsOptional()
   @IsString()
   caste?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  casteOther?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -150,6 +156,7 @@ export class CreateProfileDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @ValidateIf((_, value) => value !== undefined && value !== null && value !== '')
   phone?: string;
 
   @ApiPropertyOptional()
@@ -318,6 +325,11 @@ export class CreateProfileDto {
   @IsOptional()
   @IsString()
   yearsMarried?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  divorceReason?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -524,6 +536,11 @@ export class CreateProfileDto {
 }
 
 export class UpdateProfileDto extends CreateProfileDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @ValidateIf((_, value) => value !== undefined && value !== null && value !== '')
+  phone?: string;
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()

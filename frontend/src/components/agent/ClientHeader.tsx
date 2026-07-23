@@ -1,5 +1,3 @@
-import React from "react";
-
 function ClientHeader() {
   return (
     <div className="flex items-center justify-between bg-white rounded-2xl shadow-sm border border-rose-100 p-6">

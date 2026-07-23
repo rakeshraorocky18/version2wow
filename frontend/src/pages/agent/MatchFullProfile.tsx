@@ -19,6 +19,7 @@ import {
   Sparkles,
   Star,
   UserRound,
+  X,
 } from 'lucide-react';
 import { useAgentCustomerAction, useAgentMatchProfile } from '../../hooks/agent/useAgent';
 import { getPhotoUrl } from '../../lib/profileUtils';
@@ -45,7 +46,7 @@ const TABS = [
 
 type TabId = (typeof TABS)[number]['id'];
 type SectionId = 'matches' | 'chat' | 'history' | 'favourites' | 'notifications';
-type MatchStatus = 'matched' | 'pending_sent' | 'pending_received' | 'accepted';
+type MatchStatus = 'matched' | 'pending_sent' | 'pending_received' | 'accepted' | 'declined';
 
 type ChatMessage = {
   id: string;
@@ -152,13 +153,17 @@ function StatusPill({ status }: { status: MatchStatus }) {
         ? 'Request Received'
         : status === 'pending_sent'
           ? 'Pending'
-          : 'Matched';
+          : status === 'declined'
+            ? 'Declined'
+            : 'Matched';
   const tone =
     status === 'accepted'
       ? 'bg-emerald-50 text-emerald-700'
-      : status === 'matched'
-        ? 'bg-pink-50 text-wow-primary'
-        : 'bg-amber-50 text-amber-700';
+      : status === 'declined'
+        ? 'bg-red-50 text-red-700'
+        : status === 'matched'
+          ? 'bg-pink-50 text-wow-primary'
+          : 'bg-amber-50 text-amber-700';
 
   return <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${tone}`}>{label}</span>;
 }
@@ -284,8 +289,14 @@ export default function MatchFullProfile() {
   }, [profile, name]);
 
   useEffect(() => {
-    if (activeSection !== 'chat') return;
-    setActivity((prev) => ({ ...prev, chatReadAt: new Date().toISOString() }));
+    if (activeSection === 'chat') {
+      setActivity((prev) => ({ ...prev, chatReadAt: new Date().toISOString() }));
+    } else if (activeSection === 'notifications') {
+      setActivity((prev) => ({
+        ...prev,
+        notifications: prev.notifications.map((n) => ({ ...n, read: true })),
+      }));
+    }
   }, [activeSection]);
 
   const setSection = (nextSection: SectionId) => {
@@ -388,6 +399,19 @@ export default function MatchFullProfile() {
     );
   };
 
+  const handleDecline = () => {
+    profileAction.mutate(
+      { action: 'decline-interest', profileId: matchedProfileId },
+      {
+        onSuccess: () => {
+          updateStatus('declined');
+          toast.success(`Request from ${name} declined`);
+        },
+        onError: () => toast.error('Could not decline request'),
+      },
+    );
+  };
+
   const sendChatMessage = () => {
     if (!isAccepted) {
       toast.error('Chat is available after the match is accepted.');
@@ -436,6 +460,12 @@ export default function MatchFullProfile() {
   const isPending =
     activity.status === 'pending_sent' ||
     profile?.relationshipStatus === 'pending_sent';
+  const isReceived =
+    activity.status === 'pending_received' ||
+    profile?.relationshipStatus === 'pending_received';
+  const isDeclined =
+    activity.status === 'declined' ||
+    profile?.relationshipStatus === 'declined';
 
   const historyStats = [
     { label: 'Matched', value: 1, icon: Heart },
@@ -624,6 +654,29 @@ export default function MatchFullProfile() {
                 >
                   <MessageCircle className="h-4 w-4" /> Chat
                 </button>
+              ) : isReceived ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleAccept}
+                    disabled={profileAction.isPending}
+                    className="btn-primary inline-flex items-center gap-2 !rounded-2xl !px-5 !py-2.5 text-sm shadow-lg shadow-wow-primary/25 disabled:opacity-60"
+                  >
+                    <CheckCircle2 className="h-4 w-4" /> Accept
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDecline}
+                    disabled={profileAction.isPending}
+                    className="inline-flex items-center gap-2 rounded-2xl border border-red-200 bg-white px-5 py-2.5 text-sm font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-60"
+                  >
+                    <X className="h-4 w-4" /> Decline
+                  </button>
+                </>
+              ) : isDeclined ? (
+                <span className="inline-flex items-center gap-2 rounded-2xl bg-gray-100 px-5 py-2.5 text-sm font-medium text-gray-500">
+                  <X className="h-4 w-4" /> Declined
+                </span>
               ) : (
                 <button
                   type="button"
