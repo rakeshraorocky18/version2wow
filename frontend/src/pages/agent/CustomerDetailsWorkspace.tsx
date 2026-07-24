@@ -10,6 +10,7 @@ import {
   Clock3,
   Eye,
   Heart,
+  Share2,
   History,
   MessageCircle,
   Search,
@@ -143,6 +144,26 @@ function MatchCard({
   const pending = profile.relationshipStatus === 'pending_sent';
   const received = profile.relationshipStatus === 'pending_received';
 
+  const handleShare = async () => {
+    const shareUrl = `${window.location.origin}/public/profile/${profile.id}`;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: `${name} - WOW Profile`,
+          text: 'View this matrimonial profile',
+          url: shareUrl,
+        });
+      } else {
+        await navigator.clipboard.writeText(shareUrl);
+        toast.success('Profile link copied to clipboard');
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Unable to share profile');
+    }
+  };
+
   return (
     <article className="overflow-hidden rounded-[22px] border border-gray-100 bg-white shadow-[0_8px_28px_rgba(44,38,48,0.06)]">
       <div className="grid gap-0 lg:grid-cols-[220px_1fr]">
@@ -258,6 +279,14 @@ function MatchCard({
               </button>
               <button type="button" disabled={busy} onClick={() => onAction('block', profile.id)} className="rounded-xl border border-red-100 bg-white px-3 py-2 text-sm text-red-600">
                 <Ban className="mr-1 inline h-4 w-4" /> Block
+              </button>
+              <button
+                type="button"
+                onClick={handleShare}
+                className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm hover:text-wow-primary"
+              >
+                <Share2 className="mr-1 inline h-4 w-4" />
+                Share
               </button>
             </div>
           </div>

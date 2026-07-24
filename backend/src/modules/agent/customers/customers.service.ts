@@ -1157,4 +1157,54 @@ export class AgentCustomersService {
       profileImageUrl: imageMap.get(c.id) ?? null,
     }));
   }
+
+  async getPublicProfile(profileId: string) {
+    const customer = await this.customerRepo.findOne({
+      where: { id: profileId },
+    });
+
+    if (!customer) {
+      throw new NotFoundException('Profile not found');
+    }
+
+    const personal = asRecord(customer.personalDetails);
+    const family = asRecord(customer.familyDetails);
+    const education = asRecord(customer.educationDetails);
+
+    const documents = await this.documentRepo.find({
+      where: { customerId: profileId },
+      order: { createdAt: 'DESC' },
+    });
+
+    return {
+      id: customer.id,
+      firstName: customer.firstName,
+      lastName: customer.lastName,
+      gender: customer.gender,
+      dateOfBirth: customer.dateOfBirth,
+
+      religion: customer.religion,
+      caste: customer.caste,
+      occupation: customer.occupation,
+      education: customer.education,
+
+      city: String(personal.city ?? ''),
+      state: String(personal.state ?? ''),
+      country: String(personal.country ?? ''),
+      aboutMe: String(personal.aboutMe ?? ''),
+
+      height: String(personal.height ?? ''),
+
+      annualSalary: String(education.annualIncome ?? ''),
+
+      fatherName: String(family.fatherName ?? ''),
+      fatherOccupation: String(family.fatherOccupation ?? ''),
+      motherName: String(family.motherName ?? ''),
+      motherOccupation: String(family.motherOccupation ?? ''),
+      familyType: String(family.familyType ?? ''),
+
+      profileImage: resolveProfileImageUrl(documents),
+    };
+  }
+
 }
