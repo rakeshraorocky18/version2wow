@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { EntityManager, In, Repository } from 'typeorm';
 import {
   POSTGRES_CONNECTION,
   SQLITE_CONNECTION,
@@ -77,9 +77,44 @@ export class AgentCustomersService {
     private readonly notificationsService: NotificationsService,
   ) {}
 
-  private async generateCustomerCode(agentId: string): Promise<string> {
-    const count = await this.customerRepo.count({ where: { assignedAgentId: agentId } });
-    return `WOW-${String(count + 1).padStart(5, '0')}`;
+  private async generateCustomerCode(
+    manager: EntityManager,
+  ): Promise<string> {
+    await manager.query('LOCK TABLE agent_customers IN SHARE ROW EXCLUSIVE MODE');
+
+    const result = await manager
+      .createQueryBuilder(AgentCustomerEntity, 'c')
+      .select('MAX(c.customerCode)', 'max')
+      .getRawOne<{ max: string }>();
+
+    const maxCode = result?.max;
+    const nextNumber = maxCode ? Number(maxCode.replace(/^WOW-/, '')) + 1 : 1;
+    return `WOW-${String(nextNumber).padStart(5, '0')}`;
+  }
+
+  async create(agentId: string, dto: CreateAgentCustomerDto) {
+    return this.customerRepo.manager.transaction(async (manager) => {
+      const customerCode = await this.generateCustomerCode(manager);
+      const customer = manager.create(AgentCustomerEntity, {
+        ...dto,
+        customerCode,
+        assignedAgentId: agentId,
+        createdByAgentId: agentId,
+        status: dto.status ?? AgentCustomerStatus.PENDING,
+        profileCompletion: 0,
+      });
+      customer.profileCompletion = calculateProfileCompletion(customer, 0);
+      const saved = await manager.save(customer);
+
+      await this.activityService.log({
+        agentId,
+        customerId: saved.id,
+        action: AgentActivityAction.CUSTOMER_CREATED,
+        description: `Customer ${saved.firstName} ${saved.lastName ?? ''} (${saved.customerCode}) created`,
+      });
+
+      return { ...saved, profileImageUrl: null };
+    });
   }
 
   private async getProfileImageMap(
@@ -110,29 +145,6 @@ export class AgentCustomersService {
       map.set(id, resolveProfileImageUrl(byCustomer.get(id) || []));
     }
     return map;
-  }
-
-  async create(agentId: string, dto: CreateAgentCustomerDto) {
-    const customerCode = await this.generateCustomerCode(agentId);
-    const customer = this.customerRepo.create({
-      ...dto,
-      customerCode,
-      assignedAgentId: agentId,
-      createdByAgentId: agentId,
-      status: dto.status ?? AgentCustomerStatus.PENDING,
-      profileCompletion: 0,
-    });
-    customer.profileCompletion = calculateProfileCompletion(customer, 0);
-    const saved = await this.customerRepo.save(customer);
-
-    await this.activityService.log({
-      agentId,
-      customerId: saved.id,
-      action: AgentActivityAction.CUSTOMER_CREATED,
-      description: `Customer ${saved.firstName} ${saved.lastName ?? ''} (${saved.customerCode}) created`,
-    });
-
-    return { ...saved, profileImageUrl: null };
   }
 
   async list(agentId: string, query: ListCustomersQueryDto) {

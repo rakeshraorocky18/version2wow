@@ -275,8 +275,8 @@ export class ChatServiceTypeorm {
 
     await this.unhideContact(senderId, dto.receiverId);
 
-    const resolvedSender = await this.resolveUserId(senderId);
-    const resolvedReceiver = await this.resolveUserId(dto.receiverId);
+    const resolvedSender = senderId;
+    const resolvedReceiver = dto.receiverId;
 
     let conversation = await this.findConversation(senderId, dto.receiverId);
 

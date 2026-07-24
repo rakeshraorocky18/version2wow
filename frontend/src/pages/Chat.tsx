@@ -314,10 +314,35 @@ export default function Chat({
   }, [selectedConversation, activePartnerId]);
 
   const { emit } = useChatSocket({
-    onNewMessage: () => {
-      if (activePartnerId) {
-        queryClient.invalidateQueries({ queryKey: ['messages', activePartnerId] });
+    onNewMessage: (data) => {
+      const message = data as ChatMessage;
+      const senderId = normalizeUserId(message.senderId);
+      const receiverId = normalizeUserId(message.receiverId);
+      const partnerId = senderId === normalizedCurrentUserId ? receiverId : senderId;
+
+      if (activePartnerId && partnerId === activePartnerId) {
+        queryClient.setQueryData(['messages', activePartnerId], (old: any) => {
+          if (!old) return old;
+          const existing = (old.messages || []).some(
+            (msg: ChatMessage) => (msg.id || msg._id) === (message.id || message._id),
+          );
+          const nextMessages = existing
+            ? (old.messages || []).map((msg: ChatMessage) =>
+                (msg.id || msg._id) === (message.id || message._id) ? message : msg,
+              )
+            : [...(old.messages || []), message];
+          return {
+            ...old,
+            messages: [...nextMessages].sort((a: ChatMessage, b: ChatMessage) => {
+              const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+              const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+              return aTime - bTime;
+            }),
+            total: existing ? old.total : (old.total || 0) + 1,
+          };
+        });
       }
+
       queryClient.invalidateQueries({ queryKey: ['chat-contacts'] });
       queryClient.invalidateQueries({ queryKey: ['chat-unread'] });
     },
@@ -453,7 +478,6 @@ export default function Chat({
     queryKey: agentMode ? ['agent-messages', activePartnerId] : ['messages', activePartnerId],
     enabled: !!activePartnerId,
     staleTime: 0,
-    refetchInterval: 5000,
     queryFn: async () => {
       if (agentMode) {
         return {

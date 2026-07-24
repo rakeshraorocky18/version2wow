@@ -53,11 +53,17 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       });
 
       this.server.to(`user_${data.receiverId}`).emit('newMessage', message);
+      this.server.to(`user_${message.senderId}`).emit('newMessage', message);
       return message;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Unable to send message';
       return { error: msg };
     }
+  }
+
+  notifyNewMessage(message: Record<string, unknown>) {
+    this.server.to(`user_${message.senderId as string}`).emit('newMessage', message);
+    this.server.to(`user_${message.receiverId as string}`).emit('newMessage', message);
   }
 
   notifyMessageDeleted(messageId: string, senderId: string, receiverId: string) {

@@ -50,7 +50,9 @@ export class ChatController {
   @Post('messages')
   @ApiOperation({ summary: 'Send a message (post-match only)' })
   async sendMessage(@Req() req: any, @Body() dto: SendMessageDto) {
-    return this.chatService.sendMessage(req.user.id, dto);
+    const message = await this.chatService.sendMessage(req.user.id, dto);
+    this.chatGateway.notifyNewMessage(message);
+    return message;
   }
 
   @Get('conversations')
@@ -135,7 +137,7 @@ export class ChatController {
     @Query('mode') mode: 'me' | 'everyone' = 'everyone',
   ) {
     const result = await this.chatService.deleteMessage(req.user.id, messageId, mode);
-    if (result.mode === 'everyone' && result.senderId && result.receiverId) {
+    if (result.senderId && result.receiverId) {
       this.chatGateway.notifyMessageDeleted(result.messageId, result.senderId, result.receiverId);
     }
     return result;

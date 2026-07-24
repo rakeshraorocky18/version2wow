@@ -72,7 +72,6 @@ export default function Layout() {
       return data.unreadCount ?? 0;
     },
     staleTime: 0,
-    refetchInterval: isChatPage ? 5_000 : 10_000,
     refetchOnWindowFocus: true,
     refetchOnMount: 'always',
   });

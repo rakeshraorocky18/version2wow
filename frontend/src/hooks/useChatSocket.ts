@@ -35,7 +35,7 @@ export function useChatSocket(handlers?: {
 
     const socket = io(`${SOCKET_URL}/chat`, {
       query: { userId },
-      transports: ['websocket', 'polling'],
+      transports: ['websocket'],
     });
     socketRef.current = socket;
 
