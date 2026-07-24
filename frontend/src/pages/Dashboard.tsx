@@ -31,19 +31,14 @@ import DashboardCard from '../components/dashboard/DashboardCard';
 import FeaturedMatchCard from '../components/dashboard/FeaturedMatchCard';
 import RelationshipJourneyCard from '../components/dashboard/RelationshipJourneyCard';
 import SuccessStoriesCarousel from '../components/dashboard/SuccessStoriesCarousel';
-import RecommendedMatchesShowcase from '../components/dashboard/RecommendedMatchesShowcase';
-import RecentInterestMoments from '../components/dashboard/RecentInterestMoments';
-import MatchmakingSnapshotBar from '../components/dashboard/MatchmakingSnapshotBar';
 import ProfileVisitorsCard from '../components/dashboard/ProfileVisitorsCard';
 import PremiumUpgradeCard from '../components/dashboard/PremiumUpgradeCard';
-import InterestRequestCard from '../components/matchmaking/InterestRequestCard';
-import { useDashboard, type DashboardProfileCardData } from '../hooks/useDashboard';
-import { useMatchActions } from '../hooks/useMatchmaking';
+import { useDashboard } from '../hooks/useDashboard';
 
 const quickActions = [
-  { icon: <Search size={20} className="text-white" />, label: 'Find Matches', to: '/app/matches', color: '', bg: '' },
-  { icon: <Heart size={20} className="text-white" />, label: 'Browse Profiles', to: '/app/matches?tab=search', color: '', bg: '' },
   { icon: <MessageCircle size={20} className="text-white" />, label: 'Chat', to: '/app/chat', color: '', bg: '' },
+  { icon: <Store size={20} className="text-white" />, label: 'Browse Vendors', to: '/app/vendors', color: '', bg: '' },
+  { icon: <Calendar size={20} className="text-white" />, label: 'Wedding Planner', to: '/app/planner', color: '', bg: '' },
   { icon: <Calendar size={20} className="text-white" />, label: 'Wedding Planner', to: '/app/planner', color: '', bg: '' },
   { icon: <Store size={20} className="text-white" />, label: 'Browse Vendors', to: '/app/vendors', color: '', bg: '' },
   { icon: <Wallet size={20} className="text-white" />, label: 'Manage Budget', to: '/app/finance', color: '', bg: '' },
@@ -52,7 +47,6 @@ const quickActions = [
 ];
 
 export default function Dashboard() {
-  const { sendInterest, acceptInterest, rejectInterest } = useMatchActions();
   const {
     userName,
     myProfile,
@@ -63,133 +57,26 @@ export default function Dashboard() {
     weddingDateLabel,
     weddingDateSubtitle,
     nextTask,
-    pendingRequests,
-    acceptedCount,
-    shortlistCount,
-    newMatchesCount,
-    highestCompatibility,
     profileViewsCount,
     budget,
     upcomingEventsCount,
     savedVendorsCount,
     plannerTasks,
     vendors,
-    receivedInterests,
-    userCity,
-    recommendedMatches,
-    featuredMatch,
     ownProfileCard,
     profileVisitors,
     profileVisitorsGrowth,
-    compatibilityScore,
-    recentMoments,
     journeySteps,
-    sentInterestUserIds,
-    connectedUserIds,
-    activeConversationsCount,
   } = useDashboard();
 
-  const matchmakingStats = [
-    {
-      icon: <Heart size={18} fill="currentColor" />,
-      value: newMatchesCount,
-      label: 'New Matches',
-      subtitle: 'Compatible profiles',
-      to: '/app/matches?tab=suggestions',
-      animateValue: true,
-    },
-    {
-      icon: <Send size={18} />,
-      value: pendingRequests,
-      label: 'Interests Received',
-      subtitle: 'Pending requests',
-      to: '/app/matches?tab=interests&interest=received',
-      animateValue: true,
-    },
-    {
-      icon: <MessageCircle size={18} />,
-      value: activeConversationsCount,
-      label: 'Active Conversations',
-      subtitle: 'Ongoing chats',
-      to: '/app/chat',
-      animateValue: true,
-    },
-    {
-      icon: <Flame size={18} />,
-      value: `${highestCompatibility || compatibilityScore}%`,
-      label: 'Highest Compatibility',
-      subtitle: 'Best match today',
-      to: featuredMatch?.profilePath || '/app/matches?tab=suggestions',
-      animateValue: false,
-    },
-    {
-      icon: <Eye size={18} />,
-      value: profileViewsCount,
-      label: 'Profile Views',
-      subtitle: 'Today',
-      to: '/app/profile',
-      animateValue: true,
-    },
-    {
-      icon: <Star size={18} fill="currentColor" />,
-      value: shortlistCount,
-      label: 'Saved Profiles',
-      subtitle: 'Favorites',
-      to: '/app/matches?tab=shortlist',
-      animateValue: true,
-    },
-    {
-      icon: <Heart size={18} />,
-      value: acceptedCount,
-      label: 'Mutual Connections',
-      subtitle: 'Accepted interests',
-      to: '/app/chat',
-      animateValue: true,
-    },
-    {
-      icon: <PartyPopper size={18} />,
-      value: upcomingEventsCount,
-      label: 'Upcoming Events',
-      subtitle: 'Wedding milestones',
-      to: '/app/events',
-      animateValue: true,
-    },
+  const quickActions = [
+    { icon: <MessageCircle size={20} className="text-white" />, label: 'Chat', to: '/app/chat', color: '', bg: '' },
+    { icon: <Store size={20} className="text-white" />, label: 'Browse Vendors', to: '/app/vendors', color: '', bg: '' },
+    { icon: <Calendar size={20} className="text-white" />, label: 'Wedding Planner', to: '/app/planner', color: '', bg: '' },
+    { icon: <Wallet size={20} className="text-white" />, label: 'Manage Budget', to: '/app/finance', color: '', bg: '' },
+    { icon: <Camera size={20} className="text-white" />, label: 'Upload Photos', to: '/app/profile/photos', color: '', bg: '' },
+    { icon: <Send size={20} className="text-white" />, label: 'Create Invitation', to: '/app/events/new', color: '', bg: '' },
   ];
-
-  const handleSendInterest = async (profile: DashboardProfileCardData) => {
-    if (!profile.userId) {
-      toast.error('Unable to send interest for this profile');
-      return;
-    }
-
-    try {
-      await sendInterest.mutateAsync(profile.userId);
-      toast.success(`Interest sent to ${profile.firstName}`);
-    } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } } };
-      toast.error(err?.response?.data?.message || 'Could not send interest');
-    }
-  };
-
-  const handleAcceptInterest = async (matchId: string) => {
-    try {
-      await acceptInterest.mutateAsync(matchId);
-      toast.success('Interest accepted');
-    } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } } };
-      toast.error(err?.response?.data?.message || 'Could not accept interest');
-    }
-  };
-
-  const handleRejectInterest = async (matchId: string) => {
-    try {
-      await rejectInterest.mutateAsync(matchId);
-      toast.success('Interest declined');
-    } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } } };
-      toast.error(err?.response?.data?.message || 'Could not decline interest');
-    }
-  };
 
   return (
     <div className="wow-luxe-dashboard datepress-dashboard relative -mx-4 sm:-mx-6">
@@ -206,12 +93,6 @@ export default function Dashboard() {
         transition={{ duration: 0.4 }}
       >
         <div className="dp-dash-area__inner space-y-3 lg:space-y-4">
-          <MatchmakingSnapshotBar
-            newMatches={newMatchesCount}
-            newInterests={pendingRequests}
-            newReplies={activeConversationsCount}
-            profileViews={profileViewsCount}
-          />
 
           <section className="grid items-start gap-3 xl:grid-cols-[minmax(0,1.55fr)_minmax(340px,0.92fr)]">
             <DashboardHero
@@ -261,12 +142,6 @@ export default function Dashboard() {
             />
           </section>
 
-          <RecommendedMatchesShowcase
-            matches={recommendedMatches}
-            sentInterestUserIds={sentInterestUserIds}
-            connectedUserIds={connectedUserIds}
-            onSendInterest={handleSendInterest}
-          />
 
           <section className="grid items-start gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.88fr)]">
             <DashboardCard className="wow-recent-interests-card" delay={6}>

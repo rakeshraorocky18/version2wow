@@ -19,7 +19,6 @@ import {
   UpdateChatPrivacyDto,
   ScheduleMeetingDto,
 } from './dto/chat.dto';
-import { Match } from '../matchmaking/entities/match.entity';
 import { MatchStatus, ChatRestrictionMode, ChatMeetingStatus } from '../../common/enums';
 import { UsersService } from '../users/users.service.typeorm';
 import { SQLITE_CONNECTION } from '../../config/database.constants';
@@ -39,8 +38,7 @@ export class ChatServiceTypeorm {
     private hiddenContactRepository: Repository<ChatHiddenContactEntity>,
     @InjectRepository(ChatHistoryClearEntity, SQLITE_CONNECTION)
     private historyClearRepository: Repository<ChatHistoryClearEntity>,
-    @InjectRepository(Match, SQLITE_CONNECTION)
-    private matchRepository: Repository<Match>,
+    // matchmaking DB access removed for main portal; assume no direct matches here
     private usersService: UsersService,
   ) {}
 
@@ -77,21 +75,12 @@ export class ChatServiceTypeorm {
     return Array.from(await this.getHiddenUserIds(userId));
   }
 
-  private async findAcceptedMatchesForUser(userId: string): Promise<Match[]> {
-    const resolvedUserId = await this.resolveUserId(userId);
-    const profile = await this.usersService.getProfileOrNull(resolvedUserId);
-    const selfIds = new Set([userId, resolvedUserId]);
-    if (profile?.id) selfIds.add(profile.id);
-
-    const accepted = await this.matchRepository.find({
-      where: { status: MatchStatus.ACCEPTED },
-      order: { updatedAt: 'DESC' },
-    });
-
-    return accepted.filter((m) => selfIds.has(m.senderId) || selfIds.has(m.receiverId));
+  private async findAcceptedMatchesForUser(_userId: string): Promise<any[]> {
+    // main portal doesn't track matchmaking here; return empty
+    return [];
   }
 
-  private partnerIdFromMatch(match: Match, selfIds: Set<string>): string {
+  private partnerIdFromMatch(match: any, selfIds: Set<string>): string {
     return selfIds.has(match.senderId) ? match.receiverId : match.senderId;
   }
 

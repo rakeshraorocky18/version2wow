@@ -5,12 +5,10 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../store/authStore';
 import AppFooter from './AppFooter';
 import { FooterPaginationProvider, useFooterPagination } from '../context/FooterPaginationContext';
-import { useReceivedInterests, useShortlist } from '../hooks/useMatchmaking';
 import { useChatSocket } from '../hooks/useChatSocket';
 import api from '../lib/api';
 import WowLogo from './brand/WowLogo';
 import {
-  Heart,
   MessageCircle,
   Store,
   Calendar,
@@ -27,7 +25,6 @@ import {
 
 const navItems = [
   { path: '/app', icon: Home, label: 'Dashboard' },
-  { path: '/app/matches', icon: Heart, label: 'Matches', badge: 'matches' },
   { path: '/app/chat', icon: MessageCircle, label: 'Chat', badge: 'chat' },
   { path: '/app/vendors', icon: Store, label: 'Vendors' },
   { path: '/app/planner', icon: Calendar, label: 'Planner' },
@@ -61,10 +58,6 @@ export default function Layout() {
   const lastScrollYRef = useRef(0);
 
   // Notification counts from existing hooks
-  const { data: receivedInterests = [] } = useReceivedInterests();
-  const pendingMatchCount = receivedInterests.filter((m) => m.status === 'pending').length;
-  const { data: shortlistData } = useShortlist();
-  const shortlistCount = shortlistData?.profiles?.length ?? 0;
   const { data: unreadChat } = useQuery({
     queryKey: ['chat-unread'],
     queryFn: async () => {
@@ -122,10 +115,8 @@ export default function Layout() {
 
   // Helper: get badge count for nav item
   function getBadgeCount(badge?: string): number {
-    if (badge === 'matches') return pendingMatchCount;
     if (badge === 'chat') return chatUnreadCount;
     if (badge === 'events') return eventCount;
-    if (badge === 'saved') return shortlistCount;
     return 0;
   }
 

@@ -1,31 +1,33 @@
 import {
   Entity,
-  PrimaryGeneratedColumn,
   Column,
+  PrimaryGeneratedColumn,
   CreateDateColumn,
   UpdateDateColumn,
+  Index,
 } from 'typeorm';
 import { MatchStatus } from '../../../common/enums';
 
 @Entity('matches')
+@Index(['senderId', 'receiverId'], { unique: true })
 export class Match {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
+  @Column('varchar', { length: 255 })
   senderId: string;
 
-  @Column()
+  @Column('varchar', { length: 255 })
   receiverId: string;
 
-  @Column({ type: 'varchar', default: MatchStatus.PENDING })
+  @Column('varchar', { length: 50 })
   status: MatchStatus;
 
-  @Column({ type: 'float', nullable: true })
-  compatibilityScore: number;
+  @Column('decimal', { precision: 5, scale: 2, nullable: true })
+  compatibilityScore: number | null;
 
-  @Column({ nullable: true })
-  message: string;
+  @Column('text', { nullable: true })
+  message: string | null;
 
   @CreateDateColumn()
   createdAt: Date;

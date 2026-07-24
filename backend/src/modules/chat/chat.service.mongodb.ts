@@ -31,12 +31,12 @@
     UpdateThreadSettingsDto,
     ReportUserDto,
   } from './dto/chat.dto';
-  import { Match } from '../matchmaking/entities/match.entity';
   import {
     AgentCustomerMatchEntity,
     AgentCustomerMatchStatus,
   } from '../agent/common/entities/agent-customer-match.entity';
   import { MatchStatus, ChatRestrictionMode, ChatMeetingStatus } from '../../common/enums';
+  import { Match } from '../matchmaking/entities/match.entity';
   import { UsersService } from '../users/users.service.mongodb';
   import { POSTGRES_CONNECTION, SQLITE_CONNECTION } from '../../config/database.constants';
 
@@ -63,8 +63,7 @@
       private historyClearModel: Model<ChatHistoryClearDocument>,
       @InjectModel(ChatThreadSettings.name)
       private threadSettingsModel: Model<ChatThreadSettingsDocument>,
-      @InjectRepository(Match, SQLITE_CONNECTION)
-      private matchRepository: Repository<Match>,
+      // matchmaking repository removed for main portal. Agent area handles matchmaking.
       @InjectRepository(AgentCustomerMatchEntity, POSTGRES_CONNECTION)
       private agentCustomerMatchRepo: Repository<AgentCustomerMatchEntity>,
       private usersService: UsersService,
@@ -117,36 +116,16 @@
       return Array.from(await this.getHiddenUserIds(userId));
     }
 
-    /** Accepted + blocked matches that should appear in the chat list. */
-    private async findChatMatchesForUser(userId: string): Promise<Match[]> {
-      const resolvedUserId = await this.resolveUserId(userId);
-      const profile = await this.usersService.getProfileOrNull(resolvedUserId);
-      const selfIds = new Set([userId, resolvedUserId]);
-      if (profile?.id) selfIds.add(profile.id as string);
-
-      const rows = await this.matchRepository.find({
-        where: [
-          {
-            status: In([MatchStatus.ACCEPTED, MatchStatus.BLOCKED]),
-            senderId: In(Array.from(selfIds)),
-          },
-          {
-            status: In([MatchStatus.ACCEPTED, MatchStatus.BLOCKED]),
-            receiverId: In(Array.from(selfIds)),
-          },
-        ],
-        order: { updatedAt: 'DESC' },
-      });
-
-      return rows;
+    /** No matchmaking data in main portal: return empty lists. */
+    private async findChatMatchesForUser(_userId: string): Promise<any[]> {
+      return [];
     }
 
-    private async findAcceptedMatchesForUser(userId: string): Promise<Match[]> {
-      const chatMatches = await this.findChatMatchesForUser(userId);
-      return chatMatches.filter((m) => m.status === MatchStatus.ACCEPTED);
+    private async findAcceptedMatchesForUser(_userId: string): Promise<any[]> {
+      return [];
     }
 
-    private partnerIdFromMatch(match: Match, selfIds: Set<string>): string {
+    private partnerIdFromMatch(match: any, selfIds: Set<string>): string {
       return selfIds.has(match.senderId) ? match.receiverId : match.senderId;
     }
 
@@ -267,9 +246,7 @@
     }
 
     async hasAcceptedMatch(userA: string, userB: string): Promise<boolean> {
-      const match = await this.findPairMatch(userA, userB);
-      if (match?.status === MatchStatus.ACCEPTED) return true;
-
+      // No matchmaking table in main portal — rely solely on agent-customer relationships
       if (this.agentCustomerMatchRepo) {
         const rel = await this.agentCustomerMatchRepo.findOne({
           where: [
@@ -578,7 +555,6 @@
     );
 
     const resolvedUser = await this.resolveUserId(userId);
-
     const selfIds = await this.getSelfIds(userId);
     const otherIds = await this.getSelfIds(otherUserId);
 
@@ -619,24 +595,21 @@
       query.$and.push({ createdAt: { $gt: clearedAfter } });
     }
 
-    const total = await this.messageModel.countDocuments(query);
+    const [total, messages, isBlocked, thread] = await Promise.all([
+      this.messageModel.countDocuments(query),
+      this.messageModel
+        .find(query)
+        .sort({ createdAt: 1 })
+        .skip(skip)
+        .limit(limit)
+        .select('id _id senderId receiverId content type mediaUrl createdAt isRead')
+        .lean()
+        .exec(),
+      this.isBlockedWith(userId, otherUserId),
+      this.getOrCreateThreadSettings(userId, otherUserId),
+    ]);
 
-    const messages = await this.messageModel
-      .find(query)
-      .sort({ createdAt: 1 })
-      .skip(skip)
-      .limit(limit)
-      .lean()
-      .exec();
-
-    await this.markConversationRead(userId, otherUserId);
-
-    const isBlocked = await this.isBlockedWith(userId, otherUserId);
-
-    const thread = await this.getOrCreateThreadSettings(
-      userId,
-      otherUserId,
-    );
+    void this.markConversationRead(userId, otherUserId).catch(() => undefined);
 
     return {
       messages,
@@ -746,6 +719,55 @@
       if (message.type === 'video') return '🎬 Video';
       if (message.type === 'file') return '📎 File';
       return message.content as string;
+    }
+
+    async getLatestMessage(userId: string, otherUserId: string): Promise<MessageRecord | null> {
+      const canView = await this.hasChatAccess(userId, otherUserId);
+      if (!canView) {
+        return null;
+      }
+
+      const conv = await this.findConversation(userId, otherUserId);
+      const clearedAfter = await this.getEffectiveClearedAt(userId, otherUserId, conv);
+      const resolvedUser = await this.resolveUserId(userId);
+      const selfIds = Array.from(await this.getSelfIds(userId));
+      const otherIds = Array.from(await this.getSelfIds(otherUserId));
+      const now = new Date();
+
+      const query: { $and: Array<Record<string, unknown>> } = {
+        $and: [
+          {
+            $or: [
+              { senderId: { $in: selfIds }, receiverId: { $in: otherIds } },
+              { senderId: { $in: otherIds }, receiverId: { $in: selfIds } },
+            ],
+          },
+          {
+            deletedFor: {
+              $nin: [userId, resolvedUser],
+            },
+          },
+          {
+            $or: [
+              { expiresAt: { $exists: false } },
+              { expiresAt: { $gt: now } },
+            ],
+          },
+        ],
+      };
+
+      if (clearedAfter) {
+        query.$and.push({ createdAt: { $gt: clearedAfter } });
+      }
+
+      const message = await this.messageModel
+        .findOne(query)
+        .sort({ createdAt: -1 })
+        .select('id _id senderId receiverId content type mediaUrl createdAt isRead')
+        .lean()
+        .exec();
+
+      return message ? this.toPlain<MessageRecord>(message) : null;
     }
 
     async deleteMessage(

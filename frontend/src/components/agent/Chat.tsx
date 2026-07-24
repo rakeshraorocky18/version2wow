@@ -383,11 +383,28 @@
         if (messageIds.length === 0) return;
         await Promise.all(messageIds.map((id) => api.delete(`/chat/messages/${id}?mode=${mode}`)));
       },
-      onSuccess: () => {
+      onSuccess: (_, variables) => {
         setDeleteDialog(null);
         setSelectedMessageIds([]);
         setSelectionMode(false);
-        queryClient.invalidateQueries({ queryKey: ['agent-portal-chat-messages', activePartnerId] });
+
+        if (agentMode && activePartnerId) {
+          queryClient.setQueryData(['agent-portal-chat-messages', activePartnerId], (old: any) => {
+            if (!old?.messages) return old;
+            const removedIds = new Set(variables.messageIds);
+            const filtered = (old.messages || []).filter(
+              (message: ChatMessage) => !removedIds.has(message.id || message._id),
+            );
+            return {
+              ...old,
+              messages: filtered,
+              total: Math.max(0, (old.total ?? 0) - variables.messageIds.length),
+            };
+          });
+        } else {
+          queryClient.invalidateQueries({ queryKey: ['agent-portal-chat-messages', activePartnerId] });
+        }
+
         queryClient.invalidateQueries({ queryKey: ['agent-portal-chat-contacts'] });
       },
       onError: () => toast.error('Could not delete message(s)'),
@@ -537,17 +554,6 @@
   const next = disappearingSeconds > 0 ? 0 : 86400;
   threadSettingsMutation.mutate({ disappearingSeconds: next });
 };
-
-// 👇 ADD THIS HERE
-console.log("Current User ID =", currentUserId);
-
-displayMessages.forEach((m) => {
-  console.log(
-    "sender =", m.senderId,
-    "receiver =", m.receiverId,
-    "isMine =", normalizeUserId(m.senderId) === normalizeUserId(currentUserId)
-  );
-});
 
     return (
       <div className={`flex min-h-[34rem] flex-col overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm ${embedded ? 'h-full' : ''}`}>

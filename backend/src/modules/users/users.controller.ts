@@ -29,7 +29,16 @@ import {
   toPublicUrl,
 } from './profile-upload.config';
 import type { UploadedFile as StoredUploadFile } from './types/uploaded-file.type';
-import { toLimitedProfileView } from '../matchmaking/utils/profile-privacy';
+
+function toLimitedProfileView(profile: Record<string, any>) {
+  if (!profile || typeof profile !== 'object') return {};
+  const allowed = ['id', 'userId', 'firstName', 'lastName', 'displayName', 'photos', 'profilePhoto', 'city', 'state', 'age', 'gender'];
+  const out: Record<string, any> = {};
+  for (const k of allowed) {
+    if (k in profile) out[k] = profile[k];
+  }
+  return out;
+}
 
 const WIZARD_UPLOAD_INTERCEPTOR = FileFieldsInterceptor(
   [

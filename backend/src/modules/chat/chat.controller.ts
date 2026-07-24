@@ -138,7 +138,13 @@ export class ChatController {
   ) {
     const result = await this.chatService.deleteMessage(req.user.id, messageId, mode);
     if (result.senderId && result.receiverId) {
-      this.chatGateway.notifyMessageDeleted(result.messageId, result.senderId, result.receiverId);
+      this.chatGateway.notifyMessageDeleted(
+        result.messageId,
+        result.senderId,
+        result.receiverId,
+        mode,
+        req.user.id,
+      );
     }
     return result;
   }

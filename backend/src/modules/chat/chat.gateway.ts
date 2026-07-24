@@ -66,7 +66,22 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.server.to(`user_${message.receiverId as string}`).emit('newMessage', message);
   }
 
-  notifyMessageDeleted(messageId: string, senderId: string, receiverId: string) {
+  notifyMessageDeleted(
+    messageId: string,
+    senderId: string,
+    receiverId: string,
+    mode: 'me' | 'everyone',
+    requesterId: string,
+  ) {
+    if (mode === 'me') {
+      this.server.to(`user_${requesterId}`).emit('messageDeleted', {
+        messageId,
+        senderId,
+        receiverId,
+      });
+      return;
+    }
+
     this.server.to(`user_${senderId}`).emit('messageDeleted', {
       messageId,
       senderId,

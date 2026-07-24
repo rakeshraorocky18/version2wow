@@ -6,7 +6,6 @@ import { SQLITE_CONNECTION, POSTGRES_CONNECTION } from './config/database.consta
 import { Neo4jModule } from './neo4j/neo4j.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
-import { MatchmakingModule } from './modules/matchmaking/matchmaking.module';
 import { ChatModule } from './modules/chat/chat.module';
 import { VendorsModule } from './modules/vendors/vendors.module';
 import { PlannerModule } from './modules/planner/planner.module';
@@ -14,7 +13,6 @@ import { BookingsModule } from './modules/bookings/bookings.module';
 import { EventsModule } from './modules/events/events.module';
 import { HoneymoonModule } from './modules/honeymoon/honeymoon.module';
 import { FinanceModule } from './modules/finance/finance.module';
-import { RepresentativeProfilesModule } from './modules/representative-profiles/representative-profiles.module';
 import { VendorProfilesModule } from './modules/vendor-profiles/vendor-profiles.module';
 import { MailModule } from './common/mail/mail.module';
 import { VendorAuthModule } from './modules/vendor-auth/vendor-auth.module';
@@ -37,10 +35,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
         type: 'better-sqlite3',
-        database: configService.get<string>(
-          'SQLITE_DATABASE',
-          './data/wow_dev.db',
-        ),
+        database: configService.get<string>('SQLITE_DATABASE') || '/app/data/wow_dev.db',
         autoLoadEntities: true,
         synchronize: configService.get<string>('NODE_ENV') === 'development',
       }),
@@ -72,7 +67,6 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     VendorAuthModule,
     VendorDashboardModule,
     UsersModule,
-    MatchmakingModule,
     ChatModule,
     VendorsModule,
     PlannerModule,
@@ -81,7 +75,6 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     EventsModule,
     HoneymoonModule,
     FinanceModule,
-    RepresentativeProfilesModule,
     VendorProfilesModule,
     VendorAuthModule,
     VendorDashboardModule,

@@ -61,8 +61,8 @@ services:
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:7474 || exit 1"]
       interval: 10s
-      timeout: 5s
-      retries: 5
+      timeout: 10s
+      retries: 10
 
   # Backend API
   backend:
@@ -98,7 +98,7 @@ services:
       redis:
         condition: service_healthy
       neo4j:
-        condition: service_healthy
+        condition: service_started
     # Use image node_modules; only reinstall when package.json changes (avoids long boots / ERR_EMPTY_RESPONSE)
     command: sh -c "npm install --prefer-offline --no-audit --no-fund && npm run start:dev"
     healthcheck:

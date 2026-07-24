@@ -21,7 +21,7 @@ import api from '../lib/api';
 import { getPhotoUrl } from '../lib/profileUtils';
 import { resolveCanonicalPartnerId } from '../lib/chatPartnerIds';
 import { useAuthStore } from '../store/authStore';
-import { useAcceptedInterests } from '../hooks/useMatchmaking';
+// import { useAcceptedInterests } from '../hooks/useMatchmaking';
 import { useChatSocket, type IncomingCall, type CallType } from '../hooks/useChatSocket';
 import CallModal from '../components/chat/CallModal';
 import ScheduleMeetingModal from '../components/chat/ScheduleMeetingModal';
@@ -256,7 +256,9 @@ export default function Chat({
     }
   });
 
-  const { data: acceptedMatches = [], isLoading: matchesLoading } = useAcceptedInterests();
+  // const { data: acceptedMatches = [], isLoading: matchesLoading } = useAcceptedInterests();
+  const acceptedMatches: any[] = [];
+  const matchesLoading = false;
 
   const normalizedCurrentUserId = useMemo(() => normalizeUserId(currentUserId), [currentUserId]);
   const { data: serverContacts = [], isLoading: contactsLoading } = useQuery({

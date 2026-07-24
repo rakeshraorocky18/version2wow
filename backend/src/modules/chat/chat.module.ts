@@ -20,7 +20,6 @@ import {
   ChatThreadSettings,
   ChatThreadSettingsSchema,
 } from './schemas/message.schema';
-import { Match } from '../matchmaking/entities/match.entity';
 import { AgentCustomerMatchEntity } from '../agent/common/entities/agent-customer-match.entity';
 import { UsersModule } from '../users/users.module';
 import { POSTGRES_CONNECTION, SQLITE_CONNECTION } from '../../config/database.constants';
@@ -36,7 +35,6 @@ import { POSTGRES_CONNECTION, SQLITE_CONNECTION } from '../../config/database.co
       { name: ChatHistoryClear.name, schema: ChatHistoryClearSchema },
       { name: ChatThreadSettings.name, schema: ChatThreadSettingsSchema },
     ]),
-    TypeOrmModule.forFeature([Match], SQLITE_CONNECTION),
     TypeOrmModule.forFeature([AgentCustomerMatchEntity], POSTGRES_CONNECTION),
     UsersModule,
   ],
