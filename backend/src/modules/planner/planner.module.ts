@@ -9,7 +9,6 @@ import { FinanceModule } from '../finance/finance.module';
 import { EventsModule } from '../events/events.module';
 import { VendorsModule } from '../vendors/vendors.module';
 import { UsersModule } from '../users/users.module';
-import { MatchmakingModule } from '../matchmaking/matchmaking.module';
 import { GuestEntity } from '../events/entities/event.entity';
 import { POSTGRES_CONNECTION } from '../../config/database.constants';
 
@@ -20,7 +19,6 @@ import { POSTGRES_CONNECTION } from '../../config/database.constants';
     EventsModule,
     VendorsModule,
     UsersModule,
-    MatchmakingModule,
   ],
   controllers: [PlannerController],
   providers: [PlannerService, PlannerDashboardService, PlannerGateway],

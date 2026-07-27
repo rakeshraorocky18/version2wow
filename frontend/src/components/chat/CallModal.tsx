@@ -11,6 +11,7 @@ interface CallModalProps {
   peerId: string;
   callType: CallType;
   isIncoming?: boolean;
+  allowVideo?: boolean;
   onCallLog?: (payload: { callType: CallType; status: 'missed' | 'ended' }) => void;
   onClose: () => void;
 }
@@ -20,6 +21,7 @@ export default function CallModal({
   peerId,
   callType,
   isIncoming = false,
+  allowVideo = true,
   onCallLog,
   onClose,
 }: CallModalProps) {
@@ -220,7 +222,7 @@ export default function CallModal({
         </p>
 
         <div className="mb-6 flex justify-center gap-4">
-          {callType === 'video' && (
+          {allowVideo && callType === 'video' && (
             <>
               <video ref={localVideoRef} autoPlay muted playsInline className="h-32 w-24 rounded-lg bg-gray-800 object-cover" />
               <video ref={remoteVideoRef} autoPlay playsInline className="h-32 w-24 rounded-lg bg-gray-800 object-cover" />
@@ -243,7 +245,7 @@ export default function CallModal({
               <button type="button" onClick={toggleMute} className="rounded-full bg-gray-700 p-3 hover:bg-gray-600">
                 {muted ? <MicOff size={20} /> : <Mic size={20} />}
               </button>
-              {callType === 'video' && (
+              {allowVideo && callType === 'video' && (
                 <button type="button" onClick={toggleVideo} className="rounded-full bg-gray-700 p-3 hover:bg-gray-600">
                   {videoOff ? <VideoOff size={20} /> : <Video size={20} />}
                 </button>

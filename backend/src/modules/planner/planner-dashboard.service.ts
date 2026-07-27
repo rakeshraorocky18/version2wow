@@ -7,7 +7,6 @@ import { FinanceService } from '../finance/finance.service';
 import { EventsService } from '../events/events.service';
 import { VendorsServiceTypeorm } from '../vendors/vendors.service.typeorm';
 import { UsersService } from '../users/users.service.mongodb';
-import { MatchmakingService } from '../matchmaking/matchmaking.service';
 import { TaskStatus, RsvpStatus, VendorCategory } from '../../common/enums';
 import { GuestEntity } from '../events/entities/event.entity';
 import { POSTGRES_CONNECTION } from '../../config/database.constants';
@@ -45,7 +44,6 @@ export class PlannerDashboardService {
     private readonly eventsService: EventsService,
     private readonly vendorsService: VendorsServiceTypeorm,
     private readonly usersService: UsersService,
-    private readonly matchmakingService: MatchmakingService,
     @InjectRepository(GuestEntity, POSTGRES_CONNECTION)
     private readonly guestRepository: Repository<GuestEntity>,
     @InjectRepository(PlannerActivity, POSTGRES_CONNECTION)
@@ -134,10 +132,7 @@ export class PlannerDashboardService {
 
   private async getCompatibilityScore(userId: string): Promise<number> {
     try {
-      const accepted = await this.matchmakingService.getAcceptedMatches(userId);
-      if (accepted.length > 0 && accepted[0].compatibilityScore) {
-        return Math.round(accepted[0].compatibilityScore);
-      }
+      // matchmaking data not available in main portal context; fallback to profile-based heuristic
     } catch {
       /* no match data */
     }
@@ -419,12 +414,9 @@ export class PlannerDashboardService {
     const daysRemaining = this.daysUntil(plan.weddingDate);
 
     let hasAcceptedMatch = false;
-    try {
-      const accepted = await this.matchmakingService.getAcceptedMatches(userId);
-      hasAcceptedMatch = accepted.length > 0;
-    } catch {
-      /* ignore */
-    }
+    // TODO: Implement accepted match check if needed
+    // const accepted = await this.matchmakingService.getAcceptedMatches(userId);
+    // hasAcceptedMatch = accepted.length > 0;
 
     const events = await this.eventsService.getUserEvents(userId);
     const now = new Date();

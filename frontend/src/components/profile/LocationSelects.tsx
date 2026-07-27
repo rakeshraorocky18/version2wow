@@ -1,27 +1,10 @@
 import { useMemo } from 'react';
-import { Country, State, City } from 'country-state-city';
+import { COUNTRIES_BY_NAME, getStateCities, getStates } from '../../lib/agent/locationData';
 
 export function useLocationOptions(countryName?: string, stateName?: string) {
-  const countries = useMemo(() => Country.getAllCountries(), []);
-  const selectedCountry = useMemo(
-    () => countries.find((c) => c.name === countryName),
-    [countries, countryName],
-  );
-  const states = useMemo(
-    () => (selectedCountry ? State.getStatesOfCountry(selectedCountry.isoCode) : []),
-    [selectedCountry],
-  );
-  const selectedState = useMemo(
-    () => states.find((s) => s.name === stateName),
-    [states, stateName],
-  );
-  const cities = useMemo(
-    () =>
-      selectedCountry && selectedState
-        ? City.getCitiesOfState(selectedCountry.isoCode, selectedState.isoCode)
-        : [],
-    [selectedCountry, selectedState],
-  );
+  const countries = useMemo(() => COUNTRIES_BY_NAME, []);
+  const states = useMemo(() => getStates(countryName || ''), [countryName]);
+  const cities = useMemo(() => getStateCities(countryName || '', stateName || ''), [countryName, stateName]);
 
   return { countries, states, cities };
 }
@@ -61,7 +44,7 @@ export function LocationSelects({
         >
           <option value="">Select country</option>
           {countries.map((c) => (
-            <option key={c.isoCode} value={c.name}>{c.name}</option>
+            <option key={c.value} value={c.value}>{c.label}</option>
           ))}
         </select>
         {errors.country && <p className="mt-1 text-xs text-red-500">{errors.country}</p>}
@@ -76,7 +59,7 @@ export function LocationSelects({
         >
           <option value="">Select state</option>
           {states.map((s) => (
-            <option key={s.isoCode} value={s.name}>{s.name}</option>
+            <option key={s.value} value={s.value}>{s.label}</option>
           ))}
         </select>
         {errors.state && <p className="mt-1 text-xs text-red-500">{errors.state}</p>}
@@ -91,7 +74,7 @@ export function LocationSelects({
         >
           <option value="">Select city</option>
           {cities.map((c) => (
-            <option key={`${c.name}-${c.stateCode}`} value={c.name}>{c.name}</option>
+            <option key={c.value} value={c.value}>{c.label}</option>
           ))}
         </select>
         {errors.city && <p className="mt-1 text-xs text-red-500">{errors.city}</p>}

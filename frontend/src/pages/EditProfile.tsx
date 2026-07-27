@@ -27,7 +27,7 @@ import {
 import toast from 'react-hot-toast';
 import api from '../lib/api';
 import { getPhotoUrl } from '../lib/profileUtils';
-import { Country, State, City } from 'country-state-city';
+import { LocationSelects } from '../components/profile/LocationSelects';
 import {
   RELIGION_OPTIONS,
   getCastesForReligion,
@@ -225,11 +225,15 @@ export default function EditProfile({ managedMode = false }: { managedMode?: boo
     religion: '',
     religionOther: '',
     caste: '',
+    casteOther: '',
     subCaste: '',
+    subCasteOther: '',
     motherTongue: '',
+    motherTongueOther: '',
     community: '',
     maritalStatus: '',
     yearsMarried: '',
+    divorceReason: '',
     haveChildren: false,
     childrenBoys: '',
     childrenGirls: '',
@@ -335,26 +339,6 @@ export default function EditProfile({ managedMode = false }: { managedMode?: boo
   }, [managedMode, existing?.gender]);
 
   const sectionTitle = useMemo(() => SECTIONS[step], [step]);
-  const countries = useMemo(() => Country.getAllCountries(), []);
-  const selectedCountry = useMemo(
-    () => countries.find((c) => c.name === form.country),
-    [countries, form.country],
-  );
-  const states = useMemo(
-    () => (selectedCountry ? State.getStatesOfCountry(selectedCountry.isoCode) : []),
-    [selectedCountry],
-  );
-  const selectedState = useMemo(
-    () => states.find((s) => s.name === form.state),
-    [states, form.state],
-  );
-  const cities = useMemo(
-    () =>
-      selectedCountry && selectedState
-        ? City.getCitiesOfState(selectedCountry.isoCode, selectedState.isoCode)
-        : [],
-    [selectedCountry, selectedState],
-  );
 
   const update = (key: string, value: any) => {
     setForm((prev) => {
@@ -382,12 +366,23 @@ export default function EditProfile({ managedMode = false }: { managedMode?: boo
       }
       if (key === 'religion') {
         next.caste = '';
+        next.casteOther = '';
         next.subCaste = '';
+      }
+      if (key === 'caste' && value !== 'Other') {
+        next.casteOther = '';
       }
       if (key === 'caste') {
         next.subCaste = '';
+        next.subCasteOther = '';
       }
-      if (key === 'highestQualification' && value !== 'Other') {
+      if (key === 'subCaste' && value !== 'Other') {
+        next.subCasteOther = '';
+      }
+      if (key === 'motherTongue' && value !== 'Other') {
+        next.motherTongueOther = '';
+      }
+      if (key === 'highestQualification' && value !== 'other') {
         next.qualificationOther = '';
       }
       if (key === 'currentlyWorking') {
@@ -419,6 +414,7 @@ export default function EditProfile({ managedMode = false }: { managedMode?: boo
       if (key === 'maritalStatus') {
         if (value !== 'Divorced') {
           next.yearsMarried = '';
+          next.divorceReason = '';
         }
         if (!CHILDREN_MARITAL_STATUSES.includes(value)) {
           next.haveChildren = false;
@@ -489,6 +485,9 @@ export default function EditProfile({ managedMode = false }: { managedMode?: boo
     if (form.maritalStatus === 'Divorced' && !form.yearsMarried) {
       next.yearsMarried = 'Required';
     }
+    if (form.maritalStatus === 'Divorced' && !String(form.divorceReason || '').trim()) {
+      next.divorceReason = 'Please specify the reason for divorce';
+    }
     if (CHILDREN_MARITAL_STATUSES.includes(form.maritalStatus) && form.haveChildren) {
       if (form.childrenBoys === '') next.childrenBoys = 'Required';
       if (form.childrenGirls === '') next.childrenGirls = 'Required';
@@ -538,8 +537,8 @@ export default function EditProfile({ managedMode = false }: { managedMode?: boo
       'height', 'weight', 'complexion', 'bloodGroup',
       'horoscopeAvailable', 'rashi', 'nakshatra', 'gothram', 'manglik', 'horoscope',
       'timeOfBirth', 'placeOfBirth', 'horoscopeFileUrl',
-      'religion', 'religionOther', 'caste', 'subCaste', 'motherTongue', 'community',
-      'maritalStatus', 'yearsMarried', 'haveChildren', 'childrenBoys', 'childrenGirls', 'childrenLivingWith',
+      'religion', 'religionOther', 'caste', 'casteOther', 'subCaste', 'subCasteOther', 'motherTongue', 'motherTongueOther', 'community',
+      'maritalStatus', 'yearsMarried', 'divorceReason', 'haveChildren', 'childrenBoys', 'childrenGirls', 'childrenLivingWith',
       'address', 'pincode', 'familyType', 'familyStatus', 'fatherName', 'fatherAlive', 'fatherOccupation',
       'motherName', 'motherAlive', 'motherOccupation', 'siblings', 'siblingDetails',
       'bio', 'prefAgeMin', 'prefAgeMax', 'prefHeightMin', 'prefHeightMax',
@@ -916,7 +915,7 @@ export default function EditProfile({ managedMode = false }: { managedMode?: boo
                         {EDUCATION_OPTIONS.map((v) => <option key={v} value={v}>{v}</option>)}
                       </select>
                     </FormField>
-                    {form.highestQualification === 'Other' && (
+                    {String(form.highestQualification).toLowerCase() === 'other' && (
                       <FormField label="Specify Qualification" htmlFor="qualificationOther">
                         <input id="qualificationOther" className={inputClass()} value={form.qualificationOther || ''} onChange={(e) => update('qualificationOther', e.target.value)} />
                       </FormField>
@@ -1051,60 +1050,75 @@ export default function EditProfile({ managedMode = false }: { managedMode?: boo
               {step === 2 && (
                 <>
                   <FormField label="Religion" htmlFor="religion" required error={errors.religion}>
-                    <select id="religion" className={inputClass(errors.religion)} value={form.religion || ''} onChange={(e) => update('religion', e.target.value)}>
-                      <option value="">Select religion</option>
-                      {RELIGION_OPTIONS.map((v) => <option key={v} value={v}>{v}</option>)}
-                    </select>
+                    <div className="flex flex-col gap-2 md:flex-row md:items-start">
+                      <select id="religion" className={`${inputClass(errors.religion)} flex-1`} value={form.religion || ''} onChange={(e) => update('religion', e.target.value)}>
+                        <option value="">Select religion</option>
+                        {RELIGION_OPTIONS.map((v) => <option key={v} value={v}>{v}</option>)}
+                      </select>
+                      {form.religion === 'Other' && (
+                        <input id="religionOther" className={`${inputClass(errors.religionOther)} flex-1`} value={form.religionOther || ''} onChange={(e) => update('religionOther', e.target.value)} placeholder="Specify Religion" />
+                      )}
+                    </div>
                   </FormField>
-                  {form.religion === 'Other' && (
-                    <FormField label="Specify Religion" htmlFor="religionOther" error={errors.religionOther}>
-                      <input id="religionOther" className={inputClass(errors.religionOther)} value={form.religionOther || ''} onChange={(e) => update('religionOther', e.target.value)} />
-                    </FormField>
-                  )}
                   <FormField label="Caste" htmlFor="caste">
-                    <select
-                      id="caste"
-                      className={inputClass()}
-                      value={form.caste || ''}
-                      disabled={!form.religion || ownReligionCastes.length === 0}
-                      onChange={(e) => update('caste', e.target.value)}
-                    >
-                      <option value="">
-                        {!form.religion ? 'Select religion first' : 'Select caste'}
-                      </option>
-                      {ownReligionCastes.map((c) => (
-                        <option key={c} value={c}>{c}</option>
-                      ))}
-                    </select>
+                    <div className="flex flex-col gap-2 md:flex-row md:items-start">
+                      <select
+                        id="caste"
+                        className={`${inputClass()} flex-1`}
+                        value={form.caste || ''}
+                        disabled={!form.religion || ownReligionCastes.length === 0}
+                        onChange={(e) => update('caste', e.target.value)}
+                      >
+                        <option value="">
+                          {!form.religion ? 'Select religion first' : 'Select caste'}
+                        </option>
+                        {ownReligionCastes.map((c) => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </select>
+                      {form.caste === 'Other' && (
+                        <input id="casteOther" className={`${inputClass(errors.casteOther)} flex-1`} value={form.casteOther || ''} onChange={(e) => update('casteOther', e.target.value)} placeholder="Specify Caste" />
+                      )}
+                    </div>
                   </FormField>
                   <FormField label="Sub Caste" htmlFor="subCaste">
-                    <select
-                      id="subCaste"
-                      className={inputClass()}
-                      value={form.subCaste || ''}
-                      disabled={!form.caste}
-                      onChange={(e) => update('subCaste', e.target.value)}
-                    >
-                      <option value="">
-                        {!form.caste ? 'Select caste first' : 'Select sub caste'}
-                      </option>
-                      {ownSubCasteOptions.map((sc) => (
-                        <option key={sc} value={sc}>{sc}</option>
-                      ))}
-                    </select>
+                    <div className="flex flex-col gap-2 md:flex-row md:items-start">
+                      <select
+                        id="subCaste"
+                        className={`${inputClass()} flex-1`}
+                        value={form.subCaste || ''}
+                        disabled={!form.caste}
+                        onChange={(e) => update('subCaste', e.target.value)}
+                      >
+                        <option value="">
+                          {!form.caste ? 'Select caste first' : 'Select sub caste'}
+                        </option>
+                        {ownSubCasteOptions.map((sc) => (
+                          <option key={sc} value={sc}>{sc}</option>
+                        ))}
+                      </select>
+                      {form.subCaste === 'Other' && (
+                        <input id="subCasteOther" className={`${inputClass(errors.subCasteOther)} flex-1`} value={form.subCasteOther || ''} onChange={(e) => update('subCasteOther', e.target.value)} placeholder="Specify Sub Caste" />
+                      )}
+                    </div>
                   </FormField>
                   <FormField label="Mother Tongue" htmlFor="motherTongue">
-                    <select
-                      id="motherTongue"
-                      className={inputClass()}
-                      value={form.motherTongue || ''}
-                      onChange={(e) => update('motherTongue', e.target.value)}
-                    >
-                      <option value="">Select mother tongue</option>
-                      {MOTHER_TONGUE_OPTIONS.map((lang) => (
-                        <option key={lang} value={lang}>{lang}</option>
-                      ))}
-                    </select>
+                    <div className="flex flex-col gap-2 md:flex-row md:items-start">
+                      <select
+                        id="motherTongue"
+                        className={`${inputClass()} flex-1`}
+                        value={form.motherTongue || ''}
+                        onChange={(e) => update('motherTongue', e.target.value)}
+                      >
+                        <option value="">Select mother tongue</option>
+                        {MOTHER_TONGUE_OPTIONS.map((lang) => (
+                          <option key={lang} value={lang}>{lang}</option>
+                        ))}
+                      </select>
+                      {form.motherTongue === 'Other' && (
+                        <input id="motherTongueOther" className={`${inputClass(errors.motherTongueOther)} flex-1`} value={form.motherTongueOther || ''} onChange={(e) => update('motherTongueOther', e.target.value)} placeholder="Specify Mother Tongue" />
+                      )}
+                    </div>
                   </FormField>
                   <FormField label="Community" htmlFor="community">
                     <select
@@ -1131,14 +1145,19 @@ export default function EditProfile({ managedMode = false }: { managedMode?: boo
                     </select>
                   </FormField>
                   {form.maritalStatus === 'Divorced' && (
-                    <FormField label="Years Married" htmlFor="yearsMarried" required error={errors.yearsMarried}>
-                      <select id="yearsMarried" className={inputClass(errors.yearsMarried)} value={form.yearsMarried || ''} onChange={(e) => update('yearsMarried', e.target.value)}>
-                        <option value="">Select years</option>
-                        {YEARS_MARRIED_OPTIONS.map((v) => (
-                          <option key={v} value={v}>{v}</option>
-                        ))}
-                      </select>
-                    </FormField>
+                    <>
+                      <FormField label="Years Married" htmlFor="yearsMarried" required error={errors.yearsMarried}>
+                        <select id="yearsMarried" className={inputClass(errors.yearsMarried)} value={form.yearsMarried || ''} onChange={(e) => update('yearsMarried', e.target.value)}>
+                          <option value="">Select years</option>
+                          {YEARS_MARRIED_OPTIONS.map((v) => (
+                            <option key={v} value={v}>{v}</option>
+                          ))}
+                        </select>
+                      </FormField>
+                      <FormField label="Reason for Divorce" htmlFor="divorceReason" required error={errors.divorceReason} colSpan={2}>
+                        <textarea id="divorceReason" className={`${inputClass(errors.divorceReason)} min-h-[96px] resize-y`} value={form.divorceReason || ''} onChange={(e) => update('divorceReason', e.target.value)} />
+                      </FormField>
+                    </>
                   )}
                   {CHILDREN_MARITAL_STATUSES.includes(form.maritalStatus) && (
                     <>
@@ -1183,18 +1202,22 @@ export default function EditProfile({ managedMode = false }: { managedMode?: boo
 
               {step === 4 && (
                 <>
-                  <FormField label="Country" htmlFor="country" required error={errors.country}>
-                    <input id="country" list="countries-list" className={inputClass(errors.country)} value={form.country || ''} onChange={(e) => update('country', e.target.value)} />
-                    <datalist id="countries-list">{countries.map((c) => <option key={c.isoCode} value={c.name} />)}</datalist>
-                  </FormField>
-                  <FormField label="State" htmlFor="state" required error={errors.state}>
-                    <input id="state" list="states-list" className={inputClass(errors.state)} value={form.state || ''} onChange={(e) => update('state', e.target.value)} disabled={!form.country} />
-                    <datalist id="states-list">{states.map((s) => <option key={s.isoCode} value={s.name} />)}</datalist>
-                  </FormField>
-                  <FormField label="City" htmlFor="city" required error={errors.city}>
-                    <input id="city" list="cities-list" className={inputClass(errors.city)} value={form.city || ''} onChange={(e) => update('city', e.target.value)} disabled={!form.state} />
-                    <datalist id="cities-list">{cities.map((c) => <option key={`${c.name}-${c.latitude}-${c.longitude}`} value={c.name} />)}</datalist>
-                  </FormField>
+                  <LocationSelects
+                    country={form.country || ''}
+                    state={form.state || ''}
+                    city={form.city || ''}
+                    errors={{ country: errors.country, state: errors.state, city: errors.city }}
+                    onCountryChange={(value) => {
+                      update('country', value);
+                      update('state', '');
+                      update('city', '');
+                    }}
+                    onStateChange={(value) => {
+                      update('state', value);
+                      update('city', '');
+                    }}
+                    onCityChange={(value) => update('city', value)}
+                  />
                   <FormField label="Pincode" htmlFor="pincode">
                     <input id="pincode" className={inputClass()} value={form.pincode || ''} onChange={(e) => update('pincode', e.target.value)} />
                   </FormField>
@@ -1219,9 +1242,9 @@ export default function EditProfile({ managedMode = false }: { managedMode?: boo
                   <FormField label="Father's Name" htmlFor="fatherName">
                     <input id="fatherName" className={inputClass()} value={form.fatherName || ''} onChange={(e) => update('fatherName', e.target.value)} />
                   </FormField>
-                  <FormField label="Father Alive" htmlFor="fatherAlive">
+                  <FormField label="Father Late?" htmlFor="fatherAlive">
                     <select id="fatherAlive" className={inputClass()} value={String(form.fatherAlive)} onChange={(e) => update('fatherAlive', e.target.value === 'true')}>
-                      <option value="true">Yes</option><option value="false">No</option>
+                      <option value="true">No</option><option value="false">Yes</option>
                     </select>
                   </FormField>
                   {form.fatherAlive && (
@@ -1232,9 +1255,9 @@ export default function EditProfile({ managedMode = false }: { managedMode?: boo
                   <FormField label="Mother's Name" htmlFor="motherName">
                     <input id="motherName" className={inputClass()} value={form.motherName || ''} onChange={(e) => update('motherName', e.target.value)} />
                   </FormField>
-                  <FormField label="Mother Alive" htmlFor="motherAlive">
+                  <FormField label="Mother Late?" htmlFor="motherAlive">
                     <select id="motherAlive" className={inputClass()} value={String(form.motherAlive)} onChange={(e) => update('motherAlive', e.target.value === 'true')}>
-                      <option value="true">Yes</option><option value="false">No</option>
+                      <option value="true">No</option><option value="false">Yes</option>
                     </select>
                   </FormField>
                   {form.motherAlive && (

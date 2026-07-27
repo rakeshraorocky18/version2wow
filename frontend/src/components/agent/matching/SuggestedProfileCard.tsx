@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { BadgeCheck, Check, Crown, Eye, Sparkles } from 'lucide-react';
 import type { AgentMatchProfile } from '../../../types/agentMatching';
 import CompatibilityBadge from './CompatibilityBadge';
+import { getPhotoUrl } from '../../../lib/profileUtils';
 
 interface Props {
   profile: AgentMatchProfile;
@@ -34,7 +35,7 @@ export default function SuggestedProfileCard({ profile, workspaceCustomerId }: P
       <div className="relative h-44 w-full overflow-hidden bg-gradient-to-br from-[#FFF0F4] to-[#F7EBEF]">
         {profile.profilePhoto ? (
           <img
-            src={profile.profilePhoto}
+            src={getPhotoUrl(profile.profilePhoto || '')}
             alt={name}
             className="h-full w-full object-cover transition duration-500 hover:scale-105"
           />

@@ -127,6 +127,9 @@ services:
       - ./backend/src:/app/src
       - ./backend/data:/app/data
       - ./backend/package.json:/app/package.json
+      - ./backend/tsconfig.json:/app/tsconfig.json
+      - ./backend/tsconfig.build.json:/app/tsconfig.build.json
+      - ./backend/nest-cli.json:/app/nest-cli.json
       - backend_uploads:/app/uploads
 
   # Frontend

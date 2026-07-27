@@ -112,10 +112,16 @@ export function ReviewStep({ form, onEdit }: ReviewStepProps) {
                   value={(form.personalDetails.marriageDate as string) || ''}
                 />
                 {maritalStatus === 'divorced' && (
-                  <ReviewRow
-                    label="Divorce Date"
-                    value={(form.personalDetails.divorceDate as string) || ''}
-                  />
+                  <>
+                    <ReviewRow
+                      label="Divorce Date"
+                      value={(form.personalDetails.divorceDate as string) || ''}
+                    />
+                    <ReviewRow
+                      label="Reason for Divorce"
+                      value={(form.personalDetails.divorceReason as string) || ''}
+                    />
+                  </>
                 )}
                 {maritalStatus === 'separated' && (
                   <ReviewRow

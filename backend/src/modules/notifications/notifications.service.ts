@@ -26,17 +26,30 @@ export class NotificationsService {
     try {
       // TODO: Integrate with FCM/APNs for push notifications
       // TODO: Integrate with SMS/Email services
-      console.log(`[Notification] To: ${payload.userId} - ${payload.title}: ${payload.body}`);
+     console.log(
+ `[Notification] To: ${payload.userId} - ${payload.title}: ${payload.body}`
+);
 
-      await this.deliveryLogRepo.save({
-        userId: payload.userId,
-        title: payload.title,
-        body: payload.body,
-        type: payload.type,
-        data: payload.data ?? null,
-        status: 'sent',
-        channel: 'console',
-      });
+// Save notification for frontend
+await this.notificationRepository.save({
+    userId: payload.userId,
+    type: payload.type,
+    title: payload.title,
+    message: payload.body,
+    isRead: false,
+});
+
+// Save delivery log
+await this.deliveryLogRepo.save({
+    userId: payload.userId,
+    title: payload.title,
+    body: payload.body,
+    type: payload.type,
+    data: payload.data ?? null,
+    status: 'sent',
+    channel: 'console',
+});
+    
     } catch (error) {
       await this.deliveryLogRepo.save({
         userId: payload.userId,
@@ -87,7 +100,7 @@ export class NotificationsService {
   return await this.notificationRepository.save(dto);
 }
 
-async findAll(userId: number) {
+async findAll(userId: string) {
   return await this.notificationRepository.find({
     where: {
       userId,
@@ -104,7 +117,7 @@ async markAsRead(id: number) {
   });
 }
 
-async unreadCount(userId: number) {
+async unreadCount(userId: string) {
   return await this.notificationRepository.count({
     where: {
       userId,

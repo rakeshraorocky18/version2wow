@@ -184,6 +184,8 @@ export class ChatThreadSettings {
 export type ChatThreadSettingsDocument = HydratedDocument<ChatThreadSettings>;
 
 export const MessageSchema = SchemaFactory.createForClass(Message);
+MessageSchema.index({ senderId: 1, receiverId: 1, deletedFor: 1, expiresAt: 1, createdAt: 1 });
+MessageSchema.index({ receiverId: 1, senderId: 1, deletedFor: 1, expiresAt: 1, createdAt: 1 });
 export const ConversationSchema = SchemaFactory.createForClass(Conversation);
 export const ChatPrivacySettingsSchema = SchemaFactory.createForClass(ChatPrivacySettings);
 export const ChatMeetingSchema = SchemaFactory.createForClass(ChatMeeting);

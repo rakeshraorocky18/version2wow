@@ -1,8 +1,7 @@
-import { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Star, MapPin, IndianRupee, Search } from 'lucide-react';
 import api from '../lib/api';
-import toast from 'react-hot-toast';
 import { useNavigate } from "react-router-dom";
 
 const categories = [
@@ -56,12 +55,12 @@ interface CitySuggestionResponse {
 
 export default function Vendors() {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const [category, setCategory] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [city, setCity] = useState('');
   const [showCitySuggestions, setShowCitySuggestions] = useState(false);
   const [selectedVendor, setSelectedVendor] = useState<VendorCard | null>(null);
+  const [cityQuery, setCityQuery] = useState('');
 
   const { data, isLoading } = useQuery<VendorsSearchResponse>({
     queryKey: ['vendors', category, searchTerm, city],
@@ -76,6 +75,14 @@ export default function Vendors() {
     },
   });
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setCity(cityQuery.trim());
+    }, 300);
+
+    return () => window.clearTimeout(timer);
+  }, [cityQuery]);
+
   const { data: citySuggestionsData } = useQuery<CitySuggestionResponse>({
     queryKey: ['city-suggestions', city],
     enabled: showCitySuggestions && city.trim().length >= 2,
@@ -86,13 +93,14 @@ export default function Vendors() {
       if (!res.ok) return { results: [] };
       return (await res.json()) as CitySuggestionResponse;
     },
+    staleTime: 5 * 60 * 1000,
   });
 
-  const citySuggestions = citySuggestionsData?.results || [];
-
+  const citySuggestions = useMemo(() => citySuggestionsData?.results || [], [citySuggestionsData?.results]);
 
   const selectCitySuggestion = (name: string) => {
     setCity(name);
+    setCityQuery(name);
     setShowCitySuggestions(false);
   };
 
@@ -119,8 +127,8 @@ export default function Vendors() {
           <div className="relative md:w-64">
             <input
               type="text"
-              value={city}
-              onChange={(e) => setCity(e.target.value)}
+              value={cityQuery}
+              onChange={(e) => setCityQuery(e.target.value)}
               onFocus={() => setShowCitySuggestions(true)}
               onBlur={() => {
                 setTimeout(() => setShowCitySuggestions(false), 150);

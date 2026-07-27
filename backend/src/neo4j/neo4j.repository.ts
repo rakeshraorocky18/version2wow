@@ -90,11 +90,12 @@ export class Neo4jRepository implements OnModuleDestroy {
     await this.run(
       `
       MERGE (u:User {id: $id})
+      ON CREATE SET u.createdAt = datetime(),
+                    u.profileCompleted = coalesce($profileCompleted, false)
+      ON MATCH SET u.updatedAt = datetime()
       SET u.gender = coalesce($gender, u.gender),
           u.profileCompleted = coalesce($profileCompleted, u.profileCompleted, false),
           u.updatedAt = datetime()
-      ON CREATE SET u.createdAt = datetime(),
-                    u.profileCompleted = coalesce($profileCompleted, false)
       `,
       {
         id: props.id,

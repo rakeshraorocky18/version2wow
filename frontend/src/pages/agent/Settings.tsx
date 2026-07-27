@@ -21,6 +21,9 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { useAgentAuthStore } from '../../store/agent/agentAuthStore';
+import { WORLD_COUNTRY_CODES, parsePhone, getIsoFromPhone, getExpectedLength, getCallingCode } from '../../lib/agent/addCustomerUtils';
+import SearchableSelect from '../../components/agent/addCustomer/SearchableSelect';
+import { AsYouType } from 'libphonenumber-js/max';
 
 /* ─── tiny toast ──────────────────────────────────────────── */
 function Toast({
@@ -184,6 +187,11 @@ function GearDecoration() {
 }
 
 /* ─── MAIN COMPONENT ──────────────────────────────────────── */
+const countryOptions = WORLD_COUNTRY_CODES.map((cc) => ({
+  value: cc.isoCode,
+  label: `${cc.code} (${cc.country})`,
+}));
+
 export default function AgentSettings() {
   const user = useAgentAuthStore((s) => s.user);
   const updateProfile = useAgentAuthStore((s) => s.updateProfile);
@@ -217,19 +225,12 @@ export default function AgentSettings() {
 
   const handleSaveProfile = async () => {
     // Validate phone number if entered
-    const phoneDigits = form.phone.replace(/\D/g, '');
-    if (phoneDigits.length > 0) {
-      let isValid = false;
-      if (phoneDigits.length === 10) {
-        isValid = /^[6-9]\d{9}$/.test(phoneDigits);
-      } else if (phoneDigits.length === 11 && phoneDigits.startsWith('0')) {
-        isValid = /^[6-9]\d{9}$/.test(phoneDigits.slice(1));
-      } else if (phoneDigits.length === 12 && phoneDigits.startsWith('91')) {
-        isValid = /^[6-9]\d{9}$/.test(phoneDigits.slice(2));
-      }
-
-      if (!isValid) {
-        showToast('Please enter a valid 10-digit mobile number.', 'error');
+    const parsed = parsePhone(form.phone);
+    if (parsed.number.length > 0) {
+      const iso = getIsoFromPhone(form.phone);
+      const requiredLen = getExpectedLength(iso);
+      if (parsed.number.length !== requiredLen) {
+        showToast(`Please enter a valid ${requiredLen}-digit mobile number.`, 'error');
         return;
       }
     }
@@ -258,8 +259,17 @@ export default function AgentSettings() {
     if (pwdForm.newPwd !== pwdForm.confirm) {
       showToast('New passwords do not match.', 'error'); return;
     }
-    if (pwdForm.newPwd.length < 6) {
-      showToast('New password must be at least 6 characters.', 'error'); return;
+    if (pwdForm.newPwd.length < 8) {
+      showToast('New password must be at least 8 characters.', 'error'); return;
+    }
+    const hasLetter = /[a-zA-Z]/.test(pwdForm.newPwd);
+    const hasNumber = /[0-9]/.test(pwdForm.newPwd);
+    const hasSymbol = /[^a-zA-Z0-9]/.test(pwdForm.newPwd);
+    if (!hasLetter || !hasNumber || !hasSymbol) {
+      showToast('Password must contain a mix of letters, numbers, and symbols.', 'error'); return;
+    }
+    if (pwdForm.newPwd === pwdForm.current) {
+      showToast('New password cannot be the same as your current password.', 'error'); return;
     }
     setPwdLoading(true);
     try {
@@ -407,13 +417,42 @@ export default function AgentSettings() {
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1.5">Phone Number</label>
-                <input
-                  value={form.phone}
-                  onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value.replace(/[^0-9+\-\s]/g, '').slice(0, 13) }))}
-                  className="w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm outline-none focus:ring-2 focus:ring-pink-300 focus:border-pink-400 transition-all"
-                  placeholder="Phone number"
-                  type="tel"
-                />
+                <div className="flex gap-2 items-start">
+                  <div className="w-[180px] shrink-0">
+                    <SearchableSelect
+                      value={getIsoFromPhone(form.phone)}
+                      onChange={(val) => {
+                        const parsed = parsePhone(form.phone);
+                        const code = getCallingCode(val);
+                        setForm((f) => ({
+                          ...f,
+                          phone: `${code} ${parsed.number}`.trim(),
+                        }));
+                      }}
+                      options={countryOptions}
+                      placeholder="Select country"
+                    />
+                  </div>
+                  <input
+                    value={parsePhone(form.phone).number}
+                    onChange={(e) => {
+                      const parsed = parsePhone(form.phone);
+                      const iso = getIsoFromPhone(form.phone);
+                      const requiredLen = getExpectedLength(iso);
+                      let digits = e.target.value.replace(/\D/g, '');
+                      if (digits.startsWith('0')) digits = digits.slice(1);
+                      digits = digits.slice(0, requiredLen);
+                      const formatted = new AsYouType(iso as any).input(digits);
+                      setForm((f) => ({
+                        ...f,
+                        phone: `${parsed.countryCode} ${formatted}`.trim(),
+                      }));
+                    }}
+                    className="flex-1 rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm outline-none focus:ring-2 focus:ring-pink-300 focus:border-pink-400 transition-all"
+                    placeholder="Phone number"
+                    type="tel"
+                  />
+                </div>
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1.5">Email Address</label>
@@ -590,7 +629,7 @@ export default function AgentSettings() {
             label="New Password"
             value={pwdForm.newPwd}
             onChange={(v) => setPwdForm((f) => ({ ...f, newPwd: v }))}
-            placeholder="At least 6 characters"
+            placeholder="At least 8 characters, mix of characters"
           />
           <PasswordField
             label="Confirm New Password"
@@ -598,25 +637,37 @@ export default function AgentSettings() {
             onChange={(v) => setPwdForm((f) => ({ ...f, confirm: v }))}
             placeholder="Repeat new password"
           />
-          {pwdForm.newPwd && (
-            <div className="space-y-1">
-              <div className="flex gap-1">
-                {[1, 2, 3, 4].map((i) => (
-                  <div
-                    key={i}
-                    className={`h-1.5 flex-1 rounded-full transition-colors ${
-                      pwdForm.newPwd.length >= i * 3
-                        ? pwdForm.newPwd.length >= 12 ? 'bg-emerald-400' : pwdForm.newPwd.length >= 8 ? 'bg-amber-400' : 'bg-red-400'
-                        : 'bg-gray-100'
-                    }`}
-                  />
-                ))}
+          {pwdForm.newPwd && (() => {
+            const hasLetter = /[a-zA-Z]/.test(pwdForm.newPwd);
+            const hasNumber = /[0-9]/.test(pwdForm.newPwd);
+            const hasSymbol = /[^a-zA-Z0-9]/.test(pwdForm.newPwd);
+            const len = pwdForm.newPwd.length;
+            let score = 0;
+            if (len >= 8) score += 1;
+            if (len >= 12) score += 1;
+            if (hasLetter && hasNumber) score += 1;
+            if (hasSymbol) score += 1;
+            
+            return (
+              <div className="space-y-1">
+                <div className="flex gap-1">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div
+                      key={i}
+                      className={`h-1.5 flex-1 rounded-full transition-colors ${
+                        score >= i
+                          ? score === 4 ? 'bg-emerald-400' : score >= 2 ? 'bg-amber-400' : 'bg-red-400'
+                          : 'bg-gray-100'
+                      }`}
+                    />
+                  ))}
+                </div>
+                <p className="text-xs text-gray-400 font-medium">
+                  {score === 0 ? 'Too short' : score === 1 ? 'Weak' : score === 2 ? 'Medium' : score === 3 ? 'Good' : 'Strong'}
+                </p>
               </div>
-              <p className="text-xs text-gray-400">
-                {pwdForm.newPwd.length < 6 ? 'Too short' : pwdForm.newPwd.length < 8 ? 'Weak' : pwdForm.newPwd.length < 12 ? 'Good' : 'Strong'}
-              </p>
-            </div>
-          )}
+            );
+          })()}
           <div className="flex gap-3 pt-2">
             <button
               onClick={() => { setPwdModal(false); setPwdForm({ current: '', newPwd: '', confirm: '' }); }}

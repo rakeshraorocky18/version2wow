@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import {
@@ -21,7 +21,7 @@ import api from '../lib/api';
 import { getPhotoUrl } from '../lib/profileUtils';
 import { resolveCanonicalPartnerId } from '../lib/chatPartnerIds';
 import { useAuthStore } from '../store/authStore';
-import { useAcceptedInterests } from '../hooks/useMatchmaking';
+// import { useAcceptedInterests } from '../hooks/useMatchmaking';
 import { useChatSocket, type IncomingCall, type CallType } from '../hooks/useChatSocket';
 import CallModal from '../components/chat/CallModal';
 import ScheduleMeetingModal from '../components/chat/ScheduleMeetingModal';
@@ -42,6 +42,17 @@ type CallLogPayload = {
   callType: CallType;
   status: 'missed' | 'ended';
 };
+
+function normalizeUserId(id?: string | null): string {
+  return id ? String(id).trim() : '';
+}
+
+function formatMessagePreview(message: ChatMessage): string {
+  if (message.type === 'image') return '📷 Photo';
+  if (message.type === 'video') return '🎬 Video';
+  if (message.type === 'file') return '📎 File';
+  return message.content || 'Message';
+}
 
 function MessageBubble({
   message,
@@ -65,16 +76,16 @@ function MessageBubble({
       })
     : '';
 
+  const bubbleClass = isCallLog
+    ? 'border border-gray-200 bg-gray-50 text-gray-700'
+    : isMine
+      ? 'bg-primary-600 text-white'
+      : 'bg-gray-100 text-gray-900';
+
   return (
     <div className={`group flex ${isMine ? 'justify-end' : 'justify-start'}`}>
       <div
-        className={`relative max-w-[75%] px-3 py-2 rounded-lg text-sm ${
-          isCallLog
-            ? 'border border-gray-200 bg-gray-50 text-gray-700'
-            : isMine
-              ? 'bg-primary-600 text-white'
-              : 'bg-gray-100 text-gray-900'
-        }`}
+        className={`relative max-w-[75%] px-3 py-2 rounded-lg text-sm ${bubbleClass}`}
       >
         <div
           className={`absolute -top-2 ${isMine ? '-left-2' : '-right-2'} flex gap-0.5 opacity-0 transition group-hover:opacity-100`}
@@ -177,14 +188,52 @@ function buildContactsFromAccepted(
   });
 }
 
-export default function Chat() {
+type ChatProps = {
+  embedded?: boolean;
+  initialUserId?: string | null;
+  agentMode?: boolean;
+  agentCustomerId?: string;
+  agentContacts?: Array<{
+    userId: string;
+    name: string;
+    subtitle: string;
+    photo?: string;
+    lastMessageAt?: string;
+    isBlocked?: boolean;
+    muted?: boolean;
+    onlineStatus?: boolean;
+    unreadCount?: number;
+  }>;
+  agentMessages?: Array<{
+    id?: string;
+    _id?: string;
+    senderId: string;
+    content: string;
+    type?: string;
+    mediaUrl?: string;
+    createdAt?: string;
+  }>;
+  onAgentSendMessage?: (payload: { receiverId: string; content: string; type?: string; mediaUrl?: string }) => void;
+  agentLoading?: boolean;
+};
+
+export default function Chat({
+  embedded = false,
+  initialUserId,
+  agentMode = false,
+  agentContacts = [],
+  agentMessages = [],
+  onAgentSendMessage,
+  agentLoading = false,
+}: ChatProps) {
   const SEEN_STORAGE_KEY = 'wow_chat_seen';
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const preselectedUserId = searchParams.get('userId');
+  const preselectedUserId = initialUserId ?? searchParams.get('userId');
   const currentUserId = useAuthStore((state) => state.user?.id);
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
   const [messageInput, setMessageInput] = useState('');
+  const [typingIndicator, setTypingIndicator] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showMenu, setShowMenu] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
@@ -194,6 +243,9 @@ export default function Chat() {
   const [sharedPanel, setSharedPanel] = useState<'media' | 'links' | 'docs' | null>(null);
   const [activeCall, setActiveCall] = useState<{ callId: string; peerId: string; callType: CallType; isIncoming?: boolean } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement | null>(null);
+  const typingTimeoutRef = useRef<number | null>(null);
+  const lastTypingAtRef = useRef(0);
   const queryClient = useQueryClient();
   const [seenMap, setSeenMap] = useState<Record<string, string>>(() => {
     try {
@@ -204,13 +256,19 @@ export default function Chat() {
     }
   });
 
-  const { data: acceptedMatches = [], isLoading: matchesLoading } = useAcceptedInterests();
+  // const { data: acceptedMatches = [], isLoading: matchesLoading } = useAcceptedInterests();
+  const acceptedMatches: any[] = [];
+  const matchesLoading = false;
 
+  const normalizedCurrentUserId = useMemo(() => normalizeUserId(currentUserId), [currentUserId]);
   const { data: serverContacts = [], isLoading: contactsLoading } = useQuery({
-    queryKey: ['chat-contacts', currentUserId],
-    enabled: !!currentUserId,
+    queryKey: agentMode ? ['agent-chat-contacts'] : ['chat-contacts', normalizedCurrentUserId],
+    enabled: !agentMode ? !!currentUserId : true,
     retry: false,
     queryFn: async () => {
+      if (agentMode) {
+        return agentContacts || [];
+      }
       try {
         const { data } = await api.get('/chat/contacts');
         return Array.isArray(data) ? (data as ChatContact[]) : [];
@@ -237,10 +295,10 @@ export default function Chat() {
     if (!preselectedUserId) return;
     const canonical = resolveCanonicalPartnerId(preselectedUserId, acceptedMatches);
     setSelectedConversation(canonical);
-    if (canonical !== preselectedUserId) {
+    if (canonical !== preselectedUserId && !embedded) {
       navigate(`/app/chat?userId=${canonical}`, { replace: true });
     }
-  }, [preselectedUserId, acceptedMatches, navigate]);
+  }, [preselectedUserId, acceptedMatches, navigate, embedded]);
 
   const activePartnerId = useMemo(
     () =>
@@ -257,13 +315,71 @@ export default function Chat() {
     }
   }, [selectedConversation, activePartnerId]);
 
-  useChatSocket({
-    onNewMessage: () => {
-      if (activePartnerId) {
-        queryClient.invalidateQueries({ queryKey: ['messages', activePartnerId] });
+  const { emit } = useChatSocket({
+    onNewMessage: (data) => {
+      const message = data as ChatMessage;
+      const senderId = normalizeUserId(message.senderId);
+      const receiverId = normalizeUserId(message.receiverId);
+      const partnerId = senderId === normalizedCurrentUserId ? receiverId : senderId;
+
+      if (activePartnerId && partnerId === activePartnerId) {
+        queryClient.setQueryData(['messages', activePartnerId], (old: any) => {
+          if (!old) return old;
+          const existing = (old.messages || []).some(
+            (msg: ChatMessage) => (msg.id || msg._id) === (message.id || message._id),
+          );
+          const nextMessages = existing
+            ? (old.messages || []).map((msg: ChatMessage) =>
+                (msg.id || msg._id) === (message.id || message._id) ? message : msg,
+              )
+            : [...(old.messages || []), message];
+          return {
+            ...old,
+            messages: [...nextMessages].sort((a: ChatMessage, b: ChatMessage) => {
+              const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+              const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+              return aTime - bTime;
+            }),
+            total: existing ? old.total : (old.total || 0) + 1,
+          };
+        });
       }
+
       queryClient.invalidateQueries({ queryKey: ['chat-contacts'] });
       queryClient.invalidateQueries({ queryKey: ['chat-unread'] });
+    },
+    onMessageDeleted: (data) => {
+      const partnerId = normalizeUserId(data.senderId) === normalizedCurrentUserId
+        ? normalizeUserId(data.receiverId)
+        : normalizeUserId(data.senderId);
+
+      if (activePartnerId && partnerId === activePartnerId) {
+        queryClient.setQueryData(['messages', activePartnerId], (old: any) => {
+          if (!old) return old;
+          return {
+            ...old,
+            messages: (old.messages || []).filter(
+              (message: ChatMessage) => (message.id || message._id) !== data.messageId,
+            ),
+            total: Math.max(0, (old.total || 0) - 1),
+          };
+        });
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['chat-contacts'] });
+      queryClient.invalidateQueries({ queryKey: ['chat-unread'] });
+    },
+    onUserTyping: (data) => {
+      const senderId = normalizeUserId(data.userId);
+      if (activePartnerId && senderId === activePartnerId && senderId !== normalizedCurrentUserId) {
+        setTypingIndicator(true);
+        if (typingTimeoutRef.current) {
+          window.clearTimeout(typingTimeoutRef.current);
+        }
+        typingTimeoutRef.current = window.setTimeout(() => {
+          setTypingIndicator(false);
+        }, 3000);
+      }
     },
     onIncomingCall: (call: IncomingCall) => {
       setActiveCall({
@@ -276,6 +392,19 @@ export default function Chat() {
   });
 
   const contactList = useMemo(() => {
+    if (agentMode) {
+      // In agent mode, just use the serverContacts directly (which are agentContacts)
+      return serverContacts.map((c) => ({
+        userId: c.userId,
+        name: c.name,
+        subtitle: c.subtitle,
+        photo: c.photo ? (typeof c.photo === 'string' && c.photo.startsWith('http') ? c.photo : getPhotoUrl(c.photo)) : undefined,
+        lastMessageAt: c.lastMessageAt,
+        isBlocked: !!c.isBlocked,
+        muted: !!c.muted,
+      }));
+    }
+
     const fromMatches = buildContactsFromAccepted(acceptedMatches);
     const map = new Map<string, ChatContact>();
 
@@ -310,9 +439,9 @@ export default function Chat() {
       isBlocked: !!c.isBlocked,
       muted: !!c.muted,
     }));
-  }, [serverContacts, acceptedMatches]);
+  }, [serverContacts, acceptedMatches, agentMode]);
 
-  const listLoading = matchesLoading || contactsLoading;
+  const listLoading = agentMode ? agentLoading : (matchesLoading || contactsLoading);
 
   const filteredContacts = useMemo(() => {
     if (!searchQuery.trim()) return contactList;
@@ -348,11 +477,19 @@ export default function Chat() {
   }, [activePartnerId, selectedConversation, contactList, acceptedMatches]);
 
   const { data: messagesData } = useQuery({
-    queryKey: ['messages', activePartnerId],
+    queryKey: agentMode ? ['agent-messages', activePartnerId] : ['messages', activePartnerId],
     enabled: !!activePartnerId,
     staleTime: 0,
-    refetchInterval: 5000,
     queryFn: async () => {
+      if (agentMode) {
+        return {
+          messages: agentMessages || [],
+          cleared: false,
+          isBlocked: false,
+          muted: false,
+          disappearingSeconds: 0,
+        };
+      }
       const { data } = await api.get(`/chat/messages?userId=${activePartnerId}`);
       return data as {
         messages: ChatMessage[];
@@ -365,7 +502,11 @@ export default function Chat() {
   });
 
   const displayMessages = useMemo(() => {
-    const msgs = messagesData?.messages ?? [];
+    const msgs = (messagesData?.messages ?? []).slice().sort((a, b) => {
+      const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return aTime - bTime;
+    });
     if (!showInChatSearch || !inChatSearch.trim()) return msgs;
     const q = inChatSearch.toLowerCase();
     return msgs.filter((m) => (m.content || '').toLowerCase().includes(q));
@@ -412,6 +553,14 @@ export default function Chat() {
     };
   }, [activePartnerId, messagesData, queryClient]);
 
+  useEffect(() => {
+    if (typingTimeoutRef.current) {
+      window.clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = null;
+    }
+    setTypingIndicator(false);
+  }, [activePartnerId]);
+
   const markSeen = (partnerId: string, seenAt?: string) => {
     const timestamp = seenAt || new Date().toISOString();
     setSeenMap((prev) => {
@@ -428,20 +577,98 @@ export default function Chat() {
   const sendMessageMutation = useMutation({
     mutationFn: async (payload: { content: string; type?: string; mediaUrl?: string }) => {
       if (!activePartnerId) return;
-      await api.post('/chat/messages', {
-        receiverId: activePartnerId,
+      if (agentMode && onAgentSendMessage) {
+        onAgentSendMessage({
+          receiverId: activePartnerId,
+          content: payload.content,
+          type: payload.type,
+          mediaUrl: payload.mediaUrl,
+        });
+        return;
+      }
+
+      if (!emit) {
+        throw new Error('Chat socket is not connected');
+      }
+
+      return new Promise<ChatMessage>((resolve, reject) => {
+        emit(
+          'sendMessage',
+          {
+            receiverId: activePartnerId,
+            content: payload.content,
+            type: payload.type || 'text',
+            mediaUrl: payload.mediaUrl,
+          },
+          (response: any) => {
+            if (!response) {
+              return reject(new Error('No response from chat server'));
+            }
+            if (response.error) {
+              return reject(new Error(response.error));
+            }
+            resolve(response as ChatMessage);
+          },
+        );
+      });
+    },
+    onMutate: async (payload) => {
+      if (!activePartnerId || agentMode) return;
+      await queryClient.cancelQueries({ queryKey: ['messages', activePartnerId] });
+
+      const previousMessages = queryClient.getQueryData<{ messages: ChatMessage[] }>([
+        'messages',
+        activePartnerId,
+      ]);
+
+      const optimisticMessage: ChatMessage = {
+        id: `temp-${Date.now()}`,
+        senderId: currentUserId || '',
         content: payload.content,
         type: payload.type || 'text',
         mediaUrl: payload.mediaUrl,
+        createdAt: new Date().toISOString(),
+      };
+
+      queryClient.setQueryData(['messages', activePartnerId], (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          messages: [...(old.messages || []), optimisticMessage],
+          total: (old.total || 0) + 1,
+        };
       });
+
+      return { previousMessages, optimisticMessage };
     },
-    onSuccess: () => {
+    onError: (err: any, _variables, context) => {
+      if (activePartnerId && context?.previousMessages) {
+        queryClient.setQueryData(['messages', activePartnerId], context.previousMessages);
+      }
+      toast.error(err.response?.data?.message || err.message || 'Unable to send message');
+    },
+    onSuccess: (_message, _variables, context) => {
       setMessageInput('');
-      queryClient.invalidateQueries({ queryKey: ['messages', activePartnerId] });
-      queryClient.invalidateQueries({ queryKey: ['chat-contacts'] });
+      if (!agentMode && activePartnerId) {
+        queryClient.invalidateQueries({ queryKey: ['chat-contacts'] });
+        queryClient.setQueryData(['messages', activePartnerId], (old: any) => {
+          if (!old || !context?.optimisticMessage) return old;
+          const updated = {
+            ...old,
+            messages: (old.messages || []).map((message: ChatMessage) =>
+              message.id === context.optimisticMessage.id ? (_message as ChatMessage) : message,
+            ),
+          };
+          return updated;
+        });
+        const messagePreview = formatMessagePreview(_message as ChatMessage);
+        updateContactPreview(activePartnerId, messagePreview, (_message as ChatMessage).createdAt);
+      }
     },
-    onError: (err: { response?: { data?: { message?: string } } }) => {
-      toast.error(err.response?.data?.message || 'Unable to send message');
+    onSettled: () => {
+      if (activePartnerId && !agentMode) {
+        queryClient.invalidateQueries({ queryKey: ['messages', activePartnerId] });
+      }
     },
   });
 
@@ -553,16 +780,58 @@ export default function Chat() {
     onError: () => toast.error('Could not submit report'),
   });
 
+  const updateContactPreview = (partnerId: string, preview: string, timestamp?: string) => {
+    queryClient.setQueryData(['chat-contacts'], (old: any) => {
+      if (!Array.isArray(old)) return old;
+      return old.map((contact: ChatContact) =>
+        contact.userId === partnerId
+          ? { ...contact, subtitle: preview, lastMessageAt: timestamp || contact.lastMessageAt }
+          : contact,
+      );
+    });
+  };
+
   const deleteMessageMutation = useMutation({
     mutationFn: async ({ messageId, mode }: { messageId: string; mode: 'me' | 'everyone' }) => {
       await api.delete(`/chat/messages/${messageId}?mode=${mode}`);
     },
+    onMutate: async (variables) => {
+      if (!activePartnerId) return;
+      await queryClient.cancelQueries({ queryKey: ['messages', activePartnerId] });
+      const previousMessages = queryClient.getQueryData<{ messages: ChatMessage[] }>([
+        'messages',
+        activePartnerId,
+      ]);
+      queryClient.setQueryData(['messages', activePartnerId], (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          messages: (old.messages || []).filter(
+            (message: ChatMessage) => (message.id || message._id) !== variables.messageId,
+          ),
+          total: Math.max(0, (old.total || 1) - 1),
+        };
+      });
+      return { previousMessages };
+    },
     onSuccess: () => {
       toast.success('Message deleted');
-      queryClient.invalidateQueries({ queryKey: ['messages', activePartnerId] });
-      queryClient.invalidateQueries({ queryKey: ['chat-contacts'] });
+      if (activePartnerId) {
+        queryClient.invalidateQueries({ queryKey: ['chat-contacts'] });
+        queryClient.invalidateQueries({ queryKey: ['chat-unread'] });
+        const currentData = queryClient.getQueryData<{ messages: ChatMessage[] }>(['messages', activePartnerId]);
+        const latestMessage = currentData?.messages?.[currentData.messages.length - 1];
+        if (latestMessage) {
+          updateContactPreview(activePartnerId, formatMessagePreview(latestMessage), latestMessage.createdAt);
+        }
+      }
     },
-    onError: () => toast.error('Could not delete message'),
+    onError: (_error, _variables, context) => {
+      if (activePartnerId && context?.previousMessages) {
+        queryClient.setQueryData(['messages', activePartnerId], context.previousMessages);
+      }
+      toast.error('Could not delete message');
+    },
   });
 
   const uploadMediaMutation = useMutation({
@@ -581,6 +850,14 @@ export default function Chat() {
     },
     onError: () => toast.error('Could not upload file'),
   });
+
+  const handleTyping = useCallback(() => {
+    if (!emit || !activePartnerId || isBlockedThread) return;
+    const now = Date.now();
+    if (now - lastTypingAtRef.current < 2000) return;
+    lastTypingAtRef.current = now;
+    emit('typing', { receiverId: activePartnerId });
+  }, [activePartnerId, emit, isBlockedThread]);
 
   const handleSend = () => {
     if (!messageInput.trim() || !activePartnerId || isBlockedThread) return;
@@ -707,29 +984,43 @@ export default function Chat() {
     markSeen(activePartnerId, contact?.lastMessageAt);
   }, [activePartnerId, displayMessages.length, contactList]);
 
+  useEffect(() => {
+    if (!activePartnerId) return;
+    requestAnimationFrame(() => {
+      const container = messagesContainerRef.current;
+      if (container) {
+        container.scrollTop = container.scrollHeight;
+      }
+    });
+  }, [activePartnerId, displayMessages.length, showInChatSearch, inChatSearch]);
+
   return (
     <div
       className={
         selectedConversation
-          ? 'flex min-h-[28rem] flex-col'
+          ? `flex ${embedded ? 'h-full min-h-[34rem]' : 'min-h-[28rem]'} flex-col`
           : 'h-auto'
       }
       style={
         selectedConversation
-          ? { height: 'calc(100vh - 17rem)', maxHeight: 'calc(100vh - 17rem)' }
+          ? embedded
+            ? { height: '34rem', maxHeight: '34rem' }
+            : { height: 'calc(100vh - 17rem)', maxHeight: 'calc(100vh - 17rem)' }
           : undefined
       }
     >
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-display font-bold text-gray-900">Messages</h1>
-        <button
-          type="button"
-          onClick={() => setShowPrivacy(true)}
-          className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
-        >
-          <Shield size={16} /> Privacy
-        </button>
-      </div>
+      {!embedded && (
+        <div className="mb-6 flex items-center justify-between">
+          <h1 className="text-2xl font-display font-bold text-gray-900">Messages</h1>
+          <button
+            type="button"
+            onClick={() => setShowPrivacy(true)}
+            className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
+          >
+            <Shield size={16} /> Privacy
+          </button>
+        </div>
+      )}
 
       <div
         className={`card flex min-h-0 overflow-hidden p-0 ${
@@ -816,9 +1107,13 @@ export default function Chat() {
             ) : (
               <div className="p-8 text-center text-gray-400 text-sm">
                 <p>No matches to chat with yet.</p>
-                <Link to="/app/matches?tab=interests" className="mt-2 inline-block text-primary-600 hover:underline">
-                  View accepted matches
-                </Link>
+                {agentMode ? (
+                  <p className="mt-2 text-xs text-gray-500">Only accepted matches can chat.</p>
+                ) : (
+                  <Link to="/app/matches?tab=interests" className="mt-2 inline-block text-primary-600 hover:underline">
+                    View accepted matches
+                  </Link>
+                )}
               </div>
             )}
           </div>
@@ -827,16 +1122,28 @@ export default function Chat() {
         {selectedConversation && (
           <div className="flex-1 flex flex-col min-h-0">
             <>
-              <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-                <div className="min-w-0">
-                  <h3 className="font-medium text-gray-900 truncate">
-                    {selectedContact?.name || 'Chat'}
-                    {isBlockedThread && (
-                      <span className="ml-2 rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-red-700">
-                        Blocked
-                      </span>
+              <div className="flex items-center justify-between border-b border-gray-200 p-4">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-100 text-lg">
+                    {selectedContact?.photo ? (
+                      <img src={selectedContact.photo} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      '💬'
                     )}
-                  </h3>
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="truncate font-medium text-gray-900">
+                      {selectedContact?.name || 'Chat'}
+                      {isBlockedThread && (
+                        <span className="ml-2 rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-red-700">
+                          Blocked
+                        </span>
+                      )}
+                    </h3>
+                    <p className="text-xs text-gray-500">
+                      {typingIndicator && !isBlockedThread ? 'Typing...' : 'Online'}
+                    </p>
+                  </div>
                 </div>
                 <div className="flex items-center gap-1">
                   {!isBlockedThread && (
@@ -1021,17 +1328,17 @@ export default function Chat() {
                 </div>
               )}
 
-              <div className="flex-1 p-4 overflow-y-auto space-y-3">
+              <div ref={messagesContainerRef} className="flex-1 p-4 overflow-y-auto space-y-3">
                 {displayMessages.length > 0 ? (
-                  [...displayMessages].reverse().map((message: ChatMessage) => (
+                  displayMessages.map((message: ChatMessage) => (
                     <MessageBubble
                       key={message.id || message._id}
                       message={message}
-                      isMine={message.senderId === currentUserId}
+                      isMine={normalizeUserId(message.senderId) === normalizedCurrentUserId}
                       deleting={deleteMessageMutation.isPending}
                       onDeleteForMe={() => handleDeleteSingleMessage(message, 'me')}
                       onDeleteForEveryone={
-                        message.senderId === currentUserId
+                        normalizeUserId(message.senderId) === normalizedCurrentUserId
                           ? () => handleDeleteSingleMessage(message, 'everyone')
                           : undefined
                       }
@@ -1087,7 +1394,10 @@ export default function Chat() {
                     <input
                       type="text"
                       value={messageInput}
-                      onChange={(e) => setMessageInput(e.target.value)}
+                      onChange={(e) => {
+                        setMessageInput(e.target.value);
+                        handleTyping();
+                      }}
                       onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                       placeholder="Type a message..."
                       className="flex-1 input-field text-sm py-2"

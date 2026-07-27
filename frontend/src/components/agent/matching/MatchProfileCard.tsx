@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import type { AgentMatchProfile, MatchViewMode } from '../../../types/agentMatching';
 import CompatibilityBadge from './CompatibilityBadge';
+import { getPhotoUrl } from '../../../lib/profileUtils';
 
 interface Props {
   profile: AgentMatchProfile;
@@ -118,7 +119,7 @@ export default function MatchProfileCard({
       >
         {profile.profilePhoto ? (
           <img
-            src={profile.profilePhoto}
+            src={getPhotoUrl(profile.profilePhoto || '')}
             alt={name}
             className={`h-full w-full object-cover transition-transform duration-500 ${
               locked ? 'blur-[1px]' : 'group-hover:scale-105'

@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Link } from 'react-router-dom';
 import { Search, Plus, RefreshCw } from 'lucide-react';
 import { useAgentCustomers } from '../../hooks/agent/useAgent';
@@ -7,8 +8,11 @@ import CustomerCard  from '../../components/agent/CustomerCard';
 import { EmptyState, TableSkeleton } from '../../components/agent/AgentUI';
 
 export default function AgentCustomers() {
+  const [searchParams] = useSearchParams();
   const [search, setSearch] = useState('');
-  const [status, setStatus] = useState<AgentCustomerStatus | ''>('');
+  const [status, setStatus] = useState<AgentCustomerStatus | ''>(
+    (searchParams.get('status') as AgentCustomerStatus) || '',
+  );
   const [sortBy, setSortBy] = useState<'name' | 'date' | 'completion'>('date');
   const [sortOrder, setSortOrder] = useState<'ASC' | 'DESC'>('DESC');
   const [page, setPage] = useState(1);
@@ -22,6 +26,10 @@ export default function AgentCustomers() {
     page,
     limit: 10,
   });
+
+  useEffect(() => {
+    setStatus((searchParams.get('status') as AgentCustomerStatus) || '');
+  }, [searchParams]);
 
   if (isError) {
     return (

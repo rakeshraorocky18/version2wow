@@ -96,6 +96,10 @@ export type AgentCustomerChatContact = {
   subtitle: string;
   onlineStatus: boolean;
   unreadCount: number;
+  photo?: string | null;
+  lastMessageAt?: string | null;
+  isBlocked?: boolean | null;
+  muted?: boolean | null;
 };
 
 export type AgentCustomerChatMessage = {
@@ -413,4 +417,10 @@ export const agentService = {
     });
     return data;
   },
+
+  getPublicProfile: async (profileId: string) => {
+    const { data } = await agentApi.get(`/public/profile/${profileId}`);
+    return data;
+  },
+
 };

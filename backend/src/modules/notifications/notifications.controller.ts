@@ -19,9 +19,9 @@ export class NotificationsController {
 
   @Get()
   findAll(
-    @Query('userId') userId: number,
+    @Query('userId') userId: string
   ) {
-    return this.notificationsService.findAll(Number(userId));
+    return this.notificationsService.findAll(userId);
   }
 
   @Post()
@@ -33,15 +33,15 @@ export class NotificationsController {
 
   @Patch(':id')
   markRead(
-    @Param('id') id: number,
+    @Param('id') id: string,
   ) {
     return this.notificationsService.markAsRead(Number(id));
   }
 
   @Get('count')
   count(
-    @Query('userId') userId: number,
+    @Query('userId') userId: string,
   ) {
-    return this.notificationsService.unreadCount(Number(userId));
+    return this.notificationsService.unreadCount(userId);
   }
 }
