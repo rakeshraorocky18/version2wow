@@ -17,6 +17,9 @@ interface AgentAuthState {
   }) => Promise<void>;
   logout: () => void;
   setUser: (user: AgentUser) => void;
+  updateProfile: (payload: { firstName?: string; lastName?: string; phone?: string }) => Promise<AgentUser>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
+  deactivateAccount: () => Promise<void>;
 }
 
 let agentUser: AgentUser | null = null;
@@ -74,4 +77,23 @@ export const useAgentAuthStore = create<AgentAuthState>((set) => ({
   },
 
   setUser: (user) => set({ user }),
+
+  updateProfile: async (payload) => {
+    const { data } = await agentApi.patch('/agent/me', payload);
+    localStorage.setItem('agentUser', JSON.stringify(data));
+    set({ user: data });
+    return data;
+  },
+
+  changePassword: async (currentPassword, newPassword) => {
+    await agentApi.post('/agent/change-password', { currentPassword, newPassword });
+  },
+
+  deactivateAccount: async () => {
+    await agentApi.post('/agent/deactivate');
+    localStorage.removeItem('agentAccessToken');
+    localStorage.removeItem('agentRefreshToken');
+    localStorage.removeItem('agentUser');
+    set({ user: null, isAuthenticated: false });
+  },
 }));

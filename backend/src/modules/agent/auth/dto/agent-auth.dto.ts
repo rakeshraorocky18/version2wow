@@ -46,3 +46,32 @@ export class AgentRegisterDto {
   @IsString()
   employeeCode?: string;
 }
+
+export class UpdateAgentProfileDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  firstName?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  lastName?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  phone?: string;
+}
+
+export class ChangeAgentPasswordDto {
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  currentPassword!: string;
+
+  @ApiProperty()
+  @IsString()
+  @MinLength(6)
+  newPassword!: string;
+}

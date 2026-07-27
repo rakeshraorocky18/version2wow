@@ -1,3 +1,9 @@
+# Root-level convenience file — run from the project root:
+#   docker compose up --build
+#   docker compose up -d --build
+#
+# Note: uses inline service definitions (compatible with all Docker Compose v2 versions)
+
 services:
   # PostgreSQL Database
   postgres:
@@ -71,7 +77,7 @@ services:
   # Backend API
   backend:
     build:
-      context: ../backend
+      context: ./backend
       dockerfile: ../docker/Dockerfile.backend
     container_name: wow-backend
     ports:
@@ -104,6 +110,7 @@ services:
         condition: service_healthy
       neo4j:
         condition: service_healthy
+    # Rebuild better-sqlite3 from source for Alpine/musl then start NestJS in watch mode
     command: >
       sh -c "
         npm_config_build_from_source=true npm install --legacy-peer-deps --prefer-offline --no-audit --no-fund &&
@@ -117,15 +124,15 @@ services:
       retries: 30
       start_period: 180s
     volumes:
-      - ../backend/src:/app/src
-      - ../backend/data:/app/data
-      - ../backend/package.json:/app/package.json
+      - ./backend/src:/app/src
+      - ./backend/data:/app/data
+      - ./backend/package.json:/app/package.json
       - backend_uploads:/app/uploads
 
   # Frontend
   frontend:
     build:
-      context: ../frontend
+      context: ./frontend
       dockerfile: ../docker/Dockerfile.frontend
     container_name: wow-frontend
     ports:
@@ -145,16 +152,16 @@ services:
       "
     restart: unless-stopped
     volumes:
-      - ../frontend/src:/app/src
-      - ../frontend/public:/app/public
-      - ../frontend/index.html:/app/index.html
-      - ../frontend/vite.config.ts:/app/vite.config.ts
-      - ../frontend/tailwind.config.js:/app/tailwind.config.js
-      - ../frontend/postcss.config.js:/app/postcss.config.js
-      - ../frontend/package.json:/app/package.json
-      - ../frontend/package-lock.json:/app/package-lock.json
-      - ../frontend/tsconfig.json:/app/tsconfig.json
-      - ../frontend/tsconfig.node.json:/app/tsconfig.node.json
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+      - ./frontend/index.html:/app/index.html
+      - ./frontend/vite.config.ts:/app/vite.config.ts
+      - ./frontend/tailwind.config.js:/app/tailwind.config.js
+      - ./frontend/postcss.config.js:/app/postcss.config.js
+      - ./frontend/package.json:/app/package.json
+      - ./frontend/package-lock.json:/app/package-lock.json
+      - ./frontend/tsconfig.json:/app/tsconfig.json
+      - ./frontend/tsconfig.node.json:/app/tsconfig.node.json
 
 volumes:
   postgres_data:

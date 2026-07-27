@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -9,7 +9,7 @@ import { RolesGuard } from '../../../common/guards/roles.guard';
 import { Roles } from '../../../common/decorators/roles.decorator';
 import { UserRole } from '../../../common/enums';
 import { AgentAuthService } from './agent-auth.service';
-import { AgentLoginDto, AgentRegisterDto } from './dto/agent-auth.dto';
+import { AgentLoginDto, AgentRegisterDto, UpdateAgentProfileDto, ChangeAgentPasswordDto } from './dto/agent-auth.dto';
 
 @ApiTags('Agent Auth')
 @Controller('agent')
@@ -35,5 +35,32 @@ export class AgentAuthController {
   @ApiOperation({ summary: 'Get current agent profile' })
   me(@Req() req: { user: { id: string } }) {
     return this.agentAuthService.getMe(req.user.id);
+  }
+
+  @Patch('me')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.AGENT)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update current agent profile' })
+  updateProfile(@Req() req: { user: { id: string } }, @Body() dto: UpdateAgentProfileDto) {
+    return this.agentAuthService.updateProfile(req.user.id, dto);
+  }
+
+  @Post('change-password')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.AGENT)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Change agent password' })
+  changePassword(@Req() req: { user: { id: string } }, @Body() dto: ChangeAgentPasswordDto) {
+    return this.agentAuthService.changePassword(req.user.id, dto);
+  }
+
+  @Post('deactivate')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.AGENT)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Deactivate current agent account' })
+  deactivate(@Req() req: { user: { id: string } }) {
+    return this.agentAuthService.deactivate(req.user.id);
   }
 }

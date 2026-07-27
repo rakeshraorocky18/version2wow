@@ -2,12 +2,15 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-COPY package*.json ./
+# Copy package manifests first (layer cache optimisation)
+COPY package.json package-lock.json ./
 
-RUN npm install
+# Pre-install so the runtime npm install is fast (--prefer-offline)
+RUN npm install --prefer-offline --no-audit --no-fund
 
+# Copy the rest of the app (individual files are overridden by volume mounts in dev)
 COPY . .
 
 EXPOSE 5173
 
-CMD ["npm", "run", "dev", "--", "--host"]
+CMD ["npm", "run", "dev", "--", "--host", "--force"]

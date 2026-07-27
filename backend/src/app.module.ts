@@ -83,9 +83,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     FinanceModule,
     RepresentativeProfilesModule,
     VendorProfilesModule,
-    VendorAuthModule,
-    VendorDashboardModule,
-    AgentModule, 
+    AgentModule,
   ],
 })
 export class AppModule {}

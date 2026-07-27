@@ -28,6 +28,8 @@ export interface AgentUser {
   phone: string;
   employeeCode: string;
   name: string;
+  createdAt?: string;
+  lastLoginAt?: string;
 }
 
 export interface AgentCustomer {

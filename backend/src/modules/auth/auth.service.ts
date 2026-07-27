@@ -8,7 +8,7 @@ import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 import { User } from './entities/user.entity';
 import { PasswordReset } from './entities/password-reset.entity';
 import { MailService } from '../../common/mail/mail.service';
