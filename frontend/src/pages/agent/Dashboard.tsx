@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   Users,
   UserCheck,
@@ -20,6 +20,7 @@ import CustomerAvatar from '../../components/agent/CustomerAvatar';
 
 export default function AgentDashboard() {
   const { data, isLoading, isError } = useAgentDashboard();
+  const navigate = useNavigate();
 
   if (isError) return <ErrorState message="Unable to load dashboard." />;
 
@@ -29,30 +30,35 @@ export default function AgentDashboard() {
       value: data?.totalCustomers ?? 0,
       icon: Users,
       tone: 'from-wow-primary/20 to-wow-primary/5',
+      path: '/agent/customers',
     },
     {
       title: 'Active Customers',
       value: data?.activeCustomers ?? 0,
       icon: UserCheck,
       tone: 'from-green-200/60 to-green-50',
+      path: '/agent/customers?status=active',
     },
     {
       title: 'Pending Profiles',
       value: data?.pendingProfiles ?? 0,
       icon: Clock,
       tone: 'from-blue-200/50 to-blue-50',
+      path: '/agent/customers?status=pending',
     },
     {
       title: "Today's Tasks",
       value: data?.todaysTasks ?? 0,
       icon: ClipboardList,
       tone: 'from-purple-200/40 to-purple-50',
+      path: '/agent/worksheet?filter=today',
     },
     {
       title: 'Overdue Tasks',
       value: data?.overdueTasks ?? 0,
       icon: AlertTriangle,
       tone: 'from-red-200/50 to-red-50',
+      path: '/agent/worksheet?filter=overdue',
     },
   ];
 
@@ -86,7 +92,8 @@ export default function AgentDashboard() {
               return (
                 <div
                   key={stat.title}
-                  className={`card bg-gradient-to-br ${stat.tone} border-0`}
+                  onClick={() => navigate(stat.path)}
+                  className={`card bg-gradient-to-br ${stat.tone} border-0 cursor-pointer hover:shadow-lg hover:scale-[1.02] transition-all duration-200`}
                 >
                   <div className="flex items-start justify-between">
                     <div>

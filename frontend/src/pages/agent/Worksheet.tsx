@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
   Plus,
@@ -108,6 +109,9 @@ export default function AgentWorksheet() {
   const [page, setPage] = useState(1);
   const pageSize = 8;
 
+  const [searchParams] = useSearchParams();
+  const dashboardFilter = searchParams.get('filter');
+
   const { data, isLoading, isError } = useAgentWorksheet({
     status: '',
     page: 1,
@@ -144,9 +148,34 @@ export default function AgentWorksheet() {
         const hay = `${task.title} ${task.description ?? ''} ${task.customerName ?? ''}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
+      const today = new Date().toISOString().slice(0, 10);
+
+      if (dashboardFilter === 'today') {
+        if (task.dueDate !== today) return false;
+      }
+
+      if (dashboardFilter === 'overdue') {
+        if (
+          !task.dueDate ||
+          new Date(task.dueDate) >= new Date(new Date().toDateString()) ||
+          task.status === 'completed' ||
+          task.status === 'cancelled'
+        ) {
+          return false;
+        }
+      }
       return true;
     });
-  }, [tasks, tab, status, priority, customerFilter, dateFilter, search]);
+  }, [
+  tasks,
+  dashboardFilter,
+  tab,
+  status,
+  priority,
+  customerFilter,
+  dateFilter,
+  search,
+]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const pageSafe = Math.min(page, totalPages);
