@@ -28,7 +28,6 @@ import toast from 'react-hot-toast';
 import api from '../lib/api';
 import { getPhotoUrl } from '../lib/profileUtils';
 import { LocationSelects } from '../components/profile/LocationSelects';
-import { QUALIFICATION_OPTIONS } from '../lib/agent/formOptions';
 import {
   RELIGION_OPTIONS,
   getCastesForReligion,

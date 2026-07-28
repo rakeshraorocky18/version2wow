@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Outlet, Navigate, Link, useLocation } from 'react-router-dom';
+import NotificationPanel from '../components/agent/NotificationPanel';
 import {
   LayoutDashboard,
   Users,
@@ -11,6 +12,7 @@ import {
 } from 'lucide-react';
 import AgentHeader from '../components/agent/AgentHeader';
 import { useAgentAuthStore } from '../store/agent/agentAuthStore';
+import { agentService } from '../services/agent/agentService';
 
 const mobileItems = [
   { title: 'Dashboard', path: '/agent/dashboard', icon: LayoutDashboard },
@@ -22,10 +24,36 @@ const mobileItems = [
 ];
 
 export default function AgentLayout() {
+  const user = useAgentAuthStore((s) => s.user);
   const isAuthenticated = useAgentAuthStore((s) => s.isAuthenticated);
   const logout = useAgentAuthStore((s) => s.logout);
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [notificationOpen, setNotificationOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  const reloadUnreadCount = async () => {
+    if (!user?.id) {
+      setUnreadCount(0);
+      return;
+    }
+
+    try {
+      const count = await agentService.getUnreadCount(user.id);
+      setUnreadCount(count);
+    } catch (error) {
+      console.error('Unable to load unread notification count', error);
+    }
+  };
+
+  useEffect(() => {
+    void reloadUnreadCount();
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!notificationOpen) return;
+    void reloadUnreadCount();
+  }, [notificationOpen, user?.id]);
 
   // Customer context (/agent/customers/:id and nested pages) — hide agent shell
   // until the agent returns to the portal (e.g. customers list / dashboard).
@@ -55,7 +83,18 @@ export default function AgentLayout() {
         <AgentHeader
           mobileOpen={mobileOpen}
           onToggleMobileNav={() => setMobileOpen((v) => !v)}
+          notificationOpen={notificationOpen}
+          setNotificationOpen={setNotificationOpen}
+          unreadCount={unreadCount}
         />
+
+        {notificationOpen && (
+          <NotificationPanel
+            open={notificationOpen}
+            onClose={() => setNotificationOpen(false)}
+            onNotificationRead={() => void reloadUnreadCount()}
+          />
+        )}
 
         {mobileOpen && (
           <div className="md:hidden border-b border-gray-100 bg-white px-4 py-3 space-y-1">

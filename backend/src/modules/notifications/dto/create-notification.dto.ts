@@ -6,4 +6,16 @@ export class CreateNotificationDto {
   title!: string;
 
   message!: string;
+
+  customerId?: string;
+
+  customerName?: string;
+
+  profileId?: string;
+
+  profileName?: string;
+
+  notificationType?: string;
+
+  action?: string;
 }

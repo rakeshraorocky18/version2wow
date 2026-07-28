@@ -210,7 +210,7 @@ export default function Chat({
   embedded = false,
   initialUserId,
   agentMode = false,
-  agentCustomerId,
+  agentCustomerId: _agentCustomerId,
   agentContacts = [],
   agentMessages = [],
   onAgentSendMessage,

@@ -40,12 +40,29 @@ export function oppositeGender(gender?: string | null): string | null {
   return null;
 }
 
+export function isOppositeGenderProfile(selectedGender?: string | null, profileGender?: string | null): boolean {
+  const expected = oppositeGender(selectedGender);
+  if (!expected) return false;
+  const profile = (profileGender || '').toLowerCase().trim();
+  return profile === expected || profile === expected.charAt(0);
+}
+
 export function includesLoose(haystack: unknown, needle?: string): boolean {
   if (!needle?.trim()) return true;
   const h = str(haystack).toLowerCase();
   const n = needle.trim().toLowerCase();
   if (!h) return false;
   return h.includes(n) || n.includes(h);
+}
+
+export function filterProfilesByMinimumCompatibility<T extends { compatibilityScore?: number | null }>(
+  profiles: T[],
+  minimumCompatibility: number,
+): T[] {
+  return profiles.filter((profile) => {
+    const score = Number(profile.compatibilityScore ?? 0);
+    return Number.isFinite(score) && score >= minimumCompatibility;
+  });
 }
 
 export function locationField(details: JsonBag, key: string): string {

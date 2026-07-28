@@ -24,6 +24,7 @@ import { Neo4jService } from '../../../neo4j/neo4j.service';
 import { ChatServiceMongodb } from '../../chat/chat.service.mongodb';
 import { NotificationsService } from '../../notifications/notifications.service';
 import { SendMessageDto } from '../../chat/dto/chat.dto';
+
 import {
   AgentActivityAction,
   AgentCustomerStatus,
@@ -49,7 +50,9 @@ import {
 import { computeCompatibility } from './compatibility.engine';
 import {
   asRecord,
+  filterProfilesByMinimumCompatibility,
   includesLoose,
+  isOppositeGenderProfile,
   locationField,
   oppositeGender,
   parseAge,
@@ -294,6 +297,24 @@ export class AgentCustomersService {
     }
 
     return { candidates, docsByCustomer };
+  }
+
+  private async getProfileDocumentsMap(customerIds: string[]) {
+    if (!customerIds.length) return new Map<string, AgentDocumentEntity[]>();
+
+    const docs = await this.documentRepo.find({
+      where: { customerId: In(customerIds) },
+      order: { createdAt: 'ASC' },
+    });
+
+    const byCustomer = new Map<string, AgentDocumentEntity[]>();
+    for (const doc of docs) {
+      const list = byCustomer.get(doc.customerId) || [];
+      list.push(doc);
+      byCustomer.set(doc.customerId, list);
+    }
+
+    return byCustomer;
   }
 
   private async getHiddenCandidateIds(customerId: string, candidateIds: string[]) {
@@ -575,7 +596,12 @@ export class AgentCustomersService {
     );
 
     const profiles = candidates
-      .filter((candidate) => candidate.id !== customer.id && !hiddenProfileIds.has(candidate.id))
+      .filter(
+        (candidate) =>
+          candidate.id !== customer.id &&
+          !hiddenProfileIds.has(candidate.id) &&
+          isOppositeGenderProfile(customer.gender, candidate.gender),
+      )
       .map((candidate) => {
         const customerDocs = docsByCustomer.get(candidate.id) || [];
         const photo =
@@ -604,6 +630,184 @@ export class AgentCustomersService {
       data: profiles,
       total: profiles.length,
     };
+  }
+
+  private async applyCustomerFilters(
+    customer: AgentCustomerEntity,
+    candidates: AgentCustomerEntity[],
+    docsByCustomer: Map<string, AgentDocumentEntity[]>,
+    dto: MatchingSearchDto,
+  ) {
+    const minHeight = parseHeightCm(dto.minHeight);
+    const maxHeight = parseHeightCm(dto.maxHeight);
+
+    return candidates
+      .map((candidate) => {
+        if (!isOppositeGenderProfile(customer.gender, candidate.gender)) return null;
+        if (candidate.id === customer.id) return null;
+
+        const personal = asRecord(candidate.personalDetails);
+        const family = asRecord(candidate.familyDetails);
+        const education = asRecord(candidate.educationDetails);
+        const religion = asRecord(candidate.religionDetails);
+        const age = parseAge(candidate.dateOfBirth);
+        const heightCm = parseHeightCm(personal.height);
+        const customerDocs = docsByCustomer.get(candidate.id) || [];
+        const photo =
+          customerDocs.find((d) => d.type === AgentDocumentType.CUSTOMER_PHOTO)?.fileUrl ||
+          customerDocs[0]?.fileUrl ||
+          null;
+
+        if (dto.search?.trim()) {
+          const q = dto.search.toLowerCase();
+          const hay = [candidate.firstName, candidate.lastName, candidate.customerCode, candidate.phone]
+            .map((v) => str(v).toLowerCase())
+            .join(' ');
+          if (!hay.includes(q)) return null;
+        }
+
+        if (dto.religion && !includesLoose(candidate.religion, dto.religion)) return null;
+        if (dto.caste && !includesLoose(candidate.caste, dto.caste)) return null;
+        if (dto.motherTongue && !includesLoose(candidate.motherTongue, dto.motherTongue)) {
+          return null;
+        }
+        if (dto.education && !includesLoose(candidate.education, dto.education)) return null;
+        if (dto.occupation && !includesLoose(candidate.occupation, dto.occupation)) return null;
+        if (dto.minAge != null && (age == null || age < dto.minAge)) return null;
+        if (dto.maxAge != null && (age == null || age > dto.maxAge)) return null;
+        if (minHeight != null && (heightCm == null || heightCm < minHeight)) return null;
+        if (maxHeight != null && (heightCm == null || heightCm > maxHeight)) return null;
+        if (dto.subCaste && !includesLoose(personal.subCaste || religion.subCaste, dto.subCaste)) {
+          return null;
+        }
+        if (dto.maritalStatus && !includesLoose(personal.maritalStatus, dto.maritalStatus)) {
+          return null;
+        }
+        if (dto.annualIncome && !includesLoose(education.annualIncome, dto.annualIncome)) {
+          return null;
+        }
+        if (dto.country && !includesLoose(locationField(personal, 'country'), dto.country)) {
+          return null;
+        }
+        if (dto.state && !includesLoose(locationField(personal, 'state'), dto.state)) {
+          return null;
+        }
+        if (dto.city && !includesLoose(locationField(personal, 'city'), dto.city)) {
+          return null;
+        }
+        if (dto.familyType && !includesLoose(family.familyType, dto.familyType)) return null;
+        if (dto.familyStatus && !includesLoose(family.familyStatus, dto.familyStatus)) {
+          return null;
+        }
+        if (
+          dto.foodPreference &&
+          !includesLoose(personal.foodPreference || personal.diet, dto.foodPreference)
+        ) {
+          return null;
+        }
+        if (dto.smoking && !includesLoose(personal.smoking, dto.smoking)) return null;
+        if (dto.drinking && !includesLoose(personal.drinking, dto.drinking)) return null;
+        if (
+          dto.horoscope &&
+          !includesLoose(religion.rasi || personal.rasi || personal.star, dto.horoscope)
+        ) {
+          return null;
+        }
+        if (
+          dto.manglik &&
+          !includesLoose(
+            religion.kujaDosham || personal.manglik || personal.kujaDosham,
+            dto.manglik,
+          )
+        ) {
+          return null;
+        }
+        if (
+          dto.minProfileCompletion != null &&
+          (candidate.profileCompletion ?? 0) < dto.minProfileCompletion
+        ) {
+          return null;
+        }
+
+        const compatibility = computeCompatibility(candidate, customer, customerDocs.length);
+        const profile = toMatchProfile(candidate, photo, customerDocs.length, compatibility);
+
+        if (dto.verifiedOnly && !profile.isVerified) return null;
+        if (dto.premiumOnly && !profile.isPremium) return null;
+        if (dto.recentlyActive && !profile.recentlyActive) return null;
+
+        return { candidate, profile };
+      })
+      .filter((item): item is { candidate: AgentCustomerEntity; profile: ReturnType<typeof toMatchProfile> } => item != null);
+  }
+
+  async getRecentProfiles(agentId: string, customerId: string, dto: MatchingSearchDto) {
+    const customer = await this.findAssignedOrFail(agentId, customerId);
+    const page = Number(dto.page) || 1;
+    const limit = Math.min(Number(dto.limit) || 20, 50);
+
+    const qb = this.customerRepo
+      .createQueryBuilder('c')
+      .where('c.id <> :customerId', { customerId })
+      .andWhere('c.status IN (:...statuses)', {
+        statuses: [AgentCustomerStatus.ACTIVE, AgentCustomerStatus.PENDING],
+      })
+      .orderBy('c.createdAt', 'DESC');
+
+    if (customer.gender) {
+      const targetGender = oppositeGender(customer.gender);
+      if (targetGender) {
+        qb.andWhere(
+          `(LOWER(TRIM(COALESCE(c.gender, ''))) = :targetGender OR LOWER(TRIM(COALESCE(c.gender, ''))) = :shortGender)`,
+          { targetGender, shortGender: targetGender.charAt(0) },
+        );
+      }
+    }
+
+    const [rows, total] = await qb.skip((page - 1) * limit).take(limit).getManyAndCount();
+    const docsByCustomer = await this.getProfileDocumentsMap(rows.map((row) => row.id));
+
+    const filtered = await this.applyCustomerFilters(customer, rows, docsByCustomer, dto);
+    const profiles = filtered
+      .map(({ profile }) => profile)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    return paginate(profiles.slice((page - 1) * limit, page * limit), profiles.length, page, limit);
+  }
+
+  async getCustomerAiRecommendations(agentId: string, customerId: string, dto: MatchingSearchDto) {
+    const customer = await this.findAssignedOrFail(agentId, customerId);
+    const page = Number(dto.page) || 1;
+    const limit = Math.min(Number(dto.limit) || 10, 20);
+
+    const qb = this.customerRepo
+      .createQueryBuilder('c')
+      .where('c.id <> :customerId', { customerId })
+      .andWhere('c.status IN (:...statuses)', {
+        statuses: [AgentCustomerStatus.ACTIVE, AgentCustomerStatus.PENDING],
+      })
+      .orderBy('c.createdAt', 'DESC');
+
+    if (customer.gender) {
+      const targetGender = oppositeGender(customer.gender);
+      if (targetGender) {
+        qb.andWhere(
+          `(LOWER(TRIM(COALESCE(c.gender, ''))) = :targetGender OR LOWER(TRIM(COALESCE(c.gender, ''))) = :shortGender)`,
+          { targetGender, shortGender: targetGender.charAt(0) },
+        );
+      }
+    }
+
+    const [rows, total] = await qb.getManyAndCount();
+    const docsByCustomer = await this.getProfileDocumentsMap(rows.map((row) => row.id));
+    const filtered = await this.applyCustomerFilters(customer, rows, docsByCustomer, dto);
+
+    const profiles = filterProfilesByMinimumCompatibility(
+      filtered.map(({ profile }) => profile),
+      50,
+    ).sort((a, b) => b.compatibilityScore - a.compatibilityScore);
+
+    return paginate(profiles.slice((page - 1) * limit, page * limit), profiles.length, page, limit);
   }
 
   private async findCandidateOrFail(profileId: string) {
@@ -678,15 +882,26 @@ export class AgentCustomersService {
     customerId: string,
     title: string,
     body: string,
-    type: 'match' | 'message' | 'booking' | 'reminder' | 'system' = 'match',
+   type:
+  | 'match'
+  | 'message'
+  | 'booking'
+  | 'reminder'
+  | 'system'
+  | 'interest_sent'
+  | 'interest_accepted'
+  | 'interest_declined'
+  | 'interest_withdrawn' = 'match',
     data?: Record<string, unknown>,
   ) {
     await this.notificationsService.sendNotification({
       userId: customerId,
+      customerId: data?.customerId as string | undefined,
+      customerName: data?.customerName as string | undefined,
       title,
       body,
       type,
-      data: { customerId, ...(data || {}) },
+      data: { ...(data || {}) },
     });
   }
 
@@ -781,6 +996,30 @@ export class AgentCustomersService {
     relationship.lastActionAt = new Date();
     const saved = await this.customerMatchRepo.save(relationship);
 
+    const senderName = `${customer.firstName} ${customer.lastName ?? ''}`.trim();
+    const receiverName = `${profile.firstName} ${profile.lastName ?? ''}`.trim();
+    console.log("=================================");
+console.log("sendInterest() executed");
+console.log("Agent ID:", agentId);
+console.log("Customer ID:", customerId);
+console.log("Profile ID:", profileId);
+console.log("Sender:", senderName);
+console.log("Receiver:", receiverName);
+console.log("=================================");
+
+    await this.notificationsService.create({
+      userId: agentId,
+      customerId: profileId,
+      customerName: receiverName,
+      profileId: customerId,
+      profileName: senderName,
+      notificationType: 'interest_request',
+      action: 'interest_request',
+      type: 'interest_sent',
+      title: 'Interest Request',
+      message: `${senderName} sent an interest request to ${receiverName}.`,
+    });
+
     const reverse = await this.getOrCreateRelationship({
       agentId: profile.assignedAgentId,
       customerId: profileId,
@@ -810,7 +1049,9 @@ export class AgentCustomersService {
       });
     }
 
-    await this.notifyCustomer(profileId, 'Interest Request Received', `${customer.firstName} sent an interest request.`, 'match', {
+    await this.notifyCustomer(profileId, 'Interest Sent', `${senderName} sent an interest request to ${receiverName}.`, 'interest_sent', {
+      customerId,
+      customerName: senderName,
       profileId: customerId,
       matchId: saved.id,
     });
@@ -818,7 +1059,7 @@ export class AgentCustomersService {
   }
 
   async acceptInterest(agentId: string, customerId: string, profileId: string) {
-    await this.findAssignedOrFail(agentId, customerId);
+    const customer = await this.findAssignedOrFail(agentId, customerId);
     const profile = await this.findCandidateOrFail(profileId);
     const relationship = await this.getOrCreateRelationship({ agentId, customerId, profileId });
     relationship.status = AgentCustomerMatchStatus.ACCEPTED;
@@ -827,6 +1068,14 @@ export class AgentCustomersService {
     relationship.shortlisted = false;
     relationship.lastActionAt = new Date();
     const saved = await this.customerMatchRepo.save(relationship);
+        await this.notificationsService.create({
+    userId: agentId,
+    customerId: customerId,
+    customerName: `${customer.firstName} ${customer.lastName ?? ""}`,
+    type: "interest_accepted",
+    title: "Interest Accepted",
+    message: `${profile.firstName} accepted the interest request.`,
+});
 
     const reverse = await this.getOrCreateRelationship({
       agentId: profile.assignedAgentId,
@@ -860,12 +1109,21 @@ export class AgentCustomersService {
   }
 
   async declineInterest(agentId: string, customerId: string, profileId: string) {
-    await this.findAssignedOrFail(agentId, customerId);
+   const customer = await this.findAssignedOrFail(agentId, customerId);
+   const profile = await this.findCandidateOrFail(profileId);
     const relationship = await this.getOrCreateRelationship({ agentId, customerId, profileId });
     relationship.status = AgentCustomerMatchStatus.DECLINED;
     relationship.shortlisted = false;
     relationship.lastActionAt = new Date();
     const saved = await this.customerMatchRepo.save(relationship);
+      await this.notificationsService.create({
+    userId: agentId,
+    customerId: customerId,
+    customerName: `${customer.firstName} ${customer.lastName ?? ""}`,
+    type: "interest_declined",
+    title: "Interest Declined",
+    message: `${profile.firstName} declined the interest request.`,
+});
     await this.ensureSqliteMatch(profileId, customerId, MatchStatus.REJECTED, relationship.compatibilityScore);
     await this.notifyCustomer(profileId, 'Interest Declined', 'Your interest request was declined.', 'match', {
       profileId: customerId,
@@ -875,13 +1133,25 @@ export class AgentCustomersService {
   }
 
   async withdrawInterest(agentId: string, customerId: string, profileId: string) {
-    await this.findAssignedOrFail(agentId, customerId);
+    const customer = await this.findAssignedOrFail(agentId, customerId);
     const relationship = await this.getOrCreateRelationship({ agentId, customerId, profileId });
     relationship.status = AgentCustomerMatchStatus.WITHDRAWN;
     relationship.shortlisted = false;
     relationship.lastActionAt = new Date();
-    return this.customerMatchRepo.save(relationship);
-  }
+    const saved = await this.customerMatchRepo.save(relationship);
+const profile = await this.findCandidateOrFail(profileId);
+
+await this.notificationsService.create({
+    userId: agentId,
+    customerId: customerId,
+    customerName: `${customer.firstName} ${customer.lastName ?? ""}`,
+    type: "interest_withdrawn",
+    title: "Interest Withdrawn",
+    message: `${profile.firstName} withdrew the interest request.`,
+});
+return saved;
+  }  
+  
 
   async toggleFavourite(agentId: string, customerId: string, profileId: string) {
     await this.findAssignedOrFail(agentId, customerId);
@@ -1021,7 +1291,10 @@ export class AgentCustomersService {
     const page = Number(query.page) || 1;
     const limit = Math.min(Number(query.limit) || 20, 100);
     const [rows, total] = await this.notificationRepo.findAndCount({
-      where: { userId: customerId },
+      where: {
+    userId: agentId,
+    customerId: customerId,
+     },
       order: { createdAt: 'DESC' },
       skip: (page - 1) * limit,
       take: limit,

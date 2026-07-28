@@ -18,7 +18,11 @@ import WowLogo from '../brand/WowLogo';
 interface AgentHeaderProps {
   onToggleMobileNav?: () => void;
   mobileOpen?: boolean;
+  notificationOpen: boolean;
+  setNotificationOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  unreadCount: number;
 }
+
 
 const navItems = [
   { title: 'Dashboard', path: '/agent/dashboard', icon: LayoutDashboard },
@@ -29,7 +33,13 @@ const navItems = [
   { title: 'Settings', path: '/agent/settings', icon: Settings },
 ];
 
-export default function AgentHeader({ onToggleMobileNav, mobileOpen }: AgentHeaderProps) {
+export default function AgentHeader({
+  onToggleMobileNav,
+  mobileOpen,
+  notificationOpen,
+  setNotificationOpen,
+  unreadCount,
+}: AgentHeaderProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const user = useAgentAuthStore((s) => s.user);
@@ -90,11 +100,17 @@ export default function AgentHeader({ onToggleMobileNav, mobileOpen }: AgentHead
 
       <div className="flex items-center gap-3">
         <button
+          type="button"
+          onClick={() => setNotificationOpen(!notificationOpen)}
           className="relative p-2 rounded-full hover:bg-gray-50 text-gray-500"
           aria-label="Notifications"
         >
-          <Bell className="w-5 h-5" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#E91E63]" />
+          <Bell className="w-6 h-6" />
+          {unreadCount > 0 && (
+            <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#E91E63] px-1 text-[10px] font-semibold leading-none text-white">
+              {unreadCount}
+            </span>
+          )}
         </button>
 
         <div className="relative">

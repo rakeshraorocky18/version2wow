@@ -46,20 +46,32 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
       }),
     }),
     TypeOrmModule.forRootAsync({
-      name: POSTGRES_CONNECTION,
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
-        type: 'postgres',
-        host: configService.get<string>('POSTGRES_HOST', 'localhost'),
-        port: configService.get<number>('POSTGRES_PORT', 5432),
-        username: configService.get<string>('POSTGRES_USER', 'wow_user'),
-        password: configService.get<string>('POSTGRES_PASSWORD', 'wow_password'),
-        database: configService.get<string>('POSTGRES_DB', 'wow_db'),
-        autoLoadEntities: true,
-        synchronize: configService.get<string>('NODE_ENV') === 'development',
-      }),
-    }),
+  name: POSTGRES_CONNECTION,
+  imports: [ConfigModule],
+  inject: [ConfigService],
+  useFactory: (configService: ConfigService) => {
+
+    console.log('========================');
+    console.log('POSTGRES_HOST =', configService.get('POSTGRES_HOST'));
+    console.log('POSTGRES_PORT =', configService.get('POSTGRES_PORT'));
+    console.log('POSTGRES_USER =', configService.get('POSTGRES_USER'));
+    console.log('POSTGRES_PASSWORD =', configService.get('POSTGRES_PASSWORD'));
+    console.log('POSTGRES_DB =', configService.get('POSTGRES_DB'));
+    console.log('========================');
+
+    return {
+      type: 'postgres',
+      host: configService.get<string>('POSTGRES_HOST', 'localhost'),
+      port: configService.get<number>('POSTGRES_PORT', 5432),
+      username: configService.get<string>('POSTGRES_USER', 'wow_user'),
+      password: configService.get<string>('POSTGRES_PASSWORD', 'wow_password'),
+      database: configService.get<string>('POSTGRES_DB', 'wow_db'),
+      autoLoadEntities: true,
+      synchronize: configService.get<string>('NODE_ENV') === 'development',
+    };
+  },
+}),
+    
     MongooseModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

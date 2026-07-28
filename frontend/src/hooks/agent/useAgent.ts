@@ -202,11 +202,18 @@ export function useAgentCustomerMatching(
   });
 }
 
-export function useAgentRecommendations(customerId: string, enabled = true) {
+export function useAgentRecommendations(
+  customerId: string,
+  payloadOrEnabled?: AgentMatchSearchPayload | boolean,
+  enabled = true,
+) {
+  const payload = typeof payloadOrEnabled === 'boolean' ? undefined : payloadOrEnabled;
+  const isEnabled = typeof payloadOrEnabled === 'boolean' ? payloadOrEnabled : enabled;
+
   return useQuery({
     queryKey: agentKeys.recommendations(customerId),
-    queryFn: () => agentService.getCustomerRecommendations(customerId),
-    enabled: !!customerId && enabled,
+    queryFn: () => agentService.getCustomerRecommendations(customerId, payload),
+    enabled: !!customerId && isEnabled,
   });
 }
 
@@ -238,6 +245,19 @@ export function useAgentCustomerWorkspaceMatches(
   return useQuery({
     queryKey: agentKeys.customerWorkspaceMatches(customerId, payload),
     queryFn: () => agentService.getCustomerMatches(customerId, payload),
+    enabled: !!customerId && enabled,
+    placeholderData: (prev) => prev,
+  });
+}
+
+export function useAgentCustomerRecentProfiles(
+  customerId: string,
+  payload: AgentMatchSearchPayload,
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: ['agent', 'recentProfiles', customerId, payload],
+    queryFn: () => agentService.getCustomerRecentProfiles(customerId, payload),
     enabled: !!customerId && enabled,
     placeholderData: (prev) => prev,
   });

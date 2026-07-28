@@ -6,6 +6,7 @@ import Chat from "../../components/agent/Chat";
 import History from "../../components/agent/History";
 import NotificationPanel from "../../components/agent/NotificationPanel";
 import SecondaryNavBar from "../../components/agent/SecondaryNavBar";
+import { agentService } from "../../services/agent/agentService";
 
 
 function SingleClientPage(){
@@ -15,30 +16,16 @@ const [activeTab,setActiveTab]=useState("matches");
 
 
 const [notificationOpen,setNotificationOpen]=useState(false);
-const [notifications,setNotifications]=useState([]);
 
-const [notificationCount,setNotificationCount]=useState(0);
+const loadNotifications = async () => {
+  const userId = "1"; // temporary
+  await agentService.getNotifications(userId);
+  await agentService.getUnreadCount(userId);
+};
 
- const loadNotifications = async () => {
-
-        const userId = 1; // temporary
-
-        const notificationResponse =
-            await getNotifications(userId);
-
-        setNotifications(notificationResponse.data);
-
-        const unreadResponse =
-            await getUnreadNotificationCount(userId);
-
-        setNotificationCount(unreadResponse.data);
-
-    };
-     useEffect(() => {
-
-        loadNotifications();
-
-    }, []);
+useEffect(() => {
+  void loadNotifications();
+}, []);
 
 
 
@@ -89,9 +76,8 @@ activeTab==="history" &&
 notificationOpen &&
 
 <NotificationPanel
-
-close={()=>setNotificationOpen(false)}
-
+  open={notificationOpen}
+  onClose={()=>setNotificationOpen(false)}
 />
 
 }

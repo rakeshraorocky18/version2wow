@@ -11,16 +11,12 @@ import {
   Eye,
   Heart,
   History,
-  Image as ImageIcon,
-  Loader2,
   MessageCircle,
-  Paperclip,
   Search,
   Send,
   Sparkles,
   Star,
   StickyNote,
-  Trash2,
   UserRound,
   X,
 } from 'lucide-react';
@@ -31,8 +27,8 @@ import {
   useAgentCustomerChat,
   useAgentCustomerHistory,
   useAgentCustomerNotifications,
+  useAgentCustomerRecentProfiles,
   useAgentCustomerWorkspace,
-  useAgentCustomerWorkspaceMatches,
   useAgentRecommendations,
   useSendAgentCustomerChatMessage,
 } from '../../hooks/agent/useAgent';
@@ -130,89 +126,6 @@ function ProfileAvatar({ name, src, size = 'h-14 w-14' }: { name: string; src?: 
   );
 }
 
-function MessageBubble({
-  message,
-  isMine,
-  onDeleteForMe,
-  onDeleteForEveryone,
-  deleting,
-}: {
-  message: { id?: string; _id?: string; senderId: string; content: string; type?: string; mediaUrl?: string; createdAt?: string };
-  isMine: boolean;
-  onDeleteForMe: () => void;
-  onDeleteForEveryone?: () => void;
-  deleting: boolean;
-}) {
-  const mediaSrc = message.mediaUrl ? getPhotoUrl(message.mediaUrl) : '';
-  const isCallLog = message.type === 'audio_call' || message.type === 'video_call';
-  const messageTime = message.createdAt
-    ? new Date(message.createdAt).toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit',
-      })
-    : '';
-
-  return (
-    <div className={`group flex ${isMine ? 'justify-end' : 'justify-start'}`}>
-      <div
-        className={`relative max-w-[75%] rounded-2xl px-4 py-3 text-sm ${
-          isCallLog
-            ? 'border border-gray-200 bg-gray-50 text-gray-700'
-            : isMine
-            ? 'bg-wow-primary text-white'
-            : 'bg-white text-wow-text'
-        }`}
-      >
-        <div className={`absolute -top-2 ${isMine ? '-left-2' : '-right-2'} flex gap-1 opacity-0 transition group-hover:opacity-100`}>
-          <button
-            type="button"
-            onClick={onDeleteForMe}
-            disabled={deleting}
-            className="rounded-full border border-gray-200 bg-white p-1 text-gray-500 shadow-sm hover:text-red-600 disabled:opacity-60"
-            title="Delete for me"
-          >
-            <Trash2 size={12} />
-          </button>
-          {isMine && onDeleteForEveryone && (
-            <button
-              type="button"
-              onClick={onDeleteForEveryone}
-              disabled={deleting}
-              className="rounded-full border border-gray-200 bg-white p-1 text-gray-500 shadow-sm hover:text-red-700 disabled:opacity-60"
-              title="Delete for everyone"
-            >
-              <Ban size={12} />
-            </button>
-          )}
-        </div>
-        {message.type === 'image' && mediaSrc ? (
-          <a href={mediaSrc} target="_blank" rel="noopener noreferrer">
-            <img src={mediaSrc} alt="Shared" className="max-h-48 rounded-md object-cover" />
-          </a>
-        ) : message.type === 'video' && mediaSrc ? (
-          <video src={mediaSrc} controls className="max-h-48 rounded-md" />
-        ) : message.type === 'file' && mediaSrc ? (
-          <a
-            href={mediaSrc}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={`underline ${isMine ? 'text-white' : 'text-wow-primary'}`}
-          >
-            📎 {message.content || 'Download file'}
-          </a>
-        ) : (
-          message.content
-        )}
-        {messageTime && (
-          <p className={`mt-2 text-[10px] ${isCallLog ? 'text-gray-500' : isMine ? 'text-white/80' : 'text-gray-500'}`}>
-            {messageTime}
-          </p>
-        )}
-      </div>
-    </div>
-  );
-}
-
 function MatchCard({
   profile,
   customerId,
@@ -231,7 +144,18 @@ function MatchCard({
   const received = profile.relationshipStatus === 'pending_received';
 
   return (
-    <article className="overflow-hidden rounded-[22px] border border-gray-100 bg-white shadow-[0_8px_28px_rgba(44,38,48,0.06)]">
+<article
+  role="button"
+  tabIndex={0}
+  onClick={() => navigate(`/agent/customers/${customerId}/profile/${profile.id}`)}
+  onKeyDown={(e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      navigate(`/agent/customers/${customerId}/profile/${profile.id}`);
+    }
+  }}
+  className="overflow-hidden rounded-[22px] border border-gray-100 bg-white shadow-[0_8px_28px_rgba(44,38,48,0.06)] cursor-pointer"
+>
       <div className="grid gap-0 lg:grid-cols-[220px_1fr]">
         <div className="relative min-h-[220px] bg-gradient-to-br from-[#FFF0F4] to-[#F7EBEF]">
           {profile.profilePhoto ? (
@@ -292,7 +216,7 @@ function MatchCard({
               </div>
             )}
           </div>
-
+           
           <div className="border-t border-gray-100 bg-[#FFFBFC] p-4">
             <div className="flex flex-wrap items-center gap-2">
               <button
@@ -446,14 +370,13 @@ export default function CustomerDetailsWorkspace() {
       }),
     [appliedFilters, search, sortBy, page],
   );
-  const matches = useAgentCustomerWorkspaceMatches(customerId, matchesPayload, activeTab === 'matches');
+  const matches = useAgentCustomerRecentProfiles(customerId, matchesPayload, activeTab === 'matches');
   const history = useAgentCustomerHistory(customerId, activeTab === 'history');
   const notifications = useAgentCustomerNotifications(customerId, { page: 1, limit: 50 }, true);
-  const recommendations = useAgentRecommendations(customerId, activeTab === 'matches');
+  const recommendations = useAgentRecommendations(customerId, matchesPayload, activeTab === 'matches');
   const chat = useAgentCustomerChat(customerId, { profileId: activeChatProfileId, page: 1, limit: 50 }, activeTab === 'chat');
   const action = useAgentCustomerAction(customerId);
   const sendMessage = useSendAgentCustomerChatMessage(customerId);
-  const selectedReceiverId = activeChatProfileId || chat.data?.activeProfileId;
 
   useEffect(() => {
     if (activeTab !== 'chat') return;
@@ -678,11 +601,11 @@ export default function CustomerDetailsWorkspace() {
             userId: c.userId,
             name: c.name,
             subtitle: c.subtitle,
-            photo: c.photo ? getPhotoUrl(c.photo) : undefined,
-            lastMessageAt: c.lastMessageAt,
-            isBlocked: c.isBlocked,
-            muted: c.muted,
-            onlineStatus: c.onlineStatus,
+            photo: undefined,
+            lastMessageAt: undefined,
+            isBlocked: false,
+            muted: false,
+            onlineStatus: false,
             unreadCount: c.unreadCount,
           }))}
           agentMessages={chat.data?.messages?.messages || []}
