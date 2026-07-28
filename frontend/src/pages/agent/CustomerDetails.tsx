@@ -47,7 +47,7 @@ const PROFILE_TABS = [
   { id: 'personal', label: 'Personal Details' },
   { id: 'family', label: 'Family Details' },
   { id: 'education', label: 'Education' },
-  { id: 'religion', label: 'Horoscope' },
+  { id: 'religion', label: 'Religion' },
   { id: 'partner', label: 'Partner Preferences' },
 ] as const;
 

@@ -17,7 +17,7 @@ interface AgentAuthState {
   }) => Promise<void>;
   logout: () => void;
   setUser: (user: AgentUser) => void;
-  updateProfile: (payload: { firstName?: string; lastName?: string; phone?: string }) => Promise<AgentUser>;
+  updateProfile: (payload: { firstName?: string; lastName?: string; phone?: string; profileImageUrl?: string | null }) => Promise<AgentUser>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   deactivateAccount: () => Promise<void>;
 }
@@ -76,7 +76,10 @@ export const useAgentAuthStore = create<AgentAuthState>((set) => ({
     set({ user: null, isAuthenticated: false });
   },
 
-  setUser: (user) => set({ user }),
+  setUser: (user) => {
+    localStorage.setItem('agentUser', JSON.stringify(user));
+    set({ user });
+  },
 
   updateProfile: async (payload) => {
     const { data } = await agentApi.patch('/agent/me', payload);

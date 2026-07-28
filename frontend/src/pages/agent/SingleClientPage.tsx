@@ -12,6 +12,8 @@ import { agentService } from "../../services/agent/agentService";
 function SingleClientPage(){
 
 const [activeTab,setActiveTab]=useState("matches");
+
+
 const [notificationOpen,setNotificationOpen]=useState(false);
 
 const loadNotifications = async () => {

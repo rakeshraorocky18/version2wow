@@ -28,6 +28,9 @@ export class AgentProfileEntity {
   @Column({ nullable: true })
   employeeCode: string;
 
+  @Column({ nullable: true })
+  profileImageUrl: string;
+
   @Column({ default: true })
   isActive: boolean;
 

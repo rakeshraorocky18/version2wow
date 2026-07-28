@@ -1,5 +1,5 @@
-import { useMemo, useState, useEffect } from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useMemo, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
   ArrowLeft,
@@ -10,8 +10,8 @@ import {
   Clock3,
   Eye,
   Heart,
-  Share2,
   History,
+  Loader2,
   MessageCircle,
   Search,
   Send,
@@ -21,7 +21,6 @@ import {
   UserRound,
   X,
 } from 'lucide-react';
-import { getPhotoUrl } from '../../lib/profileUtils';
 import type { ReactNode } from 'react';
 import {
   useAgentCustomerAction,
@@ -49,7 +48,6 @@ import {
 import { ErrorState, TableSkeleton } from '../../components/agent/AgentUI';
 import PartnerPreferenceSidebar from '../../components/agent/matching/PartnerPreferenceSidebar';
 import SuggestionSlidePanel from '../../components/agent/matching/SuggestionSlidePanel';
-import Chat from '../../components/agent/Chat';
 
 type WorkspaceTab = 'matches' | 'chat' | 'history';
 type HistoryCategory = 'friends' | 'requestsReceived' | 'requestsSent' | 'shortlisted' | 'blocked' | 'declined';
@@ -144,26 +142,6 @@ function MatchCard({
   const pending = profile.relationshipStatus === 'pending_sent';
   const received = profile.relationshipStatus === 'pending_received';
 
-  const handleShare = async () => {
-    const shareUrl = `${window.location.origin}/public/profile/${profile.id}`;
-
-    try {
-      if (navigator.share) {
-        await navigator.share({
-          title: `${name} - WOW Profile`,
-          text: 'View this matrimonial profile',
-          url: shareUrl,
-        });
-      } else {
-        await navigator.clipboard.writeText(shareUrl);
-        toast.success('Profile link copied to clipboard');
-      }
-    } catch (err) {
-      console.error(err);
-      toast.error('Unable to share profile');
-    }
-  };
-
   return (
 <article
   role="button"
@@ -180,7 +158,7 @@ function MatchCard({
       <div className="grid gap-0 lg:grid-cols-[220px_1fr]">
         <div className="relative min-h-[220px] bg-gradient-to-br from-[#FFF0F4] to-[#F7EBEF]">
           {profile.profilePhoto ? (
-            <img src={getPhotoUrl(profile.profilePhoto || '')} alt={name} className="h-full w-full object-cover" />
+            <img src={profile.profilePhoto} alt={name} className="h-full w-full object-cover" />
           ) : (
             <div className="flex h-full min-h-[220px] items-center justify-center">
               <ProfileAvatar name={name} size="h-24 w-24 text-2xl" />
@@ -291,14 +269,6 @@ function MatchCard({
               <button type="button" disabled={busy} onClick={() => onAction('block', profile.id)} className="rounded-xl border border-red-100 bg-white px-3 py-2 text-sm text-red-600">
                 <Ban className="mr-1 inline h-4 w-4" /> Block
               </button>
-              <button
-                type="button"
-                onClick={handleShare}
-                className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm hover:text-wow-primary"
-              >
-                <Share2 className="mr-1 inline h-4 w-4" />
-                Share
-              </button>
             </div>
           </div>
         </div>
@@ -364,7 +334,6 @@ function notificationTarget(notification: AgentCustomerNotification, customerId:
 export default function CustomerDetailsWorkspace() {
   const { customerId = '' } = useParams();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<WorkspaceTab>('matches');
   const [historyCategory, setHistoryCategory] = useState<HistoryCategory>('friends');
   const [draftFilters, setDraftFilters] = useState<AgentMatchFilters>(EMPTY_MATCH_FILTERS);
@@ -373,20 +342,9 @@ export default function CustomerDetailsWorkspace() {
   const [sortBy, setSortBy] = useState<MatchSortBy>('compatibility');
   const [page, setPage] = useState(1);
   const [activeChatProfileId, setActiveChatProfileId] = useState<string | undefined>();
+  const [message, setMessage] = useState('');
   const [recommendationsOpen, setRecommendationsOpen] = useState(true);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-
-  // Initialize active tab and chat target from URL search params (e.g. ?section=chat&profileId=...)
-  useEffect(() => {
-    const section = searchParams.get('section') as WorkspaceTab | null;
-    const profileId = searchParams.get('profileId') || undefined;
-    if (section) {
-      setActiveTab(section);
-    }
-    if (profileId) {
-      setActiveChatProfileId(profileId);
-    }
-  }, [searchParams]);
 
   const workspace = useAgentCustomerWorkspace(customerId);
   const matchesPayload = useMemo<AgentMatchSearchPayload>(
@@ -406,13 +364,6 @@ export default function CustomerDetailsWorkspace() {
   const chat = useAgentCustomerChat(customerId, { profileId: activeChatProfileId, page: 1, limit: 50 }, activeTab === 'chat');
   const action = useAgentCustomerAction(customerId);
   const sendMessage = useSendAgentCustomerChatMessage(customerId);
-
-  useEffect(() => {
-    if (activeTab !== 'chat') return;
-    if (!activeChatProfileId && chat.data?.activeProfileId) {
-      setActiveChatProfileId(chat.data.activeProfileId);
-    }
-  }, [activeTab, activeChatProfileId, chat.data?.activeProfileId]);
 
   const customer = workspace.data?.customer;
   const customerName = customer ? fullName(customer.firstName, customer.lastName) : '';
@@ -622,36 +573,99 @@ export default function CustomerDetailsWorkspace() {
       )}
 
       {activeTab === 'chat' && (
-        <Chat
-          embedded
-          agentMode
-          agentCustomerId={customerId}
-          initialUserId={activeChatProfileId}
-          onSelectContact={(userId) => setActiveChatProfileId(userId)}
-          agentContacts={(chat.data?.contacts || []).map((c) => ({
-            userId: c.userId,
-            name: c.name,
-            subtitle: c.subtitle,
-            photo: c.photo ? getPhotoUrl(c.photo) : undefined,
-            lastMessageAt: c.lastMessageAt ?? undefined,
-            isBlocked: c.isBlocked ?? undefined,
-            muted: c.muted ?? undefined,
-            onlineStatus: c.onlineStatus,
-            unreadCount: c.unreadCount,
-          }))}
-          agentMessages={chat.data?.messages?.messages || []}
-          onAgentSendMessage={(payload) => {
-            sendMessage.mutate(payload, {
-              onSuccess: () => {
-                toast.success('Message sent');
-                chat.refetch();
-                notifications.refetch();
-              },
-              onError: (err: unknown) => toast.error(getErrorMessage(err, 'Unable to send message')),
-            });
-          }}
-          agentLoading={chat.isLoading}
-        />
+        <section className="card overflow-hidden !p-0">
+          <div className="grid min-h-[34rem] lg:grid-cols-[320px_1fr]">
+            <aside className="border-b border-gray-100 lg:border-b-0 lg:border-r">
+              <div className="p-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-wow-muted" />
+                  <input className="input-field !pl-10" placeholder="Search accepted matches..." />
+                </div>
+              </div>
+              <div className="max-h-[30rem] overflow-y-auto">
+                {chat.isLoading ? (
+                  <p className="p-6 text-sm text-wow-muted">Loading chats...</p>
+                ) : !chat.data?.contacts.length ? (
+                  <p className="p-6 text-sm text-wow-muted">Only accepted matches can chat.</p>
+                ) : (
+                  chat.data.contacts.map((contact) => (
+                    <button
+                      key={contact.userId}
+                      type="button"
+                      onClick={() => setActiveChatProfileId(contact.userId)}
+                      className={`flex w-full items-center gap-3 border-b border-gray-50 p-4 text-left hover:bg-[#FFF8FB] ${
+                        (activeChatProfileId || chat.data?.activeProfileId) === contact.userId ? 'bg-[#FFF0F4]' : ''
+                      }`}
+                    >
+                      <ProfileAvatar name={contact.name} />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="truncate text-sm font-semibold text-wow-text">{contact.name}</p>
+                          <span className={`h-2 w-2 rounded-full ${contact.onlineStatus ? 'bg-emerald-400' : 'bg-gray-300'}`} />
+                        </div>
+                        <p className="truncate text-xs text-wow-muted">{contact.subtitle}</p>
+                      </div>
+                      {contact.unreadCount > 0 && <span className="rounded-full bg-wow-primary px-2 py-0.5 text-xs text-white">{contact.unreadCount}</span>}
+                    </button>
+                  ))
+                )}
+              </div>
+            </aside>
+
+            <div className="flex min-h-0 flex-col">
+              <div className="border-b border-gray-100 p-4">
+                <h3 className="font-semibold text-wow-text">Conversation</h3>
+                <p className="text-xs text-wow-muted">Read receipts, attachments, emoji, and typing indicators use the existing chat channel.</p>
+              </div>
+              <div className="flex-1 space-y-3 overflow-y-auto bg-[#FAF8FB] p-4">
+                {(chat.data?.messages.messages || []).length === 0 ? (
+                  <div className="flex min-h-[20rem] items-center justify-center text-center text-sm text-wow-muted">
+                    Select an accepted match to start chatting.
+                  </div>
+                ) : (
+                  [...(chat.data?.messages.messages || [])].reverse().map((msg) => (
+                    <div key={msg.id || msg._id} className={`flex ${msg.senderId === customerId ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-[75%] rounded-2xl px-4 py-2 text-sm ${msg.senderId === customerId ? 'bg-wow-primary text-white' : 'bg-white text-wow-text'}`}>
+                        <p>{msg.content}</p>
+                        <p className={`mt-1 text-[10px] ${msg.senderId === customerId ? 'text-white/70' : 'text-wow-muted'}`}>
+                          {formatTime(msg.createdAt)} {msg.isRead ? ' · Read' : ''}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+              <div className="border-t border-gray-100 p-4">
+                <div className="flex gap-2">
+                  <button className="rounded-xl border border-gray-200 px-3 text-wow-muted">😊</button>
+                  <button className="rounded-xl border border-gray-200 px-3 text-wow-muted">Attach</button>
+                  <input value={message} onChange={(e) => setMessage(e.target.value)} className="input-field flex-1" placeholder="Type a message..." />
+                  <button
+                    disabled={!message.trim() || sendMessage.isPending || !(activeChatProfileId || chat.data?.activeProfileId)}
+                    onClick={() => {
+                      const receiverId = activeChatProfileId || chat.data?.activeProfileId;
+                      if (!receiverId) return;
+                      sendMessage.mutate(
+                        { receiverId, content: message },
+                        {
+                          onSuccess: () => {
+                            setMessage('');
+                            toast.success('Message sent');
+                          },
+                          onError: (err: unknown) =>
+                            toast.error(getErrorMessage(err, 'Unable to send message')),
+                        },
+                      );
+                    }}
+                    className="btn-primary !px-4 disabled:opacity-60"
+                  >
+                    {sendMessage.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
       )}
 
       {activeTab === 'history' && (
@@ -694,12 +708,7 @@ export default function CustomerDetailsWorkspace() {
                     if (historyCategory === 'friends') {
                       return (
                         <>
-                          <button
-                            onClick={() => navigate(`/agent/customers/${customerId}/profile/${item.profile.id}?hideNav=true&returnTo=/agent/customers/${customerId}`)}
-                            className="btn-secondary !px-3 !py-2 text-sm"
-                          >
-                            View Profile
-                          </button>
+                          <button onClick={() => navigate(`/agent/customers/${customerId}/profile/${item.profile.id}`)} className="btn-secondary !px-3 !py-2 text-sm">View Profile</button>
                           <button onClick={() => { setActiveChatProfileId(item.profile.id); setActiveTab('chat'); }} className="btn-primary !px-3 !py-2 text-sm">Open Chat</button>
                         </>
                       );
@@ -709,12 +718,7 @@ export default function CustomerDetailsWorkspace() {
                         <>
                           <button onClick={() => runAction('accept-interest', item.profile.id)} className="btn-primary !px-3 !py-2 text-sm"><CheckCircle2 className="mr-1 inline h-4 w-4" />Accept</button>
                           <button onClick={() => runAction('decline-interest', item.profile.id)} className="btn-secondary !px-3 !py-2 text-sm">Decline</button>
-                          <button
-                            onClick={() => navigate(`/agent/customers/${customerId}/profile/${item.profile.id}?hideNav=true&returnTo=/agent/customers/${customerId}`)}
-                            className="btn-secondary !px-3 !py-2 text-sm"
-                          >
-                            View Profile
-                          </button>
+                          <button onClick={() => navigate(`/agent/customers/${customerId}/profile/${item.profile.id}`)} className="btn-secondary !px-3 !py-2 text-sm">View Profile</button>
                         </>
                       );
                     }
@@ -723,12 +727,7 @@ export default function CustomerDetailsWorkspace() {
                         <>
                           <span className="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-700"><Clock3 className="mr-1 inline h-4 w-4" />Pending</span>
                           <button onClick={() => runAction('withdraw-interest', item.profile.id)} className="btn-secondary !px-3 !py-2 text-sm">Withdraw</button>
-                          <button
-                            onClick={() => navigate(`/agent/customers/${customerId}/profile/${item.profile.id}?hideNav=true&returnTo=/agent/customers/${customerId}`)}
-                            className="btn-secondary !px-3 !py-2 text-sm"
-                          >
-                            View Profile
-                          </button>
+                          <button onClick={() => navigate(`/agent/customers/${customerId}/profile/${item.profile.id}`)} className="btn-secondary !px-3 !py-2 text-sm">View Profile</button>
                         </>
                       );
                     }
@@ -743,23 +742,13 @@ export default function CustomerDetailsWorkspace() {
                     if (historyCategory === 'blocked') {
                       return (
                         <>
-                          <button
-                            onClick={() => navigate(`/agent/customers/${customerId}/profile/${item.profile.id}?hideNav=true&returnTo=/agent/customers/${customerId}`)}
-                            className="btn-secondary !px-3 !py-2 text-sm"
-                          >
-                            View Profile
-                          </button>
+                          <button onClick={() => navigate(`/agent/customers/${customerId}/profile/${item.profile.id}`)} className="btn-secondary !px-3 !py-2 text-sm">View Profile</button>
                           <button onClick={() => runAction('unblock', item.profile.id)} className="btn-primary !px-3 !py-2 text-sm">Unblock</button>
                         </>
                       );
                     }
                     return (
-                      <button
-                        onClick={() => navigate(`/agent/customers/${customerId}/profile/${item.profile.id}?hideNav=true&returnTo=/agent/customers/${customerId}`)}
-                        className="btn-secondary !px-3 !py-2 text-sm"
-                      >
-                        View Profile
-                      </button>
+                      <button onClick={() => navigate(`/agent/customers/${customerId}/profile/${item.profile.id}`)} className="btn-secondary !px-3 !py-2 text-sm">View Profile</button>
                     );
                   }}
                 />

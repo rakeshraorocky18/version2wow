@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import {
@@ -19,10 +19,8 @@ import {
   Sparkles,
   Star,
   UserRound,
-  X,
 } from 'lucide-react';
 import { useAgentCustomerAction, useAgentMatchProfile } from '../../hooks/agent/useAgent';
-import { getPhotoUrl } from '../../lib/profileUtils';
 import { displayValue } from '../../lib/agent/addCustomerUtils';
 import CompatibilityBadge from '../../components/agent/matching/CompatibilityBadge';
 import {
@@ -46,7 +44,7 @@ const TABS = [
 
 type TabId = (typeof TABS)[number]['id'];
 type SectionId = 'matches' | 'chat' | 'history' | 'favourites' | 'notifications';
-type MatchStatus = 'matched' | 'pending_sent' | 'pending_received' | 'accepted' | 'declined';
+type MatchStatus = 'matched' | 'pending_sent' | 'pending_received' | 'accepted';
 
 type ChatMessage = {
   id: string;
@@ -153,17 +151,13 @@ function StatusPill({ status }: { status: MatchStatus }) {
         ? 'Request Received'
         : status === 'pending_sent'
           ? 'Pending'
-          : status === 'declined'
-            ? 'Declined'
-            : 'Matched';
+          : 'Matched';
   const tone =
     status === 'accepted'
       ? 'bg-emerald-50 text-emerald-700'
-      : status === 'declined'
-        ? 'bg-red-50 text-red-700'
-        : status === 'matched'
-          ? 'bg-pink-50 text-wow-primary'
-          : 'bg-amber-50 text-amber-700';
+      : status === 'matched'
+        ? 'bg-pink-50 text-wow-primary'
+        : 'bg-amber-50 text-amber-700';
 
   return <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${tone}`}>{label}</span>;
 }
@@ -171,9 +165,6 @@ function StatusPill({ status }: { status: MatchStatus }) {
 export default function MatchFullProfile() {
   const { customerId = '', matchedProfileId = '' } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
-  const hideNav = searchParams.get('hideNav') === 'true';
-  const returnTo = searchParams.get('returnTo') || `/agent/customers/${customerId}`;
-  const navigate = useNavigate();
   const [tab, setTab] = useState<TabId>('overview');
   const [messageInput, setMessageInput] = useState('');
   const [activity, setActivity] = useState<ProfileActivity>(() =>
@@ -289,14 +280,8 @@ export default function MatchFullProfile() {
   }, [profile, name]);
 
   useEffect(() => {
-    if (activeSection === 'chat') {
-      setActivity((prev) => ({ ...prev, chatReadAt: new Date().toISOString() }));
-    } else if (activeSection === 'notifications') {
-      setActivity((prev) => ({
-        ...prev,
-        notifications: prev.notifications.map((n) => ({ ...n, read: true })),
-      }));
-    }
+    if (activeSection !== 'chat') return;
+    setActivity((prev) => ({ ...prev, chatReadAt: new Date().toISOString() }));
   }, [activeSection]);
 
   const setSection = (nextSection: SectionId) => {
@@ -399,19 +384,6 @@ export default function MatchFullProfile() {
     );
   };
 
-  const handleDecline = () => {
-    profileAction.mutate(
-      { action: 'decline-interest', profileId: matchedProfileId },
-      {
-        onSuccess: () => {
-          updateStatus('declined');
-          toast.success(`Request from ${name} declined`);
-        },
-        onError: () => toast.error('Could not decline request'),
-      },
-    );
-  };
-
   const sendChatMessage = () => {
     if (!isAccepted) {
       toast.error('Chat is available after the match is accepted.');
@@ -460,12 +432,6 @@ export default function MatchFullProfile() {
   const isPending =
     activity.status === 'pending_sent' ||
     profile?.relationshipStatus === 'pending_sent';
-  const isReceived =
-    activity.status === 'pending_received' ||
-    profile?.relationshipStatus === 'pending_received';
-  const isDeclined =
-    activity.status === 'declined' ||
-    profile?.relationshipStatus === 'declined';
 
   const historyStats = [
     { label: 'Matched', value: 1, icon: Heart },
@@ -505,15 +471,14 @@ export default function MatchFullProfile() {
       <div className="sticky top-3 z-20 rounded-2xl border border-pink-100 bg-white/95 px-3 py-2 shadow-[0_8px_28px_rgba(182,106,138,0.12)] backdrop-blur">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <Link
-            to={returnTo}
+            to="/agent/customers"
             className="inline-flex items-center gap-1.5 rounded-xl px-2.5 py-2 text-sm font-medium text-wow-primary transition hover:bg-[#FFF5F7]"
           >
             <ArrowLeft className="h-4 w-4" /> Back to Customers
           </Link>
 
-          {!hideNav && (
-            <nav className="flex flex-wrap items-center gap-1.5" aria-label="Profile workspace">
-              {NAV_ITEMS.map((item) => {
+          <nav className="flex flex-wrap items-center gap-1.5" aria-label="Profile workspace">
+            {NAV_ITEMS.map((item) => {
               const Icon = item.icon;
               const active = activeSection === item.id;
               const badge =
@@ -522,28 +487,22 @@ export default function MatchFullProfile() {
                   : item.id === 'notifications'
                     ? unreadNotifications
                     : 0;
-              const params = new URLSearchParams(searchParams);
-              if (item.id === 'matches') params.delete('section');
-              else params.set('section', item.id);
-              const query = params.toString();
-              const to = `/agent/customers/${customerId}/profile/${matchedProfileId}${query ? `?${query}` : ''}`;
 
               return (
-                <Link
+                <button
                   key={item.id}
-                  to={to}
+                  type="button"
+                  onClick={() => {
+                    if (item.id === 'favourites' && !activity.favourite) {
+                      handleFavourite();
+                    }
+                    setSection(item.id);
+                  }}
                   className={`relative inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium transition ${
                     active
                       ? 'bg-[#FFF0F4] text-wow-primary shadow-sm'
                       : 'text-wow-muted hover:bg-[#FFF5F7] hover:text-wow-primary'
                   }`}
-                  onClick={(event) => {
-                    if (item.id === 'favourites' && !activity.favourite) {
-                      event.preventDefault();
-                      handleFavourite();
-                      setSection(item.id);
-                    }
-                  }}
                 >
                   <Icon className="h-4 w-4" />
                   {item.label}
@@ -552,11 +511,10 @@ export default function MatchFullProfile() {
                       {badge}
                     </span>
                   )}
-                </Link>
+                </button>
               );
             })}
-            </nav>
-          )}
+          </nav>
         </div>
       </div>
 
@@ -569,7 +527,7 @@ export default function MatchFullProfile() {
           <div className="relative min-h-[280px] bg-gradient-to-br from-[#FFF0F4] to-[#F7EBEF]">
             {profile.profilePhoto ? (
               <img
-                src={getPhotoUrl(profile.profilePhoto || '')}
+                src={profile.profilePhoto}
                 alt={name}
                 className="h-full w-full object-cover"
               />
@@ -649,34 +607,11 @@ export default function MatchFullProfile() {
               {isAccepted ? (
                 <button
                   type="button"
-                  onClick={() => navigate(`/agent/customers/${customerId}?section=chat&profileId=${matchedProfileId}`)}
+                  onClick={() => setSection('chat')}
                   className="btn-primary inline-flex items-center gap-2 !rounded-2xl !px-5 !py-2.5 text-sm shadow-lg shadow-wow-primary/25"
                 >
                   <MessageCircle className="h-4 w-4" /> Chat
                 </button>
-              ) : isReceived ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={handleAccept}
-                    disabled={profileAction.isPending}
-                    className="btn-primary inline-flex items-center gap-2 !rounded-2xl !px-5 !py-2.5 text-sm shadow-lg shadow-wow-primary/25 disabled:opacity-60"
-                  >
-                    <CheckCircle2 className="h-4 w-4" /> Accept
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleDecline}
-                    disabled={profileAction.isPending}
-                    className="inline-flex items-center gap-2 rounded-2xl border border-red-200 bg-white px-5 py-2.5 text-sm font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-60"
-                  >
-                    <X className="h-4 w-4" /> Decline
-                  </button>
-                </>
-              ) : isDeclined ? (
-                <span className="inline-flex items-center gap-2 rounded-2xl bg-gray-100 px-5 py-2.5 text-sm font-medium text-gray-500">
-                  <X className="h-4 w-4" /> Declined
-                </span>
               ) : (
                 <button
                   type="button"
@@ -898,7 +833,7 @@ export default function MatchFullProfile() {
               >
                 <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-[#FFF0F4] text-wow-primary">
                   {profile.profilePhoto ? (
-                    <img src={getPhotoUrl(profile.profilePhoto || '')} alt="" className="h-full w-full object-cover" />
+                    <img src={profile.profilePhoto} alt="" className="h-full w-full object-cover" />
                   ) : (
                     initials || <MessageCircle className="h-5 w-5" />
                   )}
@@ -1124,7 +1059,7 @@ export default function MatchFullProfile() {
             <div className="flex flex-col gap-4 rounded-2xl border border-[#F6DDE7] bg-[#FFFBFC] p-4 sm:flex-row sm:items-center">
               <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#FFF0F4] text-wow-primary">
                 {profile.profilePhoto ? (
-                  <img src={getPhotoUrl(profile.profilePhoto || '')} alt={name} className="h-full w-full object-cover" />
+                  <img src={profile.profilePhoto} alt={name} className="h-full w-full object-cover" />
                 ) : (
                   initials || <UserRound className="h-6 w-6" />
                 )}

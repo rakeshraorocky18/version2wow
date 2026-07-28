@@ -18,6 +18,32 @@ interface SearchableSelectProps {
   otherPlaceholder?: string;
 }
 
+const getCountryAliases = (label: string, value: string): string[] => {
+  const normLabel = label.toLowerCase();
+  const normValue = value.toLowerCase();
+  const aliases: string[] = [];
+
+  // Initials check (e.g. "United Kingdom" -> "uk", "United States" -> "us", "United Arab Emirates" -> "uae")
+  const words = normLabel.split(/\s+/);
+  if (words.length > 1) {
+    const initials = words.map(w => w[0]).join('');
+    aliases.push(initials);
+  }
+
+  // Common manual overrides
+  if (normLabel.includes('united kingdom') || normValue === 'gb') {
+    aliases.push('uk', 'gb', 'great britain', 'england', 'scotland', 'wales', 'ireland');
+  }
+  if (normLabel.includes('united states') || normValue === 'us') {
+    aliases.push('usa', 'us', 'america', 'united states of america');
+  }
+  if (normLabel.includes('united arab emirates') || normValue === 'ae') {
+    aliases.push('uae', 'dubai', 'abudhabi');
+  }
+
+  return aliases;
+};
+
 export default function SearchableSelect({
   value,
   onChange,
@@ -35,9 +61,17 @@ export default function SearchableSelect({
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return options;
-    return options.filter(
-      (o) => o.label.toLowerCase().includes(q) || o.value.toLowerCase().includes(q),
-    );
+    return options.filter((o) => {
+      const labelLower = o.label.toLowerCase();
+      const valueLower = o.value.toLowerCase();
+      
+      // Direct matches
+      if (labelLower.includes(q) || valueLower.includes(q)) return true;
+      
+      // Alias/Abbreviation matches
+      const aliases = getCountryAliases(o.label, o.value);
+      return aliases.some(alias => alias.includes(q) || q.includes(alias));
+    });
   }, [options, search]);
 
   const isOtherValue = String(value || '').trim().toLowerCase() === OTHER_VALUE;

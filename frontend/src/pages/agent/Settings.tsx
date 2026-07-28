@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   User,
   Mail,
@@ -19,8 +19,11 @@ import {
   Camera,
   KeyRound,
   ArrowRight,
+  Loader2,
 } from 'lucide-react';
 import { useAgentAuthStore } from '../../store/agent/agentAuthStore';
+import agentApi from '../../lib/agentApi';
+import { resolveCustomerImageUrl } from '../../lib/agent/customerAvatar';
 import { WORLD_COUNTRY_CODES, parsePhone, getIsoFromPhone, getExpectedLength, getCallingCode } from '../../lib/agent/addCustomerUtils';
 import SearchableSelect from '../../components/agent/addCustomer/SearchableSelect';
 import { AsYouType } from 'libphonenumber-js/max';
@@ -205,6 +208,40 @@ export default function AgentSettings() {
     setTimeout(() => setToast(null), 4000);
   }, []);
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [photoUploading, setPhotoUploading] = useState(false);
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    // Reset so the same file can be chosen again
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      showToast('Please select a valid image file (JPG, PNG, WEBP).', 'error');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('Image must be smaller than 5 MB.', 'error');
+      return;
+    }
+    setPhotoUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('photo', file);
+      const { data } = await agentApi.post<{ url: string; profile: import('../../types/agent').AgentUser }>('/agent/me/photo', formData);
+      if (data?.profile) {
+        useAgentAuthStore.getState().setUser(data.profile);
+      }
+      showToast('Profile picture updated successfully!');
+    } catch (err: unknown) {
+      const serverMsg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      showToast(serverMsg || 'Failed to upload profile picture. Please try again.', 'error');
+    } finally {
+      setPhotoUploading(false);
+    }
+  };
+
   /* ── edit profile ── */
   const [editMode, setEditMode] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
@@ -331,11 +368,33 @@ export default function AgentSettings() {
         <div className="flex items-center gap-5 relative z-10">
           {/* Avatar */}
           <div className="relative shrink-0">
-            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#E91E63] to-[#F48FB1] text-white flex items-center justify-center text-3xl font-bold shadow-lg shadow-pink-200">
-              {initials}
-            </div>
-            <button className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-white border-2 border-pink-200 flex items-center justify-center shadow-sm hover:bg-pink-50 transition-colors">
-              <Camera className="w-3.5 h-3.5 text-[#E91E63]" />
+            {user?.profileImageUrl ? (
+              <img
+                src={resolveCustomerImageUrl(user.profileImageUrl)}
+                alt="Profile"
+                className="w-20 h-20 rounded-full object-cover shadow-lg shadow-pink-200"
+              />
+            ) : (
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#E91E63] to-[#F48FB1] text-white flex items-center justify-center text-3xl font-bold shadow-lg shadow-pink-200">
+                {initials}
+              </div>
+            )}
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept="image/*"
+              className="hidden"
+              onChange={handlePhotoUpload}
+            />
+            <button
+              onClick={() => !photoUploading && fileInputRef.current?.click()}
+              disabled={photoUploading}
+              className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-white border-2 border-pink-200 flex items-center justify-center shadow-sm hover:bg-pink-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              title="Change profile photo"
+            >
+              {photoUploading
+                ? <Loader2 className="w-3.5 h-3.5 text-[#E91E63] animate-spin" />
+                : <Camera className="w-3.5 h-3.5 text-[#E91E63]" />}
             </button>
           </div>
           {/* Info */}

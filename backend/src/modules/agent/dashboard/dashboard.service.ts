@@ -39,7 +39,7 @@ export class AgentDashboardService {
     const pendingProfiles = await this.customerRepo.count({
       where: {
         assignedAgentId: agentId,
-        profileCompletion: LessThan(100),
+        status: In([AgentCustomerStatus.PENDING, AgentCustomerStatus.DRAFT]),
       },
     });
 

@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
+import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, FileText, Image as ImageIcon, MapPin, Mail, Phone, Calendar, Shield } from 'lucide-react';
+import { ArrowLeft, FileText, Image as ImageIcon, MapPin, Mail, Phone, Calendar, Shield, Pencil } from 'lucide-react';
 import { useAgentCustomer } from '../../hooks/agent/useAgent';
 import { displayValue } from '../../lib/agent/addCustomerUtils';
 import { getCustomerProfileImageUrl } from '../../lib/agent/customerAvatar';
@@ -85,7 +85,6 @@ function TabButtons({ active, onChange }: { active: string; onChange: (id: strin
     </div>
   );
 }
-
 function ProfileSection({
   icon,
   title,
@@ -135,14 +134,18 @@ export default function CustomerProfile() {
   const isSeparated = maritalStatus.toLowerCase() === 'separated';
   const isWidowed = maritalStatus.toLowerCase() === 'widowed';
 
+  const manageUrl = `/agent/customers/${resolvedId}/manage`;
   const imageUrl = getCustomerProfileImageUrl(customer);
   const galleryPhotos = customer.documents?.filter((d: any) => d.type === 'customer_photo') || [];
   const horoscopeDoc = customer.documents?.find((d: any) => d.type === 'horoscope');
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      <Link to={`/agent/customers`} className="inline-flex items-center gap-1 text-sm text-wow-muted hover:text-wow-primary">
-        <ArrowLeft className="w-4 h-4" /> Back to customers
+      <Link
+        to={`/agent/customers/${resolvedId}`}
+        className="inline-flex items-center gap-1 text-sm text-wow-muted hover:text-wow-primary"
+      >
+        <ArrowLeft className="w-4 h-4" /> Back to match workspace
       </Link>
 
       <div
@@ -160,13 +163,19 @@ export default function CustomerProfile() {
               <p className="text-wow-muted font-mono text-sm mt-1">{customer.customerCode}</p>
             </div>
           </div>
+          <Link
+            to={manageUrl}
+            className="btn-primary inline-flex items-center gap-2 !py-2.5 !px-4 text-sm self-start"
+          >
+            <Pencil className="w-4 h-4" /> Manage profile
+          </Link>
         </div>
         <div className="mt-6 max-w-md">
           <ProfileProgress value={customer.profileCompletion} />
         </div>
       </div>
 
-      <div>
+  <div>
         <div className="flex flex-wrap gap-2 bg-white rounded-2xl p-2 border border-gray-100">
           <TabButtons active={activeTab} onChange={setActiveTab} />
         </div>

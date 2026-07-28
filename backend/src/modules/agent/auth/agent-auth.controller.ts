@@ -1,9 +1,12 @@
-import { Body, Controller, Get, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Patch, Post, Req, UseGuards, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
   ApiTags,
+  ApiConsumes,
 } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { createUploadStorage, createImageFileFilter, toPublicUrl } from '../../../common/upload/upload.helpers';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../common/guards/roles.guard';
 import { Roles } from '../../../common/decorators/roles.decorator';
@@ -44,6 +47,31 @@ export class AgentAuthController {
   @ApiOperation({ summary: 'Update current agent profile' })
   updateProfile(@Req() req: { user: { id: string } }, @Body() dto: UpdateAgentProfileDto) {
     return this.agentAuthService.updateProfile(req.user.id, dto);
+  }
+
+  @Post('me/photo')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.AGENT)
+  @ApiBearerAuth()
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload agent profile photo' })
+  @UseInterceptors(
+    FileInterceptor('photo', {
+      storage: createUploadStorage('agent-profiles'),
+      fileFilter: createImageFileFilter(),
+      limits: { fileSize: 5 * 1024 * 1024 },
+    }),
+  )
+  async uploadProfilePhoto(
+    @Req() req: { user: { id: string } },
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) {
+      throw new BadRequestException('Photo is required');
+    }
+    const url = toPublicUrl(`agent-profiles/${file.filename}`);
+    const profile = await this.agentAuthService.updateProfilePhoto(req.user.id, url);
+    return { url, profile };
   }
 
   @Post('change-password')

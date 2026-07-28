@@ -5,7 +5,6 @@ import {
   IsOptional,
   IsString,
   MinLength,
-  ValidateIf,
 } from 'class-validator';
 
 export class AgentLoginDto {
@@ -40,7 +39,6 @@ export class AgentRegisterDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  @ValidateIf((_, value) => value !== undefined && value !== null && value !== '')
   phone?: string;
 
   @ApiPropertyOptional()
@@ -64,6 +62,11 @@ export class UpdateAgentProfileDto {
   @IsOptional()
   @IsString()
   phone?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  profileImageUrl?: string;
 }
 
 export class ChangeAgentPasswordDto {
