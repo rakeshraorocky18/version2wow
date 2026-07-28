@@ -34,6 +34,7 @@ import { AgentWorksheetController } from './worksheet/worksheet.controller';
 import { AgentWorksheetService } from './worksheet/worksheet.service';
 import { AgentActivityController } from './activity-log/activity-log.controller';
 import { AgentActivityService } from './activity-log/activity-log.service';
+import { PublicProfileController } from './customers/public-profile.controller';
 
 @Module({
   imports: [
@@ -61,6 +62,7 @@ import { AgentActivityService } from './activity-log/activity-log.service';
     AgentAuthController,
     AgentDashboardController,
     AgentCustomersController,
+    PublicProfileController,
     AgentNotesController,
     AgentDocumentsController,
     AgentWorksheetController,

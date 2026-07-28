@@ -15,6 +15,7 @@ import {
   MessageCircle,
   Search,
   Send,
+  Share2,
   Sparkles,
   Star,
   StickyNote,
@@ -220,10 +221,34 @@ function MatchCard({
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
-                onClick={() => navigate(`/agent/customers/${customerId}/profile/${profile.id}`)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate(`/agent/customers/${customerId}/profile/${profile.id}`);
+                }}
                 className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm hover:text-wow-primary"
               >
-                <Eye className="mr-1 inline h-4 w-4" /> View Profile
+                <Eye className="mr-1 inline h-4 w-4" />
+                View Profile
+              </button>
+
+              <button
+                type="button"
+                onClick={async (e) => {
+                  e.stopPropagation();
+
+                  const url = `${window.location.origin}/public/profile/${profile.id}`;
+
+                  try {
+                    await navigator.clipboard.writeText(url);
+                    toast.success("Profile link copied");
+                  } catch {
+                    toast.error("Unable to copy link");
+                  }
+                }}
+                className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm hover:text-wow-primary"
+              >
+                <Share2 className="mr-1 inline h-4 w-4" />
+                Share
               </button>
 
               {received ? (
