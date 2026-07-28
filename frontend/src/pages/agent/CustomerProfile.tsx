@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, FileText, Image as ImageIcon, MapPin, Mail, Phone, Calendar, Shield, Pencil } from 'lucide-react';
-import { useAgentCustomer } from '../../hooks/agent/useAgent';
+import { useAgentCustomer, useAgentMatchProfile } from '../../hooks/agent/useAgent';
 import { displayValue } from '../../lib/agent/addCustomerUtils';
 import { getCustomerProfileImageUrl } from '../../lib/agent/customerAvatar';
 import {
@@ -61,7 +61,6 @@ const TABS = [
   { id: 'career', label: 'Career & Education' },
   { id: 'partner', label: 'Preferences' },
   { id: 'photos', label: 'Photos' },
-  { id: 'contact', label: 'Contact Information' },
 ] as const;
 
 type ProfileTabId = (typeof TABS)[number]['id'];
@@ -101,10 +100,39 @@ function ProfileSection({
   );
 }
 
-export default function CustomerProfile() {
+export default function CustomerProfile({
+  overrideCustomerId,
+  isMatchProfile,
+}: {
+  overrideCustomerId?: string;
+  isMatchProfile?: boolean;
+}) {
   const { customerId = '', id = '' } = useParams();
-  const resolvedId = customerId || id;
-  const { data: customer, isLoading, isError } = useAgentCustomer(resolvedId);
+  const resolvedId = overrideCustomerId || customerId || id;
+
+  const { data: customerData, isLoading: customerLoading, isError: customerError } = useAgentCustomer(
+    resolvedId,
+    !isMatchProfile,
+  );
+
+  const { data: matchData, isLoading: matchLoading, isError: matchError } = useAgentMatchProfile(
+    customerId,
+    overrideCustomerId || '',
+    !!isMatchProfile,
+  );
+
+  const isLoading = isMatchProfile ? matchLoading : customerLoading;
+  const isError = isMatchProfile ? matchError : customerError;
+
+  const rawCustomer = isMatchProfile ? matchData?.profile : customerData;
+  const customer = rawCustomer
+    ? {
+        ...rawCustomer,
+        documents: isMatchProfile ? matchData?.documents : (rawCustomer as any).documents,
+        status: (rawCustomer as any).status || 'active',
+      }
+    : null;
+
   const [activeTab, setActiveTab] = useState<string>('personal');
 
   if (isLoading) return <TableSkeleton rows={8} />;
@@ -141,12 +169,14 @@ export default function CustomerProfile() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      <Link
-        to={`/agent/customers/${resolvedId}`}
-        className="inline-flex items-center gap-1 text-sm text-wow-muted hover:text-wow-primary"
-      >
-        <ArrowLeft className="w-4 h-4" /> Back to match workspace
-      </Link>
+      <div className="flex items-center justify-between">
+        <Link
+          to={isMatchProfile ? `/agent/customers/${customerId}` : `/agent/customers`}
+          className="inline-flex items-center gap-1 text-sm text-wow-muted hover:text-wow-primary"
+        >
+          <ArrowLeft className="w-4 h-4" /> {isMatchProfile ? 'Back to Customers' : 'Back to customers'}
+        </Link>
+      </div>
 
       <div
         className="bg-white rounded-[20px] p-6 border border-gray-100"
@@ -163,12 +193,14 @@ export default function CustomerProfile() {
               <p className="text-wow-muted font-mono text-sm mt-1">{customer.customerCode}</p>
             </div>
           </div>
-          <Link
-            to={manageUrl}
-            className="btn-primary inline-flex items-center gap-2 !py-2.5 !px-4 text-sm self-start"
-          >
-            <Pencil className="w-4 h-4" /> Manage profile
-          </Link>
+          {!isMatchProfile && (
+            <Link
+              to={manageUrl}
+              className="btn-primary inline-flex items-center gap-2 !py-2.5 !px-4 text-sm self-start"
+            >
+              <Pencil className="w-4 h-4" /> Manage profile
+            </Link>
+          )}
         </div>
         <div className="mt-6 max-w-md">
           <ProfileProgress value={customer.profileCompletion} />
@@ -217,6 +249,16 @@ export default function CustomerProfile() {
                   )}
                 </>
               )}
+              <div className="md:col-span-2 border-t border-gray-100 my-2 pt-2">
+                <h3 className="text-sm font-semibold text-wow-text mb-2">Contact & Address Information</h3>
+              </div>
+              <ReviewRow label="Primary Mobile Number" value={customer.phone || '—'} />
+              <ReviewRow label="Alternate Mobile Number" value={String(personal.alternateMobile || '—')} />
+              <ReviewRow label="Email Address" value={customer.email || '—'} />
+              <ReviewRow label="Address" value={customer.address || '—'} />
+              <div className="md:col-span-2 border-t border-gray-100 my-2 pt-2">
+                <ReviewRow label="Communication Address" value={formatAddress(personal.communicationAddress)} />
+              </div>
             </ProfileSection>
           )}
 
@@ -419,17 +461,7 @@ export default function CustomerProfile() {
             </WizardSection>
           )}
 
-          {activeTab === 'contact' && (
-            <ProfileSection icon="🏠" title="Contact & Address Information">
-              <ReviewRow label="Primary Mobile Number" value={customer.phone || '—'} />
-              <ReviewRow label="Alternate Mobile Number" value={String(personal.alternateMobile || '—')} />
-              <ReviewRow label="Email Address" value={customer.email || '—'} />
-              <ReviewRow label="Address" value={customer.address || '—'} />
-              <div className="md:col-span-2 border-t border-gray-100 my-2 pt-2">
-                <ReviewRow label="Communication Address" value={formatAddress(personal.communicationAddress)} />
-              </div>
-            </ProfileSection>
-          )}
+
         </div>
       </div>
     </div>

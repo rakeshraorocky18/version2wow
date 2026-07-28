@@ -1,6 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
+import api from '../../lib/api';
+import { getPhotoUrl } from '../../lib/profileUtils';
+import { useChatSocket } from '../../hooks/useChatSocket';
 import {
   ArrowLeft,
   Ban,
@@ -216,7 +220,7 @@ function MatchCard({
             )}
           </div>
            
-          <div className="border-t border-gray-100 bg-[#FFFBFC] p-4">
+          <div className="border-t border-gray-100 bg-[#FFFBFC] p-4" onClick={(e) => e.stopPropagation()}>
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
@@ -242,26 +246,12 @@ function MatchCard({
                   onClick={() => onAction('send-interest', profile.id)}
                   className="btn-primary !px-3 !py-2 text-sm disabled:opacity-60"
                 >
-                  <Send className="mr-1 inline h-4 w-4" /> {accepted ? 'Accepted' : pending ? 'Pending' : 'Send Interest'}
+                  <Send className="mr-1 inline h-4 w-4" /> {accepted ? 'Accepted' : pending ? 'Interest Sent' : 'Send Interest'}
                 </button>
               )}
 
-              <button type="button" disabled={busy} onClick={() => onAction('favourite', profile.id)} className={`rounded-xl border px-3 py-2 text-sm ${profile.favourite ? 'border-wow-primary bg-[#FFF0F4] text-wow-primary' : 'border-gray-200 bg-white'}`}>
-                <Star className={`mr-1 inline h-4 w-4 ${profile.favourite ? 'fill-current' : ''}`} /> Favourite
-              </button>
               <button type="button" disabled={busy} onClick={() => onAction('shortlist', profile.id)} className={`rounded-xl border px-3 py-2 text-sm ${profile.shortlisted ? 'border-wow-primary bg-[#FFF0F4] text-wow-primary' : 'border-gray-200 bg-white'}`}>
                 <Heart className={`mr-1 inline h-4 w-4 ${profile.shortlisted ? 'fill-current' : ''}`} /> Shortlist
-              </button>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => {
-                  const content = window.prompt('Add internal note');
-                  if (content?.trim()) onAction('notes', profile.id, content.trim());
-                }}
-                className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm"
-              >
-                <StickyNote className="mr-1 inline h-4 w-4" /> Notes {profile.notesCount ? `(${profile.notesCount})` : ''}
               </button>
               <button type="button" disabled={busy} onClick={() => onAction('ignore', profile.id)} className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm">
                 Ignore
@@ -361,21 +351,203 @@ export default function CustomerDetailsWorkspace() {
   const history = useAgentCustomerHistory(customerId, activeTab === 'history');
   const notifications = useAgentCustomerNotifications(customerId, { page: 1, limit: 50 }, true);
   const recommendations = useAgentRecommendations(customerId, matchesPayload, activeTab === 'matches');
-  const chat = useAgentCustomerChat(customerId, { profileId: activeChatProfileId, page: 1, limit: 50 }, activeTab === 'chat');
+  const chat = useAgentCustomerChat(customerId, { profileId: activeChatProfileId, page: 1, limit: 50 }, true);
   const action = useAgentCustomerAction(customerId);
   const sendMessage = useSendAgentCustomerChatMessage(customerId);
+
+  const qc = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+
+  const updateChatCache = (msg: any) => {
+    const senderId = msg.senderId ? String(msg.senderId).trim() : '';
+    const receiverId = msg.receiverId ? String(msg.receiverId).trim() : '';
+    const partnerId = senderId === customerId ? receiverId : senderId;
+
+    const queryKey = ['agent', 'customerChat', customerId, { profileId: activeChatProfileId, page: 1, limit: 50 }];
+
+    qc.setQueryData(queryKey, (old: any) => {
+      if (!old) return old;
+
+      let nextMessages = old.messages?.messages || [];
+      const currentActiveProfile = activeChatProfileId || old.activeProfileId;
+      if (partnerId === currentActiveProfile) {
+        const existing = nextMessages.some((m: any) => (m.id || m._id) === (msg.id || msg._id));
+        if (!existing) {
+          nextMessages = [...nextMessages, msg];
+        } else {
+          nextMessages = nextMessages.map((m: any) => (m.id || m._id) === (msg.id || msg._id) ? msg : m);
+        }
+      }
+
+      const nextContacts = (old.contacts || []).map((contact: any) => {
+        if (contact.userId === partnerId) {
+          const isFromPartner = senderId === partnerId;
+          const isActiveChat = partnerId === currentActiveProfile;
+          
+          let newUnreadCount = contact.unreadCount || 0;
+          if (isFromPartner && !isActiveChat) {
+            newUnreadCount += 1;
+          }
+
+          const preview =
+            msg.type === 'image'
+              ? '📷 Photo'
+              : msg.type === 'video'
+                ? '🎬 Video'
+                : msg.type === 'file'
+                  ? '📎 File'
+                  : msg.content;
+
+          return {
+            ...contact,
+            subtitle: preview,
+            lastMessageAt: msg.createdAt || new Date().toISOString(),
+            unreadCount: newUnreadCount,
+          };
+        }
+        return contact;
+      });
+
+      nextContacts.sort((a: any, b: any) => {
+        const aTime = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
+        const bTime = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
+        return bTime - aTime;
+      });
+
+      return {
+        ...old,
+        contacts: nextContacts,
+        messages: {
+          messages: nextMessages,
+          total: (old.messages?.total || 0) + (nextMessages.length > (old.messages?.messages?.length || 0) ? 1 : 0),
+        },
+      };
+    });
+  };
+
+  useChatSocket({
+    onNewMessage: (data: any) => {
+      updateChatCache(data);
+      qc.invalidateQueries({ queryKey: ['agent', 'customerNotifications', customerId] });
+
+      const activeId = activeChatProfileId || chat.data?.activeProfileId;
+      if (activeId && (data.senderId === activeId || data.receiverId === activeId)) {
+        api.post('/chat/read', { userId: activeId })
+          .then(() => {
+            qc.setQueryData(
+              ['agent', 'customerChat', customerId, { profileId: activeChatProfileId, page: 1, limit: 50 }],
+              (old: any) => {
+                if (!old) return old;
+                return {
+                  ...old,
+                  contacts: (old.contacts || []).map((contact: any) =>
+                    contact.userId === activeId ? { ...contact, unreadCount: 0 } : contact
+                  ),
+                };
+              }
+            );
+          })
+          .catch(() => undefined);
+      }
+    }
+  }, customerId);
+
+  useEffect(() => {
+    const activeId = activeChatProfileId || chat.data?.activeProfileId;
+    if (activeId && activeTab === 'chat') {
+      api.post('/chat/read', { userId: activeId })
+        .then(() => {
+          qc.setQueryData(
+            ['agent', 'customerChat', customerId, { profileId: activeChatProfileId, page: 1, limit: 50 }],
+            (old: any) => {
+              if (!old) return old;
+              return {
+                ...old,
+                contacts: (old.contacts || []).map((c: any) =>
+                  c.userId === activeId ? { ...c, unreadCount: 0 } : c
+                ),
+              };
+            }
+          );
+        })
+        .catch(() => undefined);
+    }
+  }, [activeChatProfileId, activeTab, chat.data?.activeProfileId]);
+
+  const uploadMedia = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      const { data } = await api.post('/chat/media', formData, {
+        onUploadProgress: (event) => {
+          if (event.total) setUploadProgress(Math.round((event.loaded / event.total) * 100));
+        },
+      });
+      return data as { mediaUrl: string; type: string };
+    },
+    onSuccess: (data, file) => {
+      const receiverId = activeChatProfileId || chat.data?.activeProfileId;
+      if (!receiverId) return;
+      const fileName = file.name || 'Attachment';
+      sendMessage.mutate(
+        {
+          receiverId,
+          content: data.type === 'image' ? 'Photo' : data.type === 'video' ? 'Video' : fileName,
+          type: data.type,
+          mediaUrl: data.mediaUrl,
+        },
+        {
+          onSuccess: (sentMsg: any) => {
+            setUploading(false);
+            setUploadProgress(0);
+            toast.success('Attachment sent');
+            if (sentMsg) {
+              updateChatCache(sentMsg);
+            }
+          },
+          onError: (err: unknown) => {
+            setUploading(false);
+            setUploadProgress(0);
+            toast.error(getErrorMessage(err, 'Unable to send attachment'));
+          },
+        }
+      );
+    },
+    onError: (err: unknown) => {
+      setUploading(false);
+      setUploadProgress(0);
+      toast.error(getErrorMessage(err, 'Attachment upload failed'));
+    },
+  });
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    uploadMedia.mutate(file);
+    event.target.value = '';
+  };
 
   const customer = workspace.data?.customer;
   const customerName = customer ? fullName(customer.firstName, customer.lastName) : '';
   const unreadNotifications = notifications.data?.data?.filter((n) => n.status !== 'read').length ?? 0;
+  const historyUnread = notifications.data?.data?.filter((n) => n.status !== 'read' && n.type !== 'message').length ?? 0;
   const chatUnread = chat.data?.contacts.reduce((sum, contact) => sum + contact.unreadCount, 0) ?? 0;
+  const [pendingProfileId, setPendingProfileId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (activeTab === 'history' && historyUnread > 0) {
+      action.mutate({ action: 'mark-notifications-read' });
+    }
+  }, [activeTab, historyUnread]);
+
   const shouldHideFromMatchPool = (profile: { id: string; customerCode?: string | null; relationshipStatus?: string | null }) => {
     if (!customer) return false;
     if (profile.id === customer.id || profile.customerCode === customer.customerCode) return true;
     return [
       'accepted',
-      'pending_sent',
-      'pending_received',
       'blocked',
       'ignored',
       'declined',
@@ -400,11 +572,24 @@ export default function CustomerDetailsWorkspace() {
     profileId?: string,
     content?: string,
   ) => {
+    if (profileId) setPendingProfileId(profileId);
     action.mutate(
       { action: actionName, profileId, content },
       {
-        onSuccess: () => toast.success('Updated'),
-        onError: (err: unknown) => toast.error(getErrorMessage(err, 'Action failed')),
+        onSuccess: () => {
+          if (actionName === 'send-interest') {
+            toast.success('Interest sent successfully!');
+          } else if (actionName === 'shortlist') {
+            toast.success('Shortlist updated successfully!');
+          } else {
+            toast.success('Updated');
+          }
+          setPendingProfileId(null);
+        },
+        onError: (err: unknown) => {
+          toast.error(getErrorMessage(err, 'Action failed'));
+          setPendingProfileId(null);
+        },
       },
     );
   };
@@ -430,7 +615,12 @@ export default function CustomerDetailsWorkspace() {
           <nav className="flex flex-1 flex-wrap items-center gap-2">
           {TABS.map((tab) => {
             const Icon = tab.icon;
-            const badge = tab.id === 'chat' ? chatUnread : 0;
+            const badge =
+              tab.id === 'chat'
+                ? chatUnread
+                : tab.id === 'history'
+                  ? historyUnread
+                  : 0;
             return (
               <button
                 key={tab.id}
@@ -623,23 +813,71 @@ export default function CustomerDetailsWorkspace() {
                     Select an accepted match to start chatting.
                   </div>
                 ) : (
-                  [...(chat.data?.messages.messages || [])].reverse().map((msg) => (
-                    <div key={msg.id || msg._id} className={`flex ${msg.senderId === customerId ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-[75%] rounded-2xl px-4 py-2 text-sm ${msg.senderId === customerId ? 'bg-wow-primary text-white' : 'bg-white text-wow-text'}`}>
-                        <p>{msg.content}</p>
-                        <p className={`mt-1 text-[10px] ${msg.senderId === customerId ? 'text-white/70' : 'text-wow-muted'}`}>
-                          {formatTime(msg.createdAt)} {msg.isRead ? ' · Read' : ''}
-                        </p>
+                  (chat.data?.messages.messages || []).map((msg) => {
+                    const mediaSrc = msg.mediaUrl ? getPhotoUrl(msg.mediaUrl) : '';
+                    const isFile = msg.type === 'file' || msg.type === 'document';
+                    return (
+                      <div key={msg.id || msg._id} className={`flex ${msg.senderId === customerId ? 'justify-end' : 'justify-start'}`}>
+                        <div className={`max-w-[75%] rounded-2xl px-4 py-2 text-sm ${msg.senderId === customerId ? 'bg-wow-primary text-white' : 'bg-white text-wow-text'}`}>
+                          {msg.type === 'image' && mediaSrc ? (
+                            <a href={mediaSrc} target="_blank" rel="noreferrer" className="block mb-1">
+                              <img src={mediaSrc} alt="Shared" className="max-h-48 rounded-lg object-cover" />
+                            </a>
+                          ) : msg.type === 'video' && mediaSrc ? (
+                            <video src={mediaSrc} controls className="max-h-48 rounded-lg mb-1" />
+                          ) : isFile && mediaSrc ? (
+                            <a href={mediaSrc} target="_blank" rel="noreferrer" className={`break-all underline block mb-1 ${msg.senderId === customerId ? 'text-white' : 'text-wow-primary'}`}>
+                              📎 {msg.content || 'Download attachment'}
+                            </a>
+                          ) : (
+                            <p>{msg.content}</p>
+                          )}
+                          <p className={`mt-1 text-[10px] ${msg.senderId === customerId ? 'text-white/70' : 'text-wow-muted'}`}>
+                            {formatTime(msg.createdAt)} {msg.isRead ? ' · Read' : ''}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
               <div className="border-t border-gray-100 p-4">
                 <div className="flex gap-2">
-                  <button className="rounded-xl border border-gray-200 px-3 text-wow-muted">😊</button>
-                  <button className="rounded-xl border border-gray-200 px-3 text-wow-muted">Attach</button>
-                  <input value={message} onChange={(e) => setMessage(e.target.value)} className="input-field flex-1" placeholder="Type a message..." />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading || sendMessage.isPending || !(activeChatProfileId || chat.data?.activeProfileId)}
+                    className="rounded-xl border border-gray-200 px-3 text-wow-muted hover:bg-gray-50 flex items-center justify-center min-w-[70px] disabled:opacity-60"
+                  >
+                    {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Attach'}
+                  </button>
+                  <input
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        const receiverId = activeChatProfileId || chat.data?.activeProfileId;
+                        if (!message.trim() || sendMessage.isPending || !receiverId) return;
+                        sendMessage.mutate(
+                          { receiverId, content: message },
+                          {
+                            onSuccess: (sentMsg: any) => {
+                              setMessage('');
+                              toast.success('Message sent');
+                              if (sentMsg) {
+                                updateChatCache(sentMsg);
+                              }
+                            },
+                            onError: (err: unknown) =>
+                              toast.error(getErrorMessage(err, 'Unable to send message')),
+                          }
+                        );
+                      }
+                    }}
+                    className="input-field flex-1"
+                    placeholder="Type a message..."
+                  />
                   <button
                     disabled={!message.trim() || sendMessage.isPending || !(activeChatProfileId || chat.data?.activeProfileId)}
                     onClick={() => {
@@ -648,9 +886,12 @@ export default function CustomerDetailsWorkspace() {
                       sendMessage.mutate(
                         { receiverId, content: message },
                         {
-                          onSuccess: () => {
+                          onSuccess: (sentMsg: any) => {
                             setMessage('');
                             toast.success('Message sent');
+                            if (sentMsg) {
+                              updateChatCache(sentMsg);
+                            }
                           },
                           onError: (err: unknown) =>
                             toast.error(getErrorMessage(err, 'Unable to send message')),
@@ -662,6 +903,16 @@ export default function CustomerDetailsWorkspace() {
                     {sendMessage.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                   </button>
                 </div>
+                {uploading ? (
+                  <p className="mt-2 text-xs text-gray-500">Uploading {uploadProgress}%</p>
+                ) : null}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  accept="image/*,video/*,.pdf,.doc,.docx,.txt"
+                  onChange={handleFileSelect}
+                />
               </div>
             </div>
           </div>
@@ -734,6 +985,7 @@ export default function CustomerDetailsWorkspace() {
                     if (historyCategory === 'shortlisted') {
                       return (
                         <>
+                          <button onClick={() => navigate(`/agent/customers/${customerId}/profile/${item.profile.id}`)} className="btn-secondary !px-3 !py-2 text-sm">View Profile</button>
                           <button onClick={() => runAction('send-interest', item.profile.id)} className="btn-primary !px-3 !py-2 text-sm">Send Interest</button>
                           <button onClick={() => runAction('shortlist', item.profile.id)} className="btn-secondary !px-3 !py-2 text-sm">Remove Shortlist</button>
                         </>

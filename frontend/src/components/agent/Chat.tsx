@@ -9,7 +9,6 @@
     Phone,
     Search,
     Send,
-    Smile,
     X,
   } from 'lucide-react';
   import toast from 'react-hot-toast';
@@ -164,7 +163,6 @@
     const [showInChatSearch, setShowInChatSearch] = useState(false);
     const [inChatSearch, setInChatSearch] = useState('');
     const [sharedPanel, setSharedPanel] = useState<'media' | 'docs' | 'links' | null>(null);
-    const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
     const [selectionMode, setSelectionMode] = useState(false);
@@ -175,7 +173,6 @@
     const fileInputRef = useRef<HTMLInputElement>(null);
     const bottomRef = useRef<HTMLDivElement>(null);
 
-    const emojiOptions = ['😊', '😂', '😍', '👍', '❤️', '🎉', '🙏', '🔥'];
 
     const { data: contacts = [], isLoading: contactsLoading } = useQuery({
       queryKey: ['agent-portal-chat-contacts'],
@@ -371,7 +368,6 @@
       },
       onSuccess: () => {
         setMessageInput('');
-        setShowEmojiPicker(false);
         queryClient.invalidateQueries({ queryKey: ['agent-portal-chat-messages', activePartnerId] });
         queryClient.invalidateQueries({ queryKey: ['agent-portal-chat-contacts'] });
       },
@@ -826,18 +822,6 @@
                         placeholder="Type a message"
                         className="min-h-[44px] w-full rounded-2xl border border-gray-200 px-3 py-2 pr-12 text-sm outline-none focus:border-primary-400"
                       />
-                      <button type="button" onClick={() => setShowEmojiPicker((current) => !current)} className="absolute right-2 top-2 rounded-full p-1 text-gray-500 hover:bg-gray-100">
-                        <Smile size={16} />
-                      </button>
-                      {showEmojiPicker ? (
-                        <div className="absolute bottom-full right-0 mb-2 flex max-w-[240px] flex-wrap gap-2 rounded-2xl border border-gray-200 bg-white p-2 shadow-lg">
-                          {emojiOptions.map((emoji) => (
-                            <button key={emoji} type="button" onClick={() => { setMessageInput((current) => `${current}${emoji}`); setShowEmojiPicker(false); }} className="rounded-lg p-1 text-xl hover:bg-gray-100">
-                              {emoji}
-                            </button>
-                          ))}
-                        </div>
-                      ) : null}
                     </div>
                     <button type="button" onClick={() => fileInputRef.current?.click()} className="rounded-full border border-gray-200 p-2 text-gray-500 hover:bg-gray-100" title="Attach file">
                       {uploading ? <Loader2 size={18} className="animate-spin" /> : <Paperclip size={18} />}

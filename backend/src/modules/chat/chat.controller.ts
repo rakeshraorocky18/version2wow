@@ -171,13 +171,20 @@ export class ChatController {
       limits: { fileSize: 25 * 1024 * 1024 },
       fileFilter: (req, file, cb) => {
         const mimetype = file.mimetype;
-        let filter = createImageFileFilter();
-        if (mimetype.startsWith('video/')) {
-          filter = createVideoFileFilter();
-        } else if (mimetype === 'application/pdf') {
-          filter = createDocFileFilter();
+        if (
+          mimetype.startsWith('image/') ||
+          mimetype.startsWith('video/') ||
+          [
+            'application/pdf',
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'text/plain',
+          ].includes(mimetype)
+        ) {
+          cb(null, true);
+        } else {
+          cb(new BadRequestException('Invalid file type. Allowed types: images, videos, PDF, Word documents, text files.'), false);
         }
-        filter(req, file, cb);
       },
     }),
   )

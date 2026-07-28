@@ -13,20 +13,24 @@ export interface IncomingCall {
   callType: CallType;
 }
 
-export function useChatSocket(handlers?: {
-  onNewMessage?: (message: unknown) => void;
-  onMessageDeleted?: (data: { messageId: string; senderId: string; receiverId: string }) => void;
-  onUserTyping?: (data: { userId: string }) => void;
-  onIncomingCall?: (call: IncomingCall) => void;
-  onCallAccepted?: (data: { callId: string; accepterId: string }) => void;
-  onCallRejected?: (data: { callId: string }) => void;
-  onCallEnded?: (data: { callId: string }) => void;
-  onCallOffer?: (data: { callId: string; sdp: RTCSessionDescriptionInit; from: string }) => void;
-  onCallAnswer?: (data: { callId: string; sdp: RTCSessionDescriptionInit; from: string }) => void;
-  onIceCandidate?: (data: { callId: string; candidate: RTCIceCandidateInit; from: string }) => void;
-}) {
+export function useChatSocket(
+  handlers?: {
+    onNewMessage?: (message: unknown) => void;
+    onMessageDeleted?: (data: { messageId: string; senderId: string; receiverId: string }) => void;
+    onUserTyping?: (data: { userId: string }) => void;
+    onIncomingCall?: (call: IncomingCall) => void;
+    onCallAccepted?: (data: { callId: string; accepterId: string }) => void;
+    onCallRejected?: (data: { callId: string }) => void;
+    onCallEnded?: (data: { callId: string }) => void;
+    onCallOffer?: (data: { callId: string; sdp: RTCSessionDescriptionInit; from: string }) => void;
+    onCallAnswer?: (data: { callId: string; sdp: RTCSessionDescriptionInit; from: string }) => void;
+    onIceCandidate?: (data: { callId: string; candidate: RTCIceCandidateInit; from: string }) => void;
+  },
+  customUserId?: string,
+) {
   const socketRef = useRef<Socket | null>(null);
-  const userId = useAuthStore((s) => s.user?.id);
+  const authStoreUserId = useAuthStore((s) => s.user?.id);
+  const userId = customUserId || authStoreUserId;
   const handlersRef = useRef(handlers);
   handlersRef.current = handlers;
 

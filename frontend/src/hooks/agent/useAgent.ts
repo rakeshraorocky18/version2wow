@@ -70,11 +70,11 @@ export function useAgentCustomers(params: {
   });
 }
 
-export function useAgentCustomer(id: string) {
+export function useAgentCustomer(id: string, enabled = true) {
   return useQuery({
     queryKey: agentKeys.customer(id),
     queryFn: () => agentService.getCustomer(id),
-    enabled: !!id,
+    enabled: !!id && enabled,
   });
 }
 
@@ -331,6 +331,8 @@ export function useAgentCustomerAction(customerId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: agentKeys.customerWorkspace(customerId) });
       qc.invalidateQueries({ queryKey: ['agent', 'customerWorkspaceMatches', customerId] });
+      qc.invalidateQueries({ queryKey: ['agent', 'recentProfiles', customerId] });
+      qc.invalidateQueries({ queryKey: ['agent', 'matchProfile', customerId] });
       qc.invalidateQueries({ queryKey: agentKeys.recommendations(customerId) });
       qc.invalidateQueries({ queryKey: agentKeys.customerHistory(customerId) });
       qc.invalidateQueries({ queryKey: ['agent', 'customerNotifications', customerId] });
@@ -345,7 +347,6 @@ export function useSendAgentCustomerChatMessage(customerId: string) {
     mutationFn: (payload: { receiverId: string; content: string; type?: string; mediaUrl?: string }) =>
       agentService.sendCustomerChatMessage(customerId, payload),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['agent', 'customerChat', customerId] });
       qc.invalidateQueries({ queryKey: ['agent', 'customerNotifications', customerId] });
     },
   });

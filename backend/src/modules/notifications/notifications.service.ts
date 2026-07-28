@@ -27,7 +27,15 @@ export interface NotificationPayload {
     | 'interest_sent'
     | 'interest_accepted'
     | 'interest_declined'
-    | 'interest_withdrawn';
+    | 'interest_withdrawn'
+    | 'interest_received'
+    | 'profile_viewed'
+    | 'shortlisted'
+    | 'shortlist_removed'
+    | 'recommendation_added'
+    | 'recommendation_removed'
+    | 'blocked'
+    | 'ignored';
 
   data?: Record<string, any>;
 }

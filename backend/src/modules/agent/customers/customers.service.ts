@@ -22,6 +22,7 @@ import { Match } from '../../matchmaking/entities/match.entity';
 import { MatchStatus } from '../../../common/enums';
 import { Neo4jService } from '../../../neo4j/neo4j.service';
 import { ChatServiceMongodb } from '../../chat/chat.service.mongodb';
+import { ChatGateway } from '../../chat/chat.gateway';
 import { NotificationsService } from '../../notifications/notifications.service';
 import { SendMessageDto } from '../../chat/dto/chat.dto';
 
@@ -77,6 +78,7 @@ export class AgentCustomersService {
     private readonly activityService: AgentActivityService,
     private readonly neo4jService: Neo4jService,
     private readonly chatService: ChatServiceMongodb,
+    private readonly chatGateway: ChatGateway,
     private readonly notificationsService: NotificationsService,
   ) {}
 
@@ -647,6 +649,16 @@ export class AgentCustomersService {
       throw new NotFoundException('Matched profile not found');
     }
 
+    const profileName = `${candidate.firstName} ${candidate.lastName ?? ''}`.trim();
+    await this.notifyCustomer(
+      agentId,
+      customerId,
+      'Profile Viewed',
+      `You viewed ${profileName}'s profile.`,
+      'profile_viewed',
+      { profileId: matchedProfileId, profileName }
+    );
+
     const documents = await this.documentRepo.find({
       where: { customerId: matchedProfileId },
       order: { createdAt: 'DESC' },
@@ -749,7 +761,10 @@ export class AgentCustomersService {
     return {
       customerId,
       customerName: [customer.firstName, customer.lastName].filter(Boolean).join(' ').trim(),
-      data: profiles,
+      data: await this.overlayRelationships(
+        customerId,
+        profiles as unknown as Array<Record<string, unknown>>,
+      ),
       total: profiles.length,
     };
   }
@@ -894,7 +909,14 @@ export class AgentCustomersService {
       .map(({ profile }) => profile)
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-    return paginate(profiles.slice((page - 1) * limit, page * limit), profiles.length, page, limit);
+    const paginated = paginate(profiles.slice((page - 1) * limit, page * limit), profiles.length, page, limit);
+    return {
+      ...paginated,
+      data: await this.overlayRelationships(
+        customerId,
+        paginated.data as unknown as Array<Record<string, unknown>>,
+      ),
+    };
   }
 
   async getCustomerAiRecommendations(agentId: string, customerId: string, dto: MatchingSearchDto) {
@@ -929,7 +951,14 @@ export class AgentCustomersService {
       50,
     ).sort((a, b) => b.compatibilityScore - a.compatibilityScore);
 
-    return paginate(profiles.slice((page - 1) * limit, page * limit), profiles.length, page, limit);
+    const paginated = paginate(profiles.slice((page - 1) * limit, page * limit), profiles.length, page, limit);
+    return {
+      ...paginated,
+      data: await this.overlayRelationships(
+        customerId,
+        paginated.data as unknown as Array<Record<string, unknown>>,
+      ),
+    };
   }
 
   private async findCandidateOrFail(profileId: string) {
@@ -961,7 +990,24 @@ export class AgentCustomersService {
       compatibilityScore: params.compatibilityScore ?? null,
       lastActionAt: new Date(),
     });
-    return this.customerMatchRepo.save(row);
+    const saved = await this.customerMatchRepo.save(row);
+    try {
+      const profile = await this.customerRepo.findOne({ where: { id: params.profileId } });
+      if (profile) {
+        const profileName = `${profile.firstName} ${profile.lastName ?? ''}`.trim();
+        await this.notifyCustomer(
+          params.agentId,
+          params.customerId,
+          'Recommendation Added',
+          `A new recommendation has been added: ${profileName}.`,
+          'recommendation_added',
+          { profileId: params.profileId, profileName }
+        );
+      }
+    } catch (e) {
+      // Ignored to prevent blocking
+    }
+    return saved;
   }
 
   private async ensureSqliteMatch(
@@ -1001,25 +1047,37 @@ export class AgentCustomersService {
   }
 
   private async notifyCustomer(
+    agentId: string,
     customerId: string,
     title: string,
     body: string,
-   type:
-  | 'match'
-  | 'message'
-  | 'booking'
-  | 'reminder'
-  | 'system'
-  | 'interest_sent'
-  | 'interest_accepted'
-  | 'interest_declined'
-  | 'interest_withdrawn' = 'match',
+    type:
+      | 'match'
+      | 'message'
+      | 'booking'
+      | 'reminder'
+      | 'system'
+      | 'interest_sent'
+      | 'interest_received'
+      | 'interest_accepted'
+      | 'interest_declined'
+      | 'interest_withdrawn'
+      | 'profile_viewed'
+      | 'shortlisted'
+      | 'shortlist_removed'
+      | 'recommendation_added'
+      | 'recommendation_removed'
+      | 'blocked'
+      | 'ignored' = 'match',
     data?: Record<string, unknown>,
   ) {
+    const customer = await this.customerRepo.findOne({ where: { id: customerId } });
+    const customerName = customer ? `${customer.firstName} ${customer.lastName ?? ''}`.trim() : '';
+
     await this.notificationsService.sendNotification({
-      userId: customerId,
-      customerId: data?.customerId as string | undefined,
-      customerName: data?.customerName as string | undefined,
+      userId: agentId,
+      customerId,
+      customerName,
       title,
       body,
       type,
@@ -1039,10 +1097,10 @@ export class AgentCustomersService {
         ...profile,
         relationshipId: rel?.id ?? null,
         relationshipStatus: rel?.status ?? 'none',
-        favourite: rel?.favourite ?? false,
-        shortlisted: rel?.shortlisted ?? false,
-        blocked: rel?.blocked ?? false,
-        ignored: rel?.ignored ?? false,
+        favourite: !!rel?.favourite,
+        shortlisted: !!rel?.shortlisted,
+        blocked: !!rel?.blocked,
+        ignored: !!rel?.ignored,
         notesCount: rel?.notes?.length ?? 0,
         accepted: rel?.status === AgentCustomerMatchStatus.ACCEPTED,
       };
@@ -1143,7 +1201,7 @@ console.log("=================================");
     });
 
     const reverse = await this.getOrCreateRelationship({
-      agentId: profile.assignedAgentId,
+      agentId: profile.assignedAgentId || agentId,
       customerId: profileId,
       profileId: customerId,
       compatibilityScore: compatibility.score,
@@ -1171,11 +1229,13 @@ console.log("=================================");
       });
     }
 
-    await this.notifyCustomer(profileId, 'Interest Sent', `${senderName} sent an interest request to ${receiverName}.`, 'interest_sent', {
-      customerId,
-      customerName: senderName,
+    await this.notifyCustomer(agentId, customerId, 'Interest Sent', `Interest request sent to ${receiverName}.`, 'interest_sent', {
+      profileId,
+      profileName: receiverName,
+    });
+    await this.notifyCustomer(profile.assignedAgentId || agentId, profileId, 'Interest Request Received', `${senderName} sent an interest request.`, 'interest_received', {
       profileId: customerId,
-      matchId: saved.id,
+      profileName: senderName,
     });
     return saved;
   }
@@ -1190,17 +1250,8 @@ console.log("=================================");
     relationship.shortlisted = false;
     relationship.lastActionAt = new Date();
     const saved = await this.customerMatchRepo.save(relationship);
-        await this.notificationsService.create({
-    userId: agentId,
-    customerId: customerId,
-    customerName: `${customer.firstName} ${customer.lastName ?? ""}`,
-    type: "interest_accepted",
-    title: "Interest Accepted",
-    message: `${profile.firstName} accepted the interest request.`,
-});
-
     const reverse = await this.getOrCreateRelationship({
-      agentId: profile.assignedAgentId,
+      agentId: profile.assignedAgentId || agentId,
       customerId: profileId,
       profileId: customerId,
     });
@@ -1223,33 +1274,51 @@ console.log("=================================");
       await this.neo4jService.acceptInterest(sqliteMatch.id, customerId);
     }
 
-    await this.notifyCustomer(profileId, 'Interest Accepted', 'Your interest request was accepted.', 'match', {
+    const customerName = `${customer.firstName} ${customer.lastName ?? ''}`.trim();
+    const profileName = `${profile.firstName} ${profile.lastName ?? ''}`.trim();
+
+    await this.notifyCustomer(agentId, customerId, 'Interest Accepted', `You accepted the interest request from ${profileName}.`, 'interest_accepted', {
+      profileId,
+      profileName,
+    });
+    await this.notifyCustomer(profile.assignedAgentId || agentId, profileId, 'Interest Accepted', `${customerName} accepted your interest request.`, 'interest_accepted', {
       profileId: customerId,
-      matchId: saved.id,
+      profileName: customerName,
     });
     return saved;
   }
 
   async declineInterest(agentId: string, customerId: string, profileId: string) {
-   const customer = await this.findAssignedOrFail(agentId, customerId);
-   const profile = await this.findCandidateOrFail(profileId);
+    const customer = await this.findAssignedOrFail(agentId, customerId);
+    const profile = await this.findCandidateOrFail(profileId);
     const relationship = await this.getOrCreateRelationship({ agentId, customerId, profileId });
     relationship.status = AgentCustomerMatchStatus.DECLINED;
     relationship.shortlisted = false;
     relationship.lastActionAt = new Date();
     const saved = await this.customerMatchRepo.save(relationship);
-      await this.notificationsService.create({
-    userId: agentId,
-    customerId: customerId,
-    customerName: `${customer.firstName} ${customer.lastName ?? ""}`,
-    type: "interest_declined",
-    title: "Interest Declined",
-    message: `${profile.firstName} declined the interest request.`,
-});
-    await this.ensureSqliteMatch(profileId, customerId, MatchStatus.REJECTED, relationship.compatibilityScore);
-    await this.notifyCustomer(profileId, 'Interest Declined', 'Your interest request was declined.', 'match', {
+
+    const reverse = await this.getOrCreateRelationship({
+      agentId: profile.assignedAgentId || agentId,
+      customerId: profileId,
       profileId: customerId,
-      matchId: saved.id,
+    });
+    reverse.status = AgentCustomerMatchStatus.DECLINED;
+    reverse.shortlisted = false;
+    reverse.lastActionAt = new Date();
+    await this.customerMatchRepo.save(reverse);
+
+    await this.ensureSqliteMatch(profileId, customerId, MatchStatus.REJECTED, relationship.compatibilityScore);
+
+    const customerName = `${customer.firstName} ${customer.lastName ?? ''}`.trim();
+    const profileName = `${profile.firstName} ${profile.lastName ?? ''}`.trim();
+
+    await this.notifyCustomer(agentId, customerId, 'Interest Rejected', `You declined the interest request from ${profileName}.`, 'interest_declined', {
+      profileId,
+      profileName,
+    });
+    await this.notifyCustomer(profile.assignedAgentId || agentId, profileId, 'Interest Rejected', `${customerName} declined your interest request.`, 'interest_declined', {
+      profileId: customerId,
+      profileName: customerName,
     });
     return saved;
   }
@@ -1261,17 +1330,30 @@ console.log("=================================");
     relationship.shortlisted = false;
     relationship.lastActionAt = new Date();
     const saved = await this.customerMatchRepo.save(relationship);
-const profile = await this.findCandidateOrFail(profileId);
+    const profile = await this.findCandidateOrFail(profileId);
 
-await this.notificationsService.create({
-    userId: agentId,
-    customerId: customerId,
-    customerName: `${customer.firstName} ${customer.lastName ?? ""}`,
-    type: "interest_withdrawn",
-    title: "Interest Withdrawn",
-    message: `${profile.firstName} withdrew the interest request.`,
-});
-return saved;
+    const reverse = await this.getOrCreateRelationship({
+      agentId: profile.assignedAgentId || agentId,
+      customerId: profileId,
+      profileId: customerId,
+    });
+    reverse.status = AgentCustomerMatchStatus.WITHDRAWN;
+    reverse.shortlisted = false;
+    reverse.lastActionAt = new Date();
+    await this.customerMatchRepo.save(reverse);
+
+    const customerName = `${customer.firstName} ${customer.lastName ?? ''}`.trim();
+    const profileName = `${profile.firstName} ${profile.lastName ?? ''}`.trim();
+
+    await this.notifyCustomer(agentId, customerId, 'Interest Withdrawn', `You withdrew your interest request to ${profileName}.`, 'interest_withdrawn', {
+      profileId,
+      profileName,
+    });
+    await this.notifyCustomer(profile.assignedAgentId || agentId, profileId, 'Interest Withdrawn', `${customerName} withdrew their interest request.`, 'interest_withdrawn', {
+      profileId: customerId,
+      profileName: customerName,
+    });
+    return saved;
   }  
   
 
@@ -1282,7 +1364,7 @@ return saved;
     relationship.favourite = !relationship.favourite;
     relationship.lastActionAt = new Date();
     const saved = await this.customerMatchRepo.save(relationship);
-    await this.notifyCustomer(customerId, relationship.favourite ? 'Favourite Added' : 'Favourite Removed', 'Favourite profile list updated.', 'system', {
+    await this.notifyCustomer(agentId, customerId, relationship.favourite ? 'Favourite Added' : 'Favourite Removed', 'Favourite profile list updated.', 'system', {
       profileId,
     });
     return saved;
@@ -1302,7 +1384,9 @@ return saved;
         await this.neo4jService.removeShortlist(customerId, profileId);
       }
     }
-    await this.notifyCustomer(customerId, relationship.shortlisted ? 'Profile Shortlisted' : 'Shortlist Removed', 'Shortlisted profile list updated.', 'system', {
+    const profile = await this.findCandidateOrFail(profileId);
+    const profileName = `${profile.firstName} ${profile.lastName ?? ''}`.trim();
+    await this.notifyCustomer(agentId, customerId, relationship.shortlisted ? 'Profile Shortlisted' : 'Shortlist Removed', relationship.shortlisted ? `You shortlisted ${profileName}.` : `You removed ${profileName} from shortlist.`, relationship.shortlisted ? 'shortlisted' : 'shortlist_removed', {
       profileId,
     });
     return saved;
@@ -1318,6 +1402,26 @@ return saved;
     const saved = await this.customerMatchRepo.save(relationship);
     await this.ensureSqliteMatch(customerId, profileId, MatchStatus.BLOCKED, relationship.compatibilityScore);
     if (this.neo4jService.isEnabled()) await this.neo4jService.blockUser(customerId, profileId, saved.id);
+
+    const profile = await this.findCandidateOrFail(profileId);
+    const profileName = `${profile.firstName} ${profile.lastName ?? ''}`.trim();
+    await this.notifyCustomer(
+      agentId,
+      customerId,
+      'Profile Blocked',
+      `You blocked ${profileName}.`,
+      'blocked',
+      { profileId }
+    );
+    await this.notifyCustomer(
+      agentId,
+      customerId,
+      'Recommendation Removed',
+      `Recommendation removed: ${profileName}.`,
+      'recommendation_removed',
+      { profileId, profileName }
+    );
+
     return saved;
   }
 
@@ -1340,6 +1444,26 @@ return saved;
     relationship.lastActionAt = new Date();
     const saved = await this.customerMatchRepo.save(relationship);
     if (this.neo4jService.isEnabled()) await this.neo4jService.ignoreUser(customerId, profileId);
+
+    const profile = await this.findCandidateOrFail(profileId);
+    const profileName = `${profile.firstName} ${profile.lastName ?? ''}`.trim();
+    await this.notifyCustomer(
+      agentId,
+      customerId,
+      'Profile Ignored',
+      `You ignored ${profileName}.`,
+      'ignored',
+      { profileId }
+    );
+    await this.notifyCustomer(
+      agentId,
+      customerId,
+      'Recommendation Removed',
+      `Recommendation removed: ${profileName}.`,
+      'recommendation_removed',
+      { profileId, profileName }
+    );
+
     return saved;
   }
 
@@ -1391,15 +1515,12 @@ return saved;
       friends: cards.filter((card) => card!.relationship.status === AgentCustomerMatchStatus.ACCEPTED),
       requestsReceived: cards.filter((card) => card!.relationship.status === AgentCustomerMatchStatus.PENDING_RECEIVED),
       requestsSent: cards.filter((card) => card!.relationship.status === AgentCustomerMatchStatus.PENDING_SENT),
-      shortlisted: cards.filter((card) =>
-        card!.relationship.shortlisted &&
-        card!.relationship.status === AgentCustomerMatchStatus.RECOMMENDED,
-      ),
-      blocked: cards.filter((card) => card!.relationship.blocked || card!.relationship.status === AgentCustomerMatchStatus.BLOCKED),
+      shortlisted: cards.filter((card) => !!card!.relationship.shortlisted),
+      blocked: cards.filter((card) => !!card!.relationship.blocked || card!.relationship.status === AgentCustomerMatchStatus.BLOCKED),
       declined: cards.filter((card) =>
         [AgentCustomerMatchStatus.DECLINED, AgentCustomerMatchStatus.WITHDRAWN, AgentCustomerMatchStatus.IGNORED].includes(
           card!.relationship.status,
-        ),
+        ) || !!card!.relationship.ignored,
       ),
     };
   }
@@ -1424,9 +1545,15 @@ return saved;
     return paginate(rows, total, page, limit);
   }
 
-  async markNotificationsRead(agentId: string, customerId: string, notificationId?: string) {
+  async markNotificationsRead(agentId: string, customerId: string, notificationId?: string, type?: string) {
     await this.findAssignedOrFail(agentId, customerId);
-    const where = notificationId ? { id: notificationId, userId: customerId } : { userId: customerId };
+    const where: any = { userId: agentId, customerId };
+    if (notificationId) {
+      where.id = notificationId;
+    }
+    if (type) {
+      where.type = type;
+    }
     await this.notificationRepo.update(where, { status: 'read' });
     return { success: true };
   }
@@ -1442,6 +1569,10 @@ return saved;
 
     if (activeProfileId) {
       await this.chatService.markConversationRead(customerId, activeProfileId);
+      await this.notificationRepo.update(
+        { userId: agentId, customerId, type: 'message', status: 'sent' },
+        { status: 'read' }
+      );
     }
 
     const imageMap = await this.getProfileImageMap(accepted.map((r) => r.profileId));
@@ -1450,8 +1581,7 @@ return saved;
       accepted.map(async (row) => {
         const profile = await this.findCandidateOrFail(row.profileId);
         const unreadCount = await this.chatService.getUnreadCount(customerId, row.profileId);
-        const chatRes = await this.chatService.getMessages(customerId, row.profileId, 1, 1);
-        const lastMsg = (chatRes.messages || [])[0] as { type?: string; content?: string; createdAt?: string } | undefined;
+        const lastMsg = await this.chatService.getLatestMessage(customerId, row.profileId);
         let subtitle = 'Accepted match';
         if (lastMsg) {
           subtitle =
@@ -1475,6 +1605,12 @@ return saved;
         };
       }),
     );
+
+    contacts.sort((a, b) => {
+      const aTime = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
+      const bTime = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
+      return bTime - aTime;
+    });
 
     const messages = activeProfileId
       ? await this.chatService.getMessages(customerId, activeProfileId, query.page, query.limit)
@@ -1502,7 +1638,13 @@ return saved;
     });
     if (!relationship) throw new BadRequestException('Only accepted matches can chat');
     const message = await this.chatService.sendMessage(customerId, dto);
-    await this.notifyCustomer(dto.receiverId, 'New Chat Message', 'You have a new message.', 'message', {
+    
+    // Notify Socket.IO clients in real-time
+    this.chatGateway.notifyNewMessage(message);
+
+    const receiver = await this.customerRepo.findOne({ where: { id: dto.receiverId } });
+    const receiverAgentId = receiver?.assignedAgentId || agentId;
+    await this.notifyCustomer(receiverAgentId, dto.receiverId, 'New Chat Message', 'You have a new message.', 'message', {
       profileId: customerId,
     });
     return message;

@@ -40,6 +40,6 @@ import { POSTGRES_CONNECTION, SQLITE_CONNECTION } from '../../config/database.co
   ],
   controllers: [ChatController],
   providers: [ChatServiceMongodb, ChatGateway],
-  exports: [ChatServiceMongodb],
+  exports: [ChatServiceMongodb, ChatGateway],
 })
 export class ChatModule {}
