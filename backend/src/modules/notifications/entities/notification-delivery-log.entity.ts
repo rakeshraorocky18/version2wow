@@ -36,4 +36,17 @@ export class NotificationDeliveryLogEntity {
 
   @CreateDateColumn()
   createdAt!: Date;
+   
+ @Column({
+  type: 'varchar',
+  nullable: true,
+})
+customerId!: string | null;
+
+@Column({
+  type: 'varchar',
+  nullable: true,
+})
+customerName!: string | null;
+
 }

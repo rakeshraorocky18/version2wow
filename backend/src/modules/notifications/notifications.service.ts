@@ -7,9 +7,28 @@ import { Notification } from './entities/notification.entity';
 import { CreateNotificationDto } from './dto/create-notification.dto';
 export interface NotificationPayload {
   userId: string;
+
+  customerId?: string;
+  customerName?: string;
+  profileId?: string;
+  profileName?: string;
+  notificationType?: string;
+  action?: string;
+
   title: string;
   body: string;
-  type: 'match' | 'message' | 'booking' | 'reminder' | 'system';
+
+  type:
+    | 'match'
+    | 'message'
+    | 'booking'
+    | 'reminder'
+    | 'system'
+    | 'interest_sent'
+    | 'interest_accepted'
+    | 'interest_declined'
+    | 'interest_withdrawn';
+
   data?: Record<string, any>;
 }
 
@@ -33,6 +52,10 @@ export class NotificationsService {
 // Save notification for frontend
 await this.notificationRepository.save({
     userId: payload.userId,
+
+    customerId: payload.customerId,
+    customerName: payload.customerName,
+
     type: payload.type,
     title: payload.title,
     message: payload.body,
@@ -40,27 +63,37 @@ await this.notificationRepository.save({
 });
 
 // Save delivery log
-await this.deliveryLogRepo.save({
+// Save delivery log
+const deliveryLog = new NotificationDeliveryLogEntity();
+
+deliveryLog.userId = payload.userId;
+deliveryLog.title = payload.title;
+deliveryLog.body = payload.body;
+deliveryLog.type = payload.type;
+deliveryLog.data = payload.data ?? null;
+deliveryLog.status = 'sent';
+deliveryLog.channel = 'console';
+deliveryLog.customerId = payload.customerId ?? null;
+deliveryLog.customerName = payload.customerName ?? null;
+
+await this.deliveryLogRepo.save(deliveryLog);
+
+
+    } catch (error) {
+      const failedDeliveryLog = this.deliveryLogRepo.create({
     userId: payload.userId,
     title: payload.title,
     body: payload.body,
     type: payload.type,
     data: payload.data ?? null,
-    status: 'sent',
+    status: 'failed',
     channel: 'console',
+    errorMessage: error instanceof Error ? error.message : 'Unknown error',
+    customerId: payload.customerId ?? null,
+    customerName: payload.customerName ?? null,
 });
-    
-    } catch (error) {
-      await this.deliveryLogRepo.save({
-        userId: payload.userId,
-        title: payload.title,
-        body: payload.body,
-        type: payload.type,
-        data: payload.data ?? null,
-        status: 'failed',
-        channel: 'console',
-        errorMessage: error instanceof Error ? error.message : 'Unknown error',
-      });
+
+await this.deliveryLogRepo.save(failedDeliveryLog);
       throw error;
     }
   }
@@ -97,7 +130,17 @@ await this.deliveryLogRepo.save({
   }
 
   async create(dto: CreateNotificationDto) {
-  return await this.notificationRepository.save(dto);
+  console.log("=================================");
+  console.log("CREATE NOTIFICATION CALLED");
+  console.log(dto);
+  console.log("=================================");
+
+  const saved = await this.notificationRepository.save(dto);
+
+  console.log("SAVED NOTIFICATION:");
+  console.log(saved);
+
+  return saved;
 }
 
 async findAll(userId: string) {

@@ -127,8 +127,7 @@ export default function SuggestionSlidePanel({
                 )}
                 {!isLoading && profiles.length === 0 && (
                   <div className="rounded-2xl border border-dashed border-gray-200 px-4 py-12 text-center text-sm text-wow-muted">
-                    No AI suggestions yet. Add more opposite-gender customer profiles across the
-                    platform.
+                    No AI recommendations available with 50% or higher compatibility.
                   </div>
                 )}
                 {!isLoading &&

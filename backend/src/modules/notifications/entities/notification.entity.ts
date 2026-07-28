@@ -31,4 +31,22 @@ isRead!:boolean;
 @CreateDateColumn()
 createdAt!:Date;
 
+@Column('varchar', { nullable: true })
+customerId!: string | null;
+
+@Column('varchar', { nullable: true })
+customerName!: string | null;
+
+@Column('varchar', { nullable: true })
+profileId!: string | null;
+
+@Column('varchar', { nullable: true })
+profileName!: string | null;
+
+@Column('varchar', { nullable: true })
+notificationType!: string | null;
+
+@Column('varchar', { nullable: true })
+action!: string | null;
+
 }

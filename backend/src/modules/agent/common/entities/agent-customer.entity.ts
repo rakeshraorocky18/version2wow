@@ -11,79 +11,79 @@ import { AgentCustomerStatus } from '../enums/agent.enums';
 @Entity('agent_customers')
 export class AgentCustomerEntity {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @Index({ unique: true })
   @Column()
-  customerCode: string;
+  customerCode!: string;
 
   @Column()
-  firstName: string;
+  firstName!: string;
 
   @Column({ nullable: true })
-  lastName: string;
+  lastName!: string;
 
   @Column({ type: 'varchar', nullable: true })
-  gender: string;
+  gender!: string;
 
   @Column({ type: 'date', nullable: true })
-  dateOfBirth: string;
+  dateOfBirth!: string;
 
   @Column({ nullable: true })
-  phone: string;
+  phone!: string;
 
   @Column({ nullable: true })
-  email: string;
+  email!: string;
 
   @Column({ type: 'text', nullable: true })
-  address: string;
+  address!: string;
 
   @Column({ nullable: true })
-  religion: string;
+  religion!: string;
 
   @Column({ nullable: true })
-  caste: string;
+  caste!: string;
 
   @Column({ nullable: true })
-  motherTongue: string;
+  motherTongue!: string;
 
   @Column({ nullable: true })
-  occupation: string;
+  occupation!: string;
 
   @Column({ nullable: true })
-  education: string;
+  education!: string;
 
   @Column({ type: 'simple-json', nullable: true })
-  personalDetails: Record<string, unknown>;
+  personalDetails!: Record<string, unknown>;
 
   @Column({ type: 'simple-json', nullable: true })
-  familyDetails: Record<string, unknown>;
+  familyDetails!: Record<string, unknown>;
 
   @Column({ type: 'simple-json', nullable: true })
-  educationDetails: Record<string, unknown>;
+  educationDetails!: Record<string, unknown>;
 
   @Column({ type: 'simple-json', nullable: true })
-  religionDetails: Record<string, unknown>;
+  religionDetails!: Record<string, unknown>;
 
   @Column({ type: 'simple-json', nullable: true })
-  partnerPreferences: Record<string, unknown>;
+  partnerPreferences!: Record<string, unknown>;
 
   @Column({ type: 'varchar', default: AgentCustomerStatus.PENDING })
-  status: AgentCustomerStatus;
+  status!: AgentCustomerStatus;
 
   @Column({ type: 'int', default: 0 })
-  profileCompletion: number;
+  profileCompletion!: number;
 
   @Index()
   @Column()
-  assignedAgentId: string;
+  assignedAgentId!: string;
 
   @Column()
-  createdByAgentId: string;
+  createdByAgentId!: string;
 
   @CreateDateColumn()
-  createdAt: Date;
+  createdAt!: Date;
 
   @UpdateDateColumn()
-  updatedAt: Date;
+  updatedAt!: Date;
 }

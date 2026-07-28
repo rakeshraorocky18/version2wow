@@ -32,6 +32,7 @@ type ChatMessage = {
   id?: string;
   _id?: string;
   senderId: string;
+  receiverId?: string;
   content: string;
   type?: string;
   mediaUrl?: string;
@@ -221,6 +222,7 @@ export default function Chat({
   embedded = false,
   initialUserId,
   agentMode = false,
+  agentCustomerId: _agentCustomerId,
   agentContacts = [],
   agentMessages = [],
   onAgentSendMessage,

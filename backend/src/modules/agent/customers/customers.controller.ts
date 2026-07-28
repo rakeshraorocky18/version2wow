@@ -79,6 +79,26 @@ export class AgentCustomersController {
     return this.customersService.getRecommendations(req.user.id, customerId);
   }
 
+  @Get(':customerId/recent-profiles')
+  @ApiOperation({ summary: 'Recently added opposite-gender profiles for a customer' })
+  getRecentProfiles(
+    @Req() req: { user: { id: string } },
+    @Param('customerId') customerId: string,
+    @Query() query: MatchingSearchDto,
+  ) {
+    return this.customersService.getRecentProfiles(req.user.id, customerId, query);
+  }
+
+  @Get(':customerId/ai-recommendations')
+  @ApiOperation({ summary: 'AI recommendations for a customer using opposite-gender profiles' })
+  getCustomerAiRecommendations(
+    @Req() req: { user: { id: string } },
+    @Param('customerId') customerId: string,
+    @Query() query: MatchingSearchDto,
+  ) {
+    return this.customersService.getCustomerAiRecommendations(req.user.id, customerId, query);
+  }
+
   @Get(':customerId/matching/profiles/:matchedProfileId')
   @ApiOperation({
     summary: 'Full matched profile detail (platform-wide, for matchmaking)',

@@ -27,8 +27,8 @@ import {
   useAgentCustomerChat,
   useAgentCustomerHistory,
   useAgentCustomerNotifications,
+  useAgentCustomerRecentProfiles,
   useAgentCustomerWorkspace,
-  useAgentCustomerWorkspaceMatches,
   useAgentRecommendations,
   useSendAgentCustomerChatMessage,
 } from '../../hooks/agent/useAgent';
@@ -143,7 +143,18 @@ function MatchCard({
   const received = profile.relationshipStatus === 'pending_received';
 
   return (
-    <article className="overflow-hidden rounded-[22px] border border-gray-100 bg-white shadow-[0_8px_28px_rgba(44,38,48,0.06)]">
+<article
+  role="button"
+  tabIndex={0}
+  onClick={() => navigate(`/agent/customers/${customerId}/profile/${profile.id}`)}
+  onKeyDown={(e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      navigate(`/agent/customers/${customerId}/profile/${profile.id}`);
+    }
+  }}
+  className="overflow-hidden rounded-[22px] border border-gray-100 bg-white shadow-[0_8px_28px_rgba(44,38,48,0.06)] cursor-pointer"
+>
       <div className="grid gap-0 lg:grid-cols-[220px_1fr]">
         <div className="relative min-h-[220px] bg-gradient-to-br from-[#FFF0F4] to-[#F7EBEF]">
           {profile.profilePhoto ? (
@@ -204,7 +215,7 @@ function MatchCard({
               </div>
             )}
           </div>
-
+           
           <div className="border-t border-gray-100 bg-[#FFFBFC] p-4">
             <div className="flex flex-wrap items-center gap-2">
               <button
@@ -346,10 +357,10 @@ export default function CustomerDetailsWorkspace() {
       }),
     [appliedFilters, search, sortBy, page],
   );
-  const matches = useAgentCustomerWorkspaceMatches(customerId, matchesPayload, activeTab === 'matches');
+  const matches = useAgentCustomerRecentProfiles(customerId, matchesPayload, activeTab === 'matches');
   const history = useAgentCustomerHistory(customerId, activeTab === 'history');
   const notifications = useAgentCustomerNotifications(customerId, { page: 1, limit: 50 }, true);
-  const recommendations = useAgentRecommendations(customerId, activeTab === 'matches');
+  const recommendations = useAgentRecommendations(customerId, matchesPayload, activeTab === 'matches');
   const chat = useAgentCustomerChat(customerId, { profileId: activeChatProfileId, page: 1, limit: 50 }, activeTab === 'chat');
   const action = useAgentCustomerAction(customerId);
   const sendMessage = useSendAgentCustomerChatMessage(customerId);

@@ -98,6 +98,22 @@ export type AgentCustomerChatContact = {
   unreadCount: number;
 };
 
+export interface AgentNotificationItem {
+  id: number;
+  userId: string;
+  customerId?: string;
+  customerName?: string;
+  profileId?: string;
+  profileName?: string;
+  notificationType?: string;
+  action?: string;
+  title: string;
+  message: string;
+  type: string;
+  isRead: boolean;
+  createdAt: string;
+}
+
 export type AgentCustomerChatMessage = {
   id?: string;
   _id?: string;
@@ -278,10 +294,22 @@ export const agentService = {
 
   getCustomerRecommendations: async (
     customerId: string,
+    params?: AgentMatchSearchPayload,
   ): Promise<AgentRecommendationsResult> => {
     const { data } = await agentApi.get(
-      `/agent/customers/${customerId}/matching/recommendations`,
+      `/agent/customers/${customerId}/ai-recommendations`,
+      { params },
     );
+    return data;
+  },
+
+  getCustomerRecentProfiles: async (
+    customerId: string,
+    params?: AgentMatchSearchPayload,
+  ): Promise<AgentMatchSearchResult> => {
+    const { data } = await agentApi.get(`/agent/customers/${customerId}/recent-profiles`, {
+      params,
+    });
     return data;
   },
 
@@ -362,6 +390,24 @@ export const agentService = {
       notificationId,
     });
     return data;
+  },
+
+  getNotifications: async (userId: string): Promise<AgentNotificationItem[]> => {
+    const { data } = await agentApi.get('/notifications', {
+      params: { userId },
+    });
+    return data;
+  },
+
+  getUnreadCount: async (userId: string): Promise<number> => {
+    const { data } = await agentApi.get('/notifications/count', {
+      params: { userId },
+    });
+    return data;
+  },
+
+  markNotificationRead: async (notificationId: number): Promise<void> => {
+    await agentApi.patch(`/notifications/${notificationId}`);
   },
 
   getCustomerChat: async (
