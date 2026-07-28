@@ -28,6 +28,7 @@ export interface AgentUser {
   phone: string;
   employeeCode: string;
   name: string;
+  profileImageUrl?: string | null;
   createdAt?: string;
   lastLoginAt?: string;
 }

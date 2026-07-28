@@ -166,6 +166,21 @@ export class AgentAuthService {
     if (dto.firstName !== undefined) profile.firstName = dto.firstName;
     if (dto.lastName !== undefined) profile.lastName = dto.lastName;
     if (dto.phone !== undefined) profile.phone = dto.phone;
+    if (dto.profileImageUrl !== undefined) profile.profileImageUrl = dto.profileImageUrl;
+    await this.agentProfileRepo.save(profile);
+    return this.mapUser(user, profile);
+  }
+
+  async updateProfilePhoto(userId: string, fileUrl: string) {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user || user.role !== UserRole.AGENT) {
+      throw new UnauthorizedException('Not an agent account');
+    }
+    let profile = await this.agentProfileRepo.findOne({ where: { userId } });
+    if (!profile) {
+      profile = this.agentProfileRepo.create({ userId, firstName: user.email.split('@')[0] });
+    }
+    profile.profileImageUrl = fileUrl;
     await this.agentProfileRepo.save(profile);
     return this.mapUser(user, profile);
   }
@@ -201,6 +216,7 @@ export class AgentAuthService {
       lastName: profile?.lastName ?? '',
       phone: profile?.phone ?? user.phone ?? '',
       employeeCode: profile?.employeeCode ?? '',
+      profileImageUrl: profile?.profileImageUrl ?? null,
       name: [profile?.firstName, profile?.lastName].filter(Boolean).join(' ') || user.email,
       createdAt: user.createdAt,
       lastLoginAt: user.lastLoginAt,

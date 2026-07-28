@@ -14,6 +14,7 @@ import {
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAgentAuthStore } from '../../store/agent/agentAuthStore';
 import WowLogo from '../brand/WowLogo';
+import { resolveCustomerImageUrl } from '../../lib/agent/customerAvatar';
 
 interface AgentHeaderProps {
   onToggleMobileNav?: () => void;
@@ -102,9 +103,17 @@ export default function AgentHeader({ onToggleMobileNav, mobileOpen }: AgentHead
             onClick={() => setMenuOpen((v) => !v)}
             className="flex items-center gap-2 rounded-full pl-1 pr-3 py-1 hover:bg-gray-50 transition"
           >
-            <div className="w-9 h-9 rounded-full bg-[#E91E63] text-white flex items-center justify-center text-sm font-semibold">
-              {(user?.firstName?.[0] || user?.email?.[0] || 'A').toUpperCase()}
-            </div>
+            {user?.profileImageUrl ? (
+              <img
+                src={resolveCustomerImageUrl(user.profileImageUrl)}
+                alt="Profile"
+                className="w-9 h-9 rounded-full object-cover"
+              />
+            ) : (
+              <div className="w-9 h-9 rounded-full bg-[#E91E63] text-white flex items-center justify-center text-sm font-semibold">
+                {(user?.firstName?.[0] || user?.email?.[0] || 'A').toUpperCase()}
+              </div>
+            )}
             <div className="hidden sm:block text-left">
               <p className="text-sm font-medium text-gray-900 leading-tight">
                 {user?.name || 'Agent'}
