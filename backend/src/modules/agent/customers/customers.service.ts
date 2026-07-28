@@ -1526,6 +1526,7 @@ return saved;
     const personal = asRecord(customer.personalDetails);
     const family = asRecord(customer.familyDetails);
     const education = asRecord(customer.educationDetails);
+    const nativePlace = asRecord(personal.nativePlace);
 
     const documents = await this.documentRepo.find({
       where: { customerId: profileId },
@@ -1544,9 +1545,15 @@ return saved;
       occupation: customer.occupation,
       education: customer.education,
 
-      city: String(personal.city ?? ''),
-      state: String(personal.state ?? ''),
-      country: String(personal.country ?? ''),
+      city: String(
+        nativePlace.city ||
+        nativePlace.village ||
+        nativePlace.mandal ||
+        nativePlace.district ||
+        ''
+      ),
+      state: String(nativePlace.state ?? ''),
+      country: String(nativePlace.country ?? ''),
       aboutMe: String(personal.aboutMe ?? ''),
 
       height: String(personal.height ?? ''),
@@ -1554,9 +1561,9 @@ return saved;
       annualSalary: String(education.annualIncome ?? ''),
 
       fatherName: String(family.fatherName ?? ''),
-      fatherOccupation: String(family.fatherOccupation ?? ''),
+      fatherOccupation: String(family.fatherProfession ?? ''),
       motherName: String(family.motherName ?? ''),
-      motherOccupation: String(family.motherOccupation ?? ''),
+      motherOccupation: String(family.motherProfession ?? ''),
       familyType: String(family.familyType ?? ''),
 
       profileImage: resolveProfileImageUrl(documents),

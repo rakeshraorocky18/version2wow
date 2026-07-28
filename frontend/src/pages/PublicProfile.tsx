@@ -9,17 +9,15 @@ export default function PublicProfile() {
   const { profileId } = useParams();
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [showImage, setShowImage] = useState(false);
 
   useEffect(() => {
     if (!profileId) return;
 
     const loadProfile = async () => {
       try {
-        console.log("Loading profile:", profileId);
-
+    
         const data = await agentService.getPublicProfile(profileId);
-
-        console.log("PROFILE DATA:", data);
 
         setProfile(data);
       } catch (err) {
@@ -68,19 +66,20 @@ export default function PublicProfile() {
           <PublicProfileHeader
             profile={profile}
             calculateAge={calculateAge}
+            onImageClick={() => setShowImage(true)}
           />
 
           <div className="mt-8">
 
-            <div className="mt-8">
-              <h2 className="text-xl font-semibold mb-3">About Me</h2>
-
-              <div className="bg-gray-50 rounded-xl p-5">
-                <p className="text-gray-700 leading-7">
-                  {profile.aboutMe || "This member has not added an About Me yet."}
-                </p>
+            {profile.aboutMe?.trim() && (
+              <div className="mt-8">
+                <div className="bg-gray-50 rounded-xl p-5">
+                  <p className="text-gray-700 leading-7">
+                    {profile.aboutMe}
+                  </p>
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="mt-10 border-t pt-8">
               <h2 className="text-xl font-semibold mb-4">Basic Information</h2>
@@ -129,6 +128,31 @@ export default function PublicProfile() {
           </div>
 
         </div>
+
+        {showImage && (
+          <div
+            className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center"
+            onClick={() => setShowImage(false)}
+          >
+            <img
+              src={
+                profile.profileImage
+                  ? `http://localhost:3000${profile.profileImage}`
+                  : "/default-avatar.png"
+              }
+              alt={profile.firstName}
+              className="max-w-[90vw] max-h-[90vh] object-contain rounded-xl shadow-2xl transition-transform duration-300 scale-100"
+              onClick={(e) => e.stopPropagation()}
+            />
+
+            <button
+              className="absolute top-5 right-8 text-white text-5xl"
+              onClick={() => setShowImage(false)}
+            >
+              ×
+            </button>
+          </div>
+        )}
 
       </div>
 

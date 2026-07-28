@@ -3,11 +3,13 @@ import { Calendar, Heart, MapPin } from "lucide-react";
 type Props = {
   profile: any;
   calculateAge: (dob?: string) => string | number;
+  onImageClick: () => void;
 };
 
 export default function PublicProfileHeader({
   profile,
   calculateAge,
+  onImageClick,
 }: Props) {
   return (
     <>
@@ -22,7 +24,8 @@ export default function PublicProfileHeader({
               : "/default-avatar.png"
           }
           alt={profile.firstName}
-          className="w-40 h-40 rounded-full border-4 border-white object-cover shadow-lg"
+          onClick={onImageClick}
+          className="w-40 h-40 rounded-full border-4 border-white object-cover shadow-lg cursor-pointer hover:scale-105 transition"
         />
 
         <h1 className="text-3xl font-bold mt-4">
