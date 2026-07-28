@@ -14,3 +14,25 @@ export function sanitizePayload<T extends Record<string, unknown>>(payload: T): 
   });
   return out as Partial<T>;
 }
+
+export function isIndianMobileNumber(value?: string | null): boolean {
+  if (typeof value !== 'string') return false;
+  const normalized = value.trim();
+  if (!normalized) return false;
+  const digits = normalized.replace(/\D/g, '');
+  return digits.length === 10 && /^[6789]/.test(digits);
+}
+
+export function getConditionalProfileFieldErrors(values: Record<string, unknown>): Record<string, string> {
+  const errors: Record<string, string> = {};
+
+  if (values.caste === 'Other' && !String(values.casteOther ?? '').trim()) {
+    errors.casteOther = 'Please specify your caste';
+  }
+
+  if (values.maritalStatus === 'Divorced' && !String(values.divorceReason ?? '').trim()) {
+    errors.divorceReason = 'Please specify the reason for divorce';
+  }
+
+  return errors;
+}

@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { EntityManager, In, Repository } from 'typeorm';
 import {
   POSTGRES_CONNECTION,
   SQLITE_CONNECTION,
@@ -80,9 +80,44 @@ export class AgentCustomersService {
     private readonly notificationsService: NotificationsService,
   ) {}
 
-  private async generateCustomerCode(): Promise<string> {
-    const count = await this.customerRepo.count();
-    return `WOW-${String(count + 1).padStart(5, '0')}`;
+  private async generateCustomerCode(
+    manager: EntityManager,
+  ): Promise<string> {
+    await manager.query('LOCK TABLE agent_customers IN SHARE ROW EXCLUSIVE MODE');
+
+    const result = await manager
+      .createQueryBuilder(AgentCustomerEntity, 'c')
+      .select('MAX(c.customerCode)', 'max')
+      .getRawOne<{ max: string }>();
+
+    const maxCode = result?.max;
+    const nextNumber = maxCode ? Number(maxCode.replace(/^WOW-/, '')) + 1 : 1;
+    return `WOW-${String(nextNumber).padStart(5, '0')}`;
+  }
+
+  async create(agentId: string, dto: CreateAgentCustomerDto) {
+    return this.customerRepo.manager.transaction(async (manager) => {
+      const customerCode = await this.generateCustomerCode(manager);
+      const customer = manager.create(AgentCustomerEntity, {
+        ...dto,
+        customerCode,
+        assignedAgentId: agentId,
+        createdByAgentId: agentId,
+        status: dto.status ?? AgentCustomerStatus.PENDING,
+        profileCompletion: 0,
+      });
+      customer.profileCompletion = calculateProfileCompletion(customer, 0);
+      const saved = await manager.save(customer);
+
+      await this.activityService.log({
+        agentId,
+        customerId: saved.id,
+        action: AgentActivityAction.CUSTOMER_CREATED,
+        description: `Customer ${saved.firstName} ${saved.lastName ?? ''} (${saved.customerCode}) created`,
+      });
+
+      return { ...saved, profileImageUrl: null };
+    });
   }
 
   private async getProfileImageMap(
@@ -115,29 +150,6 @@ export class AgentCustomersService {
     return map;
   }
 
-  async create(agentId: string, dto: CreateAgentCustomerDto) {
-    const customerCode = await this.generateCustomerCode();
-    const customer = this.customerRepo.create({
-      ...dto,
-      customerCode,
-      assignedAgentId: agentId,
-      createdByAgentId: agentId,
-      status: dto.status ?? AgentCustomerStatus.PENDING,
-      profileCompletion: 0,
-    });
-    customer.profileCompletion = calculateProfileCompletion(customer, 0);
-    const saved = await this.customerRepo.save(customer);
-
-    await this.activityService.log({
-      agentId,
-      customerId: saved.id,
-      action: AgentActivityAction.CUSTOMER_CREATED,
-      description: `Customer ${saved.firstName} ${saved.lastName ?? ''} (${saved.customerCode}) created`,
-    });
-
-    return { ...saved, profileImageUrl: null };
-  }
-
   async list(agentId: string, query: ListCustomersQueryDto) {
     const page = Number(query.page) || 1;
     const limit = Math.min(Number(query.limit) || 10, 100);
@@ -153,8 +165,14 @@ export class AgentCustomersService {
       );
     }
 
-    if (query.status) {
-      qb.andWhere('c.status = :status', { status: query.status });
+    if (query.status === AgentCustomerStatus.PENDING) {
+      qb.andWhere('c.profileCompletion < :completion', {
+        completion: 100,
+      });
+    } else if (query.status) {
+      qb.andWhere('c.status = :status', {
+        status: query.status,
+      });
     }
 
     const sortBy = query.sortBy ?? 'date';
@@ -233,6 +251,12 @@ export class AgentCustomersService {
     Object.assign(customer, dto);
     await this.recomputeCompletion(customer);
 
+  if (customer.profileCompletion === 100) {
+    customer.status = AgentCustomerStatus.ACTIVE;
+  } else {
+    customer.status = AgentCustomerStatus.PENDING;
+  }
+
     const saved = await this.customerRepo.save(customer);
 
     await this.activityService.log({
@@ -250,9 +274,20 @@ export class AgentCustomersService {
   }
 
   async refreshCompletion(customerId: string) {
-    const customer = await this.customerRepo.findOne({ where: { id: customerId } });
+    const customer = await this.customerRepo.findOne({
+      where: { id: customerId },
+    });
+
     if (!customer) return;
+
     await this.recomputeCompletion(customer);
+
+    if (customer.profileCompletion === 100) {
+      customer.status = AgentCustomerStatus.ACTIVE;
+    } else {
+      customer.status = AgentCustomerStatus.PENDING;
+    }
+
     await this.customerRepo.save(customer);
   }
 
@@ -1315,21 +1350,45 @@ return saved;
       where: { customerId, status: AgentCustomerMatchStatus.ACCEPTED },
       order: { updatedAt: 'DESC' },
     });
+
+    const activeProfileId = query.profileId || accepted[0]?.profileId;
+
+    if (activeProfileId) {
+      await this.chatService.markConversationRead(customerId, activeProfileId);
+    }
+
+    const imageMap = await this.getProfileImageMap(accepted.map((r) => r.profileId));
+
     const contacts = await Promise.all(
       accepted.map(async (row) => {
         const profile = await this.findCandidateOrFail(row.profileId);
-        const unread = await this.chatService.getUnreadCount(customerId);
+        const unreadCount = await this.chatService.getUnreadCount(customerId, row.profileId);
+        const chatRes = await this.chatService.getMessages(customerId, row.profileId, 1, 1);
+        const lastMsg = (chatRes.messages || [])[0] as { type?: string; content?: string; createdAt?: string } | undefined;
+        let subtitle = 'Accepted match';
+        if (lastMsg) {
+          subtitle =
+            lastMsg.type === 'image'
+              ? '📷 Photo'
+              : lastMsg.type === 'video'
+                ? '🎬 Video'
+                : lastMsg.type === 'file'
+                  ? '📎 File'
+                  : lastMsg.content || 'Accepted match';
+        }
+
         return {
           userId: row.profileId,
           name: [profile.firstName, profile.lastName].filter(Boolean).join(' ').trim(),
-          subtitle: 'Accepted match',
+          subtitle,
+          photo: imageMap.get(row.profileId) ?? undefined,
+          lastMessageAt: lastMsg?.createdAt || row.updatedAt,
           onlineStatus: Date.now() - new Date(profile.updatedAt).getTime() < 24 * 60 * 60 * 1000,
-          unreadCount: unread,
+          unreadCount,
         };
       }),
     );
 
-    const activeProfileId = query.profileId || contacts[0]?.userId;
     const messages = activeProfileId
       ? await this.chatService.getMessages(customerId, activeProfileId, query.page, query.limit)
       : { messages: [], total: 0 };
@@ -1371,4 +1430,54 @@ return saved;
       profileImageUrl: imageMap.get(c.id) ?? null,
     }));
   }
+
+  async getPublicProfile(profileId: string) {
+    const customer = await this.customerRepo.findOne({
+      where: { id: profileId },
+    });
+
+    if (!customer) {
+      throw new NotFoundException('Profile not found');
+    }
+
+    const personal = asRecord(customer.personalDetails);
+    const family = asRecord(customer.familyDetails);
+    const education = asRecord(customer.educationDetails);
+
+    const documents = await this.documentRepo.find({
+      where: { customerId: profileId },
+      order: { createdAt: 'DESC' },
+    });
+
+    return {
+      id: customer.id,
+      firstName: customer.firstName,
+      lastName: customer.lastName,
+      gender: customer.gender,
+      dateOfBirth: customer.dateOfBirth,
+
+      religion: customer.religion,
+      caste: customer.caste,
+      occupation: customer.occupation,
+      education: customer.education,
+
+      city: String(personal.city ?? ''),
+      state: String(personal.state ?? ''),
+      country: String(personal.country ?? ''),
+      aboutMe: String(personal.aboutMe ?? ''),
+
+      height: String(personal.height ?? ''),
+
+      annualSalary: String(education.annualIncome ?? ''),
+
+      fatherName: String(family.fatherName ?? ''),
+      fatherOccupation: String(family.fatherOccupation ?? ''),
+      motherName: String(family.motherName ?? ''),
+      motherOccupation: String(family.motherOccupation ?? ''),
+      familyType: String(family.familyType ?? ''),
+
+      profileImage: resolveProfileImageUrl(documents),
+    };
+  }
+
 }

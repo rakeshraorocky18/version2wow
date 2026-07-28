@@ -17,8 +17,8 @@ export type EditSection = (typeof EDIT_SECTIONS)[number];
 export const SECTION_ERROR_FIELDS: Record<number, string[]> = {
   0: ['firstName', 'lastName', 'gender', 'dateOfBirth', 'height', 'phone', 'email', 'occupation', 'currentStatus', 'currentStatusOther'],
   1: ['rashi', 'nakshatra', 'manglik', 'placeOfBirth'],
-  2: ['religion', 'religionOther'],
-  3: ['maritalStatus', 'yearsMarried'],
+  2: ['religion', 'religionOther', 'caste', 'casteOther', 'subCaste', 'subCasteOther', 'motherTongue', 'motherTongueOther'],
+  3: ['maritalStatus', 'yearsMarried', 'divorceReason'],
   4: ['country', 'state', 'city'],
   5: ['familyType'],
   6: ['bio'],
@@ -43,8 +43,15 @@ export const FIELD_LABELS: Record<string, string> = {
   placeOfBirth: 'Place of Birth',
   religion: 'Religion',
   religionOther: 'Specify Religion',
+  caste: 'Caste',
+  casteOther: 'Specify Caste',
+  subCaste: 'Sub Caste',
+  subCasteOther: 'Specify Sub Caste',
+  motherTongue: 'Mother Tongue',
+  motherTongueOther: 'Specify Mother Tongue',
   maritalStatus: 'Marital Status',
   yearsMarried: 'Years Married',
+  divorceReason: 'Reason for Divorce',
   country: 'Country',
   state: 'State',
   city: 'City',
@@ -71,8 +78,11 @@ export function validateSectionFields(sectionIndex: number, form: ProfileForm): 
         if (!hasText(form[k])) next[k] = 'Required';
       });
       const phoneDigits = String(form.phone ?? '').replace(/\D/g, '');
-      if (form.phone && phoneDigits.length < 10) {
-        next.phone = 'Enter a valid mobile number (at least 10 digits)';
+      if (form.phone && phoneDigits.length !== 10) {
+        next.phone = 'Enter a valid 10-digit mobile number';
+      }
+      if (form.phone && !/^[6789]/.test(phoneDigits)) {
+        next.phone = 'Mobile number must start with 6, 7, 8, or 9';
       }
       const email = String(form.email ?? '').trim();
       if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -106,12 +116,24 @@ export function validateSectionFields(sectionIndex: number, form: ProfileForm): 
       if (form.religion === 'Other' && !hasText(form.religionOther)) {
         next.religionOther = 'Please specify religion';
       }
+      if (form.caste === 'Other' && !hasText(form.casteOther)) {
+        next.casteOther = 'Please specify your caste';
+      }
+      if (form.subCaste === 'Other' && !hasText(form.subCasteOther)) {
+        next.subCasteOther = 'Please specify your sub caste';
+      }
+      if (form.motherTongue === 'Other' && !hasText(form.motherTongueOther)) {
+        next.motherTongueOther = 'Please specify your mother tongue';
+      }
       break;
     }
     case 3: {
       if (!hasText(form.maritalStatus)) next.maritalStatus = 'Required';
       if (form.maritalStatus === 'Divorced' && !form.yearsMarried) {
         next.yearsMarried = 'Required';
+      }
+      if (form.maritalStatus === 'Divorced' && !hasText(form.divorceReason)) {
+        next.divorceReason = 'Please specify the reason for divorce';
       }
       break;
     }
@@ -260,6 +282,7 @@ export function apiProfileToForm(data: Record<string, unknown>): ProfileForm {
     religionOther: data.religionOther || '',
     maritalStatus: data.maritalStatus || '',
     yearsMarried: data.yearsMarried || '',
+    divorceReason: data.divorceReason || '',
     horoscopeAvailable: data.horoscopeAvailable ?? false,
     rashi: data.rashi || '',
     nakshatra: data.nakshatra || '',

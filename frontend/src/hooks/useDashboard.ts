@@ -3,14 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { AxiosError } from 'axios';
 import api from '../lib/api';
 import { useAuthStore } from '../store/authStore';
-import {
-  useReceivedInterests,
-  useSentInterests,
-  useAcceptedInterests,
-  useMyMatchProfile,
-  useShortlist,
-  useMatchSuggestions,
-} from './useMatchmaking';
+// import { useMyMatchProfile } from './useMatchmaking';
 import { usePlannerPlans } from './usePlanner';
 import {
   apiProfileToForm,
@@ -667,13 +660,21 @@ function mapVendors(vendors: VendorSearchResult[]): VendorItem[] {
 
 export function useDashboard() {
   const user = useAuthStore((state) => state.user);
-  const { data: myProfile } = useMyMatchProfile();
-  const { data: receivedInterests = [] } = useReceivedInterests();
-  const { data: sentInterests = [] } = useSentInterests();
-  const { data: acceptedInterests = [] } = useAcceptedInterests();
-  const { data: suggestionsData } = useMatchSuggestions(EMPTY_FILTERS);
-  const { data: shortlistData } = useShortlist();
+  // const { data: myProfile } = useMyMatchProfile();
+  // const { data: receivedInterests = [] } = useReceivedInterests();
+  // const { data: sentInterests = [] } = useSentInterests();
+  // const { data: acceptedInterests = [] } = useAcceptedInterests();
+  // const { data: suggestionsData } = useMatchSuggestions(EMPTY_FILTERS);
+  // const { data: shortlistData } = useShortlist();
   const { data: plannerPlans = [] } = usePlannerPlans();
+
+  // Fallback values for commented hooks
+  const myProfile = null;
+  const receivedInterests: MatchInterest[] = [];
+  const sentInterests: MatchInterest[] = [];
+  const acceptedInterests: MatchInterest[] = [];
+  const suggestionsData = null;
+  const shortlistData = null;
 
   const activePlan = plannerPlans[0] ?? null;
   const activePlanId = activePlan?.id ?? '';

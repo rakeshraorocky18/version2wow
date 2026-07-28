@@ -320,6 +320,7 @@ export function createEmptyForm(): AddCustomerFormState {
       maritalStatus: '',
       marriageDate: '',
       divorceDate: '',
+      divorceReason: '',
       separationDate: '',
       yearsMarried: '',
       hasChildren: '',

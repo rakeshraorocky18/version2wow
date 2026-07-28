@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { PublicProfileController } from './customers/public-profile.controller';
 import {
   POSTGRES_CONNECTION,
   SQLITE_CONNECTION,
@@ -61,6 +62,7 @@ import { AgentActivityService } from './activity-log/activity-log.service';
     AgentAuthController,
     AgentDashboardController,
     AgentCustomersController,
+    PublicProfileController,
     AgentNotesController,
     AgentDocumentsController,
     AgentWorksheetController,

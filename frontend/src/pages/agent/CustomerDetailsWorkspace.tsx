@@ -10,6 +10,7 @@ import {
   Clock3,
   Eye,
   Heart,
+  Share2,
   History,
   MessageCircle,
   Search,
@@ -143,6 +144,26 @@ function MatchCard({
   const pending = profile.relationshipStatus === 'pending_sent';
   const received = profile.relationshipStatus === 'pending_received';
 
+  const handleShare = async () => {
+    const shareUrl = `${window.location.origin}/public/profile/${profile.id}`;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: `${name} - WOW Profile`,
+          text: 'View this matrimonial profile',
+          url: shareUrl,
+        });
+      } else {
+        await navigator.clipboard.writeText(shareUrl);
+        toast.success('Profile link copied to clipboard');
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Unable to share profile');
+    }
+  };
+
   return (
 <article
   role="button"
@@ -269,6 +290,14 @@ function MatchCard({
               </button>
               <button type="button" disabled={busy} onClick={() => onAction('block', profile.id)} className="rounded-xl border border-red-100 bg-white px-3 py-2 text-sm text-red-600">
                 <Ban className="mr-1 inline h-4 w-4" /> Block
+              </button>
+              <button
+                type="button"
+                onClick={handleShare}
+                className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm hover:text-wow-primary"
+              >
+                <Share2 className="mr-1 inline h-4 w-4" />
+                Share
               </button>
             </div>
           </div>
@@ -597,15 +626,17 @@ export default function CustomerDetailsWorkspace() {
           embedded
           agentMode
           agentCustomerId={customerId}
+          initialUserId={activeChatProfileId}
+          onSelectContact={(userId) => setActiveChatProfileId(userId)}
           agentContacts={(chat.data?.contacts || []).map((c) => ({
             userId: c.userId,
             name: c.name,
             subtitle: c.subtitle,
-            photo: undefined,
-            lastMessageAt: undefined,
-            isBlocked: false,
-            muted: false,
-            onlineStatus: false,
+            photo: c.photo ? getPhotoUrl(c.photo) : undefined,
+            lastMessageAt: c.lastMessageAt ?? undefined,
+            isBlocked: c.isBlocked ?? undefined,
+            muted: c.muted ?? undefined,
+            onlineStatus: c.onlineStatus,
             unreadCount: c.unreadCount,
           }))}
           agentMessages={chat.data?.messages?.messages || []}
@@ -614,6 +645,7 @@ export default function CustomerDetailsWorkspace() {
               onSuccess: () => {
                 toast.success('Message sent');
                 chat.refetch();
+                notifications.refetch();
               },
               onError: (err: unknown) => toast.error(getErrorMessage(err, 'Unable to send message')),
             });

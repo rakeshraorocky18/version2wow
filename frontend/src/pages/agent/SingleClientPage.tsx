@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
 import ClientHeader from "../../components/agent/ClientHeader";
 import Matches from "../../components/agent/Matches";
@@ -11,10 +11,7 @@ import { agentService } from "../../services/agent/agentService";
 
 function SingleClientPage(){
 
-
 const [activeTab,setActiveTab]=useState("matches");
-
-
 const [notificationOpen,setNotificationOpen]=useState(false);
 
 const loadNotifications = async () => {
@@ -26,8 +23,6 @@ const loadNotifications = async () => {
 useEffect(() => {
   void loadNotifications();
 }, []);
-
-
 
 return(
 

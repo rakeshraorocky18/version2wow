@@ -40,10 +40,11 @@ export default function SearchableSelect({
     );
   }, [options, search]);
 
+  const isOtherValue = String(value || '').trim().toLowerCase() === OTHER_VALUE;
+
   const selectedLabel =
-    value === OTHER_VALUE && otherValue
-      ? otherValue
-      : options.find((o) => o.value === value)?.label || (value ? value : '');
+    options.find((o) => o.value.toLowerCase() === String(value || '').trim().toLowerCase())?.label ||
+    (value ? value : '');
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
@@ -55,19 +56,30 @@ export default function SearchableSelect({
 
   return (
     <div className="relative" ref={containerRef}>
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => !disabled && setOpen((v) => !v)}
-        className={`input-field flex items-center justify-between gap-2 text-left ${
-          disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'
-        }`}
-      >
-        <span className={selectedLabel ? 'text-wow-text' : 'text-gray-400'}>
-          {selectedLabel || placeholder}
-        </span>
-        <ChevronDown className={`w-4 h-4 text-wow-muted transition ${open ? 'rotate-180' : ''}`} />
-      </button>
+      <div className="flex flex-col gap-2 md:flex-row md:items-start">
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => !disabled && setOpen((v) => !v)}
+          className={`input-field flex min-w-0 flex-1 items-center justify-between gap-2 text-left ${
+            disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'
+          }`}
+        >
+          <span className={selectedLabel ? 'text-wow-text' : 'text-gray-400'}>
+            {selectedLabel || placeholder}
+          </span>
+          <ChevronDown className={`w-4 h-4 text-wow-muted transition ${open ? 'rotate-180' : ''}`} />
+        </button>
+
+        {isOtherValue && onOtherChange && (
+          <input
+            className="input-field min-w-0 flex-1"
+            placeholder={otherPlaceholder}
+            value={otherValue}
+            onChange={(e) => onOtherChange(e.target.value)}
+          />
+        )}
+      </div>
 
       {open && (
         <div className="absolute z-50 mt-1 w-full rounded-xl border border-gray-100 bg-white shadow-lg overflow-hidden">
@@ -107,15 +119,6 @@ export default function SearchableSelect({
             )}
           </ul>
         </div>
-      )}
-
-      {value === OTHER_VALUE && onOtherChange && (
-        <input
-          className="input-field mt-2"
-          placeholder={otherPlaceholder}
-          value={otherValue}
-          onChange={(e) => onOtherChange(e.target.value)}
-        />
       )}
     </div>
   );

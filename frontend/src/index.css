@@ -5129,3 +5129,215 @@ header.sticky {
     width: 100%;
   }
 }
+
+/* ────────────────────────────────────────────────────────── */
+/*                      DARK MODE SYSTEM                      */
+/* ────────────────────────────────────────────────────────── */
+
+.dark body,
+.dark .min-h-screen,
+.dark main {
+  background-color: #0f172a !important; /* Deep Slate Blue */
+  color: #f1f5f9 !important;
+}
+
+.dark .bg-white,
+.dark .card,
+.dark header,
+.dark .bg-gradient-to-br,
+.dark .rounded-3xl.bg-gradient-to-br {
+  background-color: #1e293b !important; /* Rich Dark Slate Card */
+  color: #f1f5f9 !important;
+  border-color: #334155 !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -4px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Modal specific background */
+.dark .bg-white.rounded-3xl,
+.dark [role="dialog"] > div {
+  background-color: #1e293b !important;
+  color: #f1f5f9 !important;
+  border: 1px solid #334155 !important;
+}
+
+.dark p, 
+.dark h1, 
+.dark h2, 
+.dark h3, 
+.dark span, 
+.dark label, 
+.dark dt, 
+.dark dd, 
+.dark div:not(.bg-pink-50):not(.bg-pink-100):not(.bg-emerald-100):not(.bg-emerald-50) {
+  color: #f1f5f9;
+}
+
+.dark .text-gray-800, 
+.dark .text-gray-700, 
+.dark .text-gray-900, 
+.dark .text-wow-text {
+  color: #f1f5f9 !important;
+}
+
+.dark .text-gray-500, 
+.dark .text-gray-400, 
+.dark .text-wow-muted {
+  color: #94a3b8 !important; /* Muted Slate */
+}
+
+/* Inputs & Forms */
+.dark input, 
+.dark select, 
+.dark textarea {
+  background-color: #0f172a !important;
+  color: #ffffff !important;
+  border-color: #334155 !important;
+}
+.dark input::placeholder {
+  color: #64748b !important;
+}
+
+.dark .border-gray-50,
+.dark .border-gray-100, 
+.dark .border-gray-200, 
+.dark .border-pink-100 {
+  border-color: #334155 !important;
+}
+
+/* Pink badge & highlights */
+.dark .bg-pink-50 {
+  background-color: #311221 !important; /* Deep maroon/rose bg */
+  border: 1px solid #881337 !important;
+}
+.dark .bg-pink-50 svg,
+.dark .bg-pink-50 .text-\[\#E91E63\],
+.dark .bg-pink-50 .text-pink-600 {
+  color: #fb7185 !important; /* Soft rose */
+}
+
+.dark .bg-pink-100 {
+  background-color: #881337 !important; /* Rose-900 */
+  color: #ffe4e6 !important; /* Rose-100 */
+}
+
+.dark .text-\[\#E91E63\], 
+.dark .text-pink-600,
+.dark .text-pink-500,
+.dark .text-pink-400 {
+  color: #fb7185 !important; /* Soft rose text */
+}
+
+.dark .border-pink-200 {
+  border-color: #f43f5e !important;
+}
+
+.dark .hover\:bg-pink-50:hover {
+  background-color: #4c0519 !important;
+  color: #fecdd3 !important;
+}
+
+.dark .bg-emerald-100 {
+  background-color: #064e3b !important;
+  color: #a7f3d0 !important;
+}
+
+/* Quick Action / Option rows in modals */
+.dark .bg-gray-50,
+.dark .bg-gray-100 {
+  background-color: #0f172a !important;
+  border: 1px solid #334155 !important;
+}
+.dark .bg-gray-50:hover,
+.dark .bg-gray-100:hover {
+  background-color: #1e293b !important;
+}
+
+/* Quick Action card highlights */
+.dark .hover\:border-pink-200:hover {
+  border-color: #f43f5e !important;
+  box-shadow: 0 10px 15px -3px rgba(244, 63, 94, 0.1) !important;
+}
+
+/* Other colored quick action card bg values */
+.dark .bg-amber-50 {
+  background-color: #2e2008 !important;
+  border: 1px solid #78350f !important;
+}
+.dark .bg-amber-50 svg {
+  color: #fbbf24 !important;
+}
+.dark .bg-blue-50 {
+  background-color: #0a192f !important;
+  border: 1px solid #1e3a8a !important;
+}
+.dark .bg-blue-50 svg {
+  color: #60a5fa !important;
+}
+.dark .bg-purple-50 {
+  background-color: #1e1b4b !important;
+  border: 1px solid #4c1d95 !important;
+}
+.dark .bg-purple-50 svg {
+  color: #c084fc !important;
+}
+.dark .bg-orange-50 {
+  background-color: #2d1710 !important;
+  border: 1px solid #7c2d12 !important;
+}
+.dark .bg-orange-50 svg {
+  color: #f97316 !important;
+}
+.dark .bg-emerald-50 {
+  background-color: #064e3b !important;
+  border: 1px solid #065f46 !important;
+}
+.dark .bg-emerald-50 svg {
+  color: #34d399 !important;
+}
+.dark .text-emerald-700 {
+  color: #34d399 !important;
+}
+
+.dark button.border-pink-200 {
+  border-color: #334155 !important;
+}
+.dark button.border-pink-200:hover {
+  border-color: #fb7185 !important;
+}
+
+.dark header .bg-\[\#FFF0F4\] {
+  background-color: #4c0519 !important;
+  color: #fb7185 !important;
+}
+.dark header .hover\:bg-gray-50:hover {
+  background-color: #334155 !important;
+  color: #ffffff !important;
+}
+
+/* Compact View Overrides */
+.compact-view .p-6, .compact-view .p-8 {
+  padding: 0.75rem !important;
+}
+.compact-view .p-4 {
+  padding: 0.5rem !important;
+}
+.compact-view .py-3.5, .compact-view .py-4 {
+  padding-top: 0.35rem !important;
+  padding-bottom: 0.35rem !important;
+}
+.compact-view .gap-6, .compact-view .gap-8 {
+  gap: 0.75rem !important;
+}
+.compact-view .space-y-6 > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 0.75rem !important;
+  margin-bottom: 0.75rem !important;
+}
+.compact-view .card {
+  padding: 0.75rem !important;
+}
+.compact-view table td, .compact-view table th {
+  padding-top: 0.25rem !important;
+  padding-bottom: 0.25rem !important;
+}
+
+

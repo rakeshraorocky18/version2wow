@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { agentService } from "../../services/agent/agentService";
-import { useAgentAuthStore } from "../../store/agent/agentAuthStore";
+import { agentService } from '../../services/agent/agentService';
+import { useAgentAuthStore } from '../../store/agent/agentAuthStore';
 
 interface NotificationPanelProps {
   open: boolean;
@@ -49,7 +49,7 @@ function NotificationPanel({
       const data = await agentService.getNotifications(user.id);
       setNotifications(data);
     } catch (err) {
-      console.error("Failed to load notifications", err);
+      console.error('Failed to load notifications', err);
       setError('Unable to load notifications.');
     } finally {
       setLoading(false);

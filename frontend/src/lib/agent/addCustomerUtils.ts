@@ -11,6 +11,9 @@ import { PROPERTY_TYPE_CONFIG } from '../../types/addCustomer';
 import { OTHER_VALUE } from '../../lib/agent/formOptions';
 import { createEmptyForm } from '../../types/addCustomer';
 import { getCustomerProfileImageUrl } from './customerAvatar';
+import { Country } from 'country-state-city';
+import { parsePhoneNumberFromString, getCountryCallingCode, getExampleNumber } from 'libphonenumber-js/max';
+import mobileExamples from 'libphonenumber-js/mobile/examples';
 
 export function calculateAge(dateOfBirth: string): string {
   if (!dateOfBirth) return '';
@@ -80,8 +83,109 @@ export function hasAddressContent(addr: AddressFields): boolean {
   });
 }
 
+export interface CountryOption {
+  code: string;
+  country: string;
+  isoCode: string;
+}
+
+export const WORLD_COUNTRY_CODES: CountryOption[] = Country.getAllCountries()
+  .filter((c) => c.phonecode)
+  .map((c) => {
+    let cleanedCode = c.phonecode.replace(/[^0-9]/g, '');
+    if (!cleanedCode.startsWith('+')) {
+      cleanedCode = '+' + cleanedCode;
+    }
+    return {
+      code: cleanedCode,
+      country: c.name,
+      isoCode: c.isoCode,
+    };
+  })
+  .filter((value, index, self) =>
+    self.findIndex((t) => t.code === value.code && t.isoCode === value.isoCode) === index
+  )
+  .sort((a, b) => a.country.localeCompare(b.country));
+
+const lengthCache: Record<string, number> = {};
+
+export function getExpectedLength(countryIso: string): number {
+  if (lengthCache[countryIso]) return lengthCache[countryIso];
+  try {
+    const example = getExampleNumber(countryIso as any, mobileExamples);
+    if (example && example.nationalNumber) {
+      lengthCache[countryIso] = example.nationalNumber.length;
+      return example.nationalNumber.length;
+    }
+  } catch (e) {}
+  lengthCache[countryIso] = 10;
+  return 10;
+}
+
+export function getCallingCode(iso: string): string {
+  try {
+    return '+' + getCountryCallingCode(iso as any);
+  } catch (e) {
+    const c = Country.getAllCountries().find((x) => x.isoCode === iso);
+    if (c) {
+      return '+' + c.phonecode.replace(/[^0-9]/g, '');
+    }
+    return '+91';
+  }
+}
+
+export function getIsoFromPhone(phone: string): string {
+  const clean = (phone || '').trim();
+  try {
+    const parsed = parsePhoneNumberFromString(clean);
+    if (parsed && parsed.country) {
+      return parsed.country;
+    }
+  } catch (e) {}
+
+  for (const c of WORLD_COUNTRY_CODES) {
+    if (clean.startsWith(c.code)) {
+      return c.isoCode;
+    }
+  }
+  return 'IN';
+}
+
+export function getNationalNumber(phone: string, iso: string): string {
+  const code = getCallingCode(iso);
+  const clean = (phone || '').trim();
+  if (clean.startsWith(code)) {
+    return clean.slice(code.length).trim();
+  }
+  return clean;
+}
+
+export interface ParsedPhone {
+  countryCode: string;
+  number: string;
+}
+
+export function parsePhone(phone: string): ParsedPhone {
+  const clean = (phone || '').trim();
+  const iso = getIsoFromPhone(clean);
+  const code = getCallingCode(iso);
+  return {
+    countryCode: code,
+    number: getNationalNumber(clean, iso),
+  };
+}
+
 export function isValidMobile(value: string): boolean {
-  return /^\d{10}$/.test(value.trim());
+  try {
+    const clean = (value || '').trim();
+    if (!clean) return false;
+    const parsed = parsePhoneNumberFromString(clean);
+    if (!parsed) return false;
+    if (parsed.nationalNumber.startsWith('0')) return false;
+    return parsed.isValid();
+  } catch (e) {
+    return false;
+  }
 }
 
 export function isValidEmail(value: string): boolean {
@@ -264,13 +368,17 @@ export function validateStep(
     if (!form.phone.trim()) {
       errors.phone = 'Mobile number is required';
     } else if (!isValidMobile(form.phone)) {
-      errors.phone = 'Please enter a valid 10-digit mobile number.';
+      const iso = getIsoFromPhone(form.phone);
+      const len = getExpectedLength(iso);
+      errors.phone = `Please enter a valid ${len}-digit mobile number.`;
     }
 
     const alternate = ((form.personalDetails.alternateMobile as string) || '').trim();
     if (alternate) {
       if (!isValidMobile(alternate)) {
-        errors.alternateMobile = 'Please enter a valid 10-digit mobile number.';
+        const iso = getIsoFromPhone(alternate);
+        const len = getExpectedLength(iso);
+        errors.alternateMobile = `Please enter a valid ${len}-digit mobile number.`;
       } else if (alternate === form.phone.trim()) {
         errors.alternateMobile = 'Alternate mobile cannot be the same as the primary mobile number.';
       }

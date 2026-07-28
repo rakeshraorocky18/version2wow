@@ -13,7 +13,8 @@ import {
   emptyAddress,
   emptyLocation,
 } from '../../../types/addCustomer';
-import { calculateAge } from '../../../lib/agent/addCustomerUtils';
+import { calculateAge, parsePhone, WORLD_COUNTRY_CODES, getExpectedLength, getIsoFromPhone, getCallingCode } from '../../../lib/agent/addCustomerUtils';
+import { AsYouType } from 'libphonenumber-js/max';
 import {
   BLOOD_GROUP_OPTIONS,
   CASTE_OPTIONS,
@@ -327,8 +328,46 @@ function ProfilePhotoField({
 }
 
 /* ─── 1. Personal Details ─── */
+const countryOptions = WORLD_COUNTRY_CODES.map((cc) => ({
+  value: cc.isoCode,
+  label: `${cc.code} (${cc.country})`,
+}));
+
 export function PersonalStep({ form, errors, update, updatePersonal }: StepProps) {
   const age = calculateAge(form.dateOfBirth);
+
+  const primaryPhoneParsed = parsePhone(form.phone);
+  const primaryIso = getIsoFromPhone(form.phone);
+  const primaryLength = getExpectedLength(primaryIso);
+
+  const alternateValue = (form.personalDetails.alternateMobile as string) || '';
+  const alternatePhoneParsed = parsePhone(alternateValue);
+  const alternateIso = getIsoFromPhone(alternateValue);
+  const alternateLength = getExpectedLength(alternateIso);
+
+  const handlePrimaryCodeChange = (iso: string) => {
+    const code = getCallingCode(iso);
+    update({ phone: `${code} ${primaryPhoneParsed.number}`.trim() });
+  };
+  const handlePrimaryNumberChange = (num: string) => {
+    let digits = num.replace(/\D/g, '');
+    if (digits.startsWith('0')) digits = digits.slice(1);
+    digits = digits.slice(0, primaryLength);
+    const formatted = new AsYouType(primaryIso as any).input(digits);
+    update({ phone: `${primaryPhoneParsed.countryCode} ${formatted}`.trim() });
+  };
+
+  const handleAlternateCodeChange = (iso: string) => {
+    const code = getCallingCode(iso);
+    updatePersonal('alternateMobile', `${code} ${alternatePhoneParsed.number}`.trim());
+  };
+  const handleAlternateNumberChange = (num: string) => {
+    let digits = num.replace(/\D/g, '');
+    if (digits.startsWith('0')) digits = digits.slice(1);
+    digits = digits.slice(0, alternateLength);
+    const formatted = new AsYouType(alternateIso as any).input(digits);
+    updatePersonal('alternateMobile', `${alternatePhoneParsed.countryCode} ${formatted}`.trim());
+  };
 
   return (
     <WizardSection icon="👤" title="Personal Details">
@@ -360,7 +399,7 @@ export function PersonalStep({ form, errors, update, updatePersonal }: StepProps
             onChange={(v) => update({ dateOfBirth: v })}
           />
         </FormField>
-        <FormField label="Age">
+        <FormField label="Age" required>
           <FormInput value={age} disabled onChange={() => {}} />
         </FormField>
         <FormField label="Height">
@@ -394,18 +433,44 @@ export function PersonalStep({ form, errors, update, updatePersonal }: StepProps
           />
         </FormField>
         <FormField label="Mobile Number" required error={errors.phone}>
-          <FormInput
-            value={form.phone}
-            onChange={(v) => update({ phone: digitsOnly(v) })}
-            placeholder="10-digit mobile number"
-          />
+          <div className="flex gap-2 items-start">
+            <div className="w-[180px] shrink-0">
+              <SearchableSelect
+                value={primaryIso}
+                onChange={handlePrimaryCodeChange}
+                options={countryOptions}
+                placeholder="Select country"
+              />
+            </div>
+            <div className="flex-1 min-w-0">
+              <FormInput
+                value={primaryPhoneParsed.number}
+                onChange={handlePrimaryNumberChange}
+                placeholder={`${primaryLength}-digit mobile number`}
+                type="tel"
+              />
+            </div>
+          </div>
         </FormField>
         <FormField label="Alternate Mobile Number" error={errors.alternateMobile}>
-          <FormInput
-            value={(form.personalDetails.alternateMobile as string) || ''}
-            onChange={(v) => updatePersonal('alternateMobile', digitsOnly(v))}
-            placeholder="Optional 10-digit number"
-          />
+          <div className="flex gap-2 items-start">
+            <div className="w-[180px] shrink-0">
+              <SearchableSelect
+                value={alternateIso}
+                onChange={handleAlternateCodeChange}
+                options={countryOptions}
+                placeholder="Select country"
+              />
+            </div>
+            <div className="flex-1 min-w-0">
+              <FormInput
+                value={alternatePhoneParsed.number}
+                onChange={handleAlternateNumberChange}
+                placeholder={`Optional ${alternateLength}-digit number`}
+                type="tel"
+              />
+            </div>
+          </div>
         </FormField>
         <FormField label="Email" error={errors.email}>
           <FormInput
@@ -428,8 +493,10 @@ export function PersonalStep({ form, errors, update, updatePersonal }: StepProps
 
 /* ─── 2. Religion Details ─── */
 export function ReligionStep({ form, update, updatePersonal }: StepProps) {
-  const casteOptions = getCasteOptionsForReligion(form.religion);
-  const subCasteOptions = getSubCasteOptionsForCaste(form.caste);
+  const isReligionOther = String(form.religion || '').trim().toLowerCase() === 'other';
+  const isCasteOther = String(form.caste || '').trim().toLowerCase() === 'other';
+  const casteOptions = isReligionOther ? CASTE_OPTIONS : getCasteOptionsForReligion(form.religion);
+  const subCasteOptions = isCasteOther ? SUB_CASTE_OPTIONS : getSubCasteOptionsForCaste(form.caste);
 
   return (
     <WizardSection
@@ -644,6 +711,9 @@ export function RelationshipStep({ form, updatePersonal }: StepProps) {
             value={(form.personalDetails.maritalStatus as string) || ''}
             onChange={(v) => {
               updatePersonal('maritalStatus', v);
+              if (v !== 'Divorced') {
+                updatePersonal('divorceReason', '');
+              }
               if (v === 'never married') {
                 updatePersonal('marriageDate', '');
                 updatePersonal('divorceDate', '');
@@ -670,13 +740,22 @@ export function RelationshipStep({ form, updatePersonal }: StepProps) {
             />
           </FormField>
           {isDivorced && (
-            <FormField label="Divorce Date">
-              <FormInput
-                type="date"
-                value={(form.personalDetails.divorceDate as string) || ''}
-                onChange={(v) => updatePersonal('divorceDate', v)}
-              />
-            </FormField>
+            <>
+              <FormField label="Divorce Date">
+                <FormInput
+                  type="date"
+                  value={(form.personalDetails.divorceDate as string) || ''}
+                  onChange={(v) => updatePersonal('divorceDate', v)}
+                />
+              </FormField>
+              <FormField label="Reason for Divorce" className="col-span-2">
+                <textarea
+                  className="min-h-[96px] w-full resize-y rounded-lg border border-[#D9C2CF] bg-white px-3 py-2 text-sm text-[#5D2B44] outline-none transition focus:border-[#C36A95]"
+                  value={(form.personalDetails.divorceReason as string) || ''}
+                  onChange={(e) => updatePersonal('divorceReason', e.target.value)}
+                />
+              </FormField>
+            </>
           )}
           {isSeparated && (
             <FormField label="Separation Date">
@@ -881,7 +960,7 @@ export function FamilyStep({ form, errors, updatePersonal, updateFamily }: StepP
         <div>
           <h3 className="text-sm font-medium text-wow-text mb-3">Mother</h3>
           <FormGrid>
-            <FormField label="Name">
+            <FormField label="Name" required error={errors.motherName}>
               <FormInput
                 value={(form.familyDetails.motherName as string) || ''}
                 onChange={(v) => updateFamily('motherName', v)}

@@ -55,6 +55,36 @@ export default function AgentLayout() {
     void reloadUnreadCount();
   }, [notificationOpen, user?.id]);
 
+  const [settings, setSettings] = useState(() => {
+    try {
+      const stored = localStorage.getItem('agentSettings');
+      return stored ? JSON.parse(stored) : { compactView: false };
+    } catch {
+      return { compactView: false };
+    }
+  });
+
+  useEffect(() => {
+    const handleSettingsChange = () => {
+      try {
+        const stored = localStorage.getItem('agentSettings');
+        if (stored) {
+          setSettings(JSON.parse(stored));
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    };
+
+    window.addEventListener('agent-settings-changed', handleSettingsChange);
+    handleSettingsChange();
+
+    return () => {
+      window.removeEventListener('agent-settings-changed', handleSettingsChange);
+    };
+  }, []);
+
+
   // Customer context (/agent/customers/:id and nested pages) — hide agent shell
   // until the agent returns to the portal (e.g. customers list / dashboard).
   // Keep chrome on /agent/customers and /agent/customers/new.
@@ -78,7 +108,9 @@ export default function AgentLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8F9FB]">
+    <div className={`min-h-screen bg-[#F8F9FB] transition-all duration-200 ${settings.compactView ? 'compact-view' : ''}`}>
+
+
       <div className="flex min-h-screen flex-col">
         <AgentHeader
           mobileOpen={mobileOpen}

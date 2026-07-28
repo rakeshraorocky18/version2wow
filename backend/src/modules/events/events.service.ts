@@ -9,7 +9,7 @@ import { POSTGRES_CONNECTION } from '../../config/database.constants';
 @Injectable()
 export class EventsService {
   constructor(
-    @InjectRepository(EventEntity, POSTGRES_CONNECTION)
+    @InjectRepository(EventEntity, POSTGRES_CONNECTION)                     
     private eventRepository: Repository<EventEntity>,
     @InjectRepository(GuestEntity, POSTGRES_CONNECTION)
     private guestRepository: Repository<GuestEntity>,
