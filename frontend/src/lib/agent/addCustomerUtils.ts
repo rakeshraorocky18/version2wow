@@ -427,6 +427,9 @@ export function validateStep(
     const fatherName = (form.familyDetails.fatherName as string) || '';
     if (!fatherName.trim()) errors.fatherName = "Father's name is required";
 
+    const motherName = (form.familyDetails.motherName as string) || '';
+    if (!motherName.trim()) errors.motherName = "Mother's name is required";
+
     const familyAssets = form.familyDetails.familyAssets as FamilyAssetsState;
     const assetError = validateFamilyAssets(familyAssets || { selectedTypes: [], entries: {} });
     if (assetError) errors.familyAssets = assetError;

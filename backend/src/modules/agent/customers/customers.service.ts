@@ -133,6 +133,10 @@ export class AgentCustomersService {
     }
 
     // 3. Family Details
+    const family = dto.familyDetails || {};
+    if (!family.motherName?.trim()) {
+      errors.push("Mother's Name is required");
+    }
     const np = personal.nativePlace || {};
     const npCountry = np.country || np.countryOther;
     const npState = np.state || np.stateOther;

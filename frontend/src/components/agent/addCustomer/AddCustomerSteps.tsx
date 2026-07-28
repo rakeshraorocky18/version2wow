@@ -356,14 +356,14 @@ export function PersonalStep({ form, errors, update, updatePersonal }: StepProps
     <WizardSection icon="👤" title="Personal Details">
       <FormGrid>
         <ProfilePhotoField form={form} errors={errors} update={update} required />
-        <FormField label="First Name" required error={errors.firstName}>
-          <FormInput value={form.firstName} onChange={(v) => update({ firstName: v })} />
-        </FormField>
         <FormField label="Surname" required error={errors.middleName}>
           <FormInput
             value={(form.personalDetails.middleName as string) || ''}
             onChange={(v) => updatePersonal('middleName', v)}
           />
+        </FormField>
+        <FormField label="First Name" required error={errors.firstName}>
+          <FormInput value={form.firstName} onChange={(v) => update({ firstName: v })} />
         </FormField>
         <FormField label="Last Name">
           <FormInput value={form.lastName} onChange={(v) => update({ lastName: v })} />
@@ -957,7 +957,7 @@ export function FamilyStep({ form, errors, updatePersonal, updateFamily }: StepP
         <div>
           <h3 className="text-sm font-medium text-wow-text mb-3">Mother</h3>
           <FormGrid>
-            <FormField label="Name">
+            <FormField label="Name" required error={errors.motherName}>
               <FormInput
                 value={(form.familyDetails.motherName as string) || ''}
                 onChange={(v) => updateFamily('motherName', v)}

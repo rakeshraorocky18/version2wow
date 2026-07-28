@@ -183,8 +183,8 @@ export default function CustomerProfile() {
         <div className="mt-4">
           {activeTab === 'personal' && (
             <ProfileSection icon="👤" title="Personal Details">
-              <ReviewRow label="First Name" value={customer.firstName || '—'} />
               <ReviewRow label="Surname" value={String(personal.middleName || '—')} />
+              <ReviewRow label="First Name" value={customer.firstName || '—'} />
               <ReviewRow label="Last Name" value={customer.lastName || '—'} />
               <ReviewRow label="Gender" value={customer.gender || '—'} />
               <ReviewRow label="Date of Birth" value={customer.dateOfBirth || '—'} />
