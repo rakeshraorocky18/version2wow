@@ -238,6 +238,19 @@ function MatchCard({
 
                   const url = `${window.location.origin}/public/profile/${profile.id}`;
 
+                  if (navigator.share) {
+                    try {
+                      await navigator.share({
+                        title: name,
+                        text: "Check out this profile",
+                        url,
+                      });
+                      return;
+                    } catch {
+                      // User cancelled or share failed
+                    }
+                  }
+
                   try {
                     await navigator.clipboard.writeText(url);
                     toast.success("Profile link copied");
