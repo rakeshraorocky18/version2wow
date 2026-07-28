@@ -356,12 +356,15 @@ export function formFromAgentCustomer(customer: AgentCustomer): AddCustomerFormS
 export function validateStep(
   step: WizardStepId,
   form: AddCustomerFormState,
+  existingDocuments?: { type: string }[],
 ): Record<string, string> {
   const errors: Record<string, string> = {};
 
   if (step === 0) {
     if (!form.firstName.trim()) errors.firstName = 'First name is required';
-    if (!form.lastName.trim()) errors.lastName = 'Last name is required';
+    if (!((form.personalDetails.middleName as string) || '').trim()) {
+      errors.middleName = 'Surname is required';
+    }
     if (!form.gender) errors.gender = 'Gender is required';
     if (!form.dateOfBirth) errors.dateOfBirth = 'Date of birth is required';
 
@@ -384,7 +387,9 @@ export function validateStep(
       }
     }
 
-    if (form.email.trim() && !isValidEmail(form.email)) {
+    if (!form.email.trim()) {
+      errors.email = 'Email address is required';
+    } else if (!isValidEmail(form.email)) {
       errors.email = 'Please enter a valid email address.';
     }
 
@@ -393,10 +398,28 @@ export function validateStep(
     }
   }
 
+  if (step === 1) {
+    if (!form.religion.trim()) {
+      errors.religion = 'Religion is required';
+    }
+  }
+
   if (step === 2) {
     const hasHoroscope = ((form.personalDetails.hasHoroscope as string) || '').toLowerCase();
-    if (hasHoroscope === 'yes' && !((form.personalDetails.rasi as string) || '').trim()) {
+    if (!hasHoroscope) {
+      errors.hasHoroscope = 'Horoscope availability is required';
+    } else if (hasHoroscope === 'yes' && !((form.personalDetails.rasi as string) || '').trim()) {
       errors.rasi = 'Rashi is required when horoscope is available';
+    }
+    const birthPlace = form.personalDetails.birthPlace as any;
+    if (!birthPlace || (!birthPlace.country && !birthPlace.countryOther)) {
+      errors.birthPlace = 'Place of birth is required';
+    }
+  }
+
+  if (step === 3) {
+    if (!((form.personalDetails.maritalStatus as string) || '').trim()) {
+      errors.maritalStatus = 'Relationship status is required';
     }
   }
 
@@ -407,15 +430,42 @@ export function validateStep(
     const familyAssets = form.familyDetails.familyAssets as FamilyAssetsState;
     const assetError = validateFamilyAssets(familyAssets || { selectedTypes: [], entries: {} });
     if (assetError) errors.familyAssets = assetError;
+
+    const nativePlace = form.personalDetails.nativePlace as any;
+    if (!nativePlace || (!nativePlace.country && !nativePlace.countryOther)) {
+      errors.nativePlace = 'Native place is required';
+    }
+  }
+
+  if (step === 5) {
+    if (!form.education.trim()) {
+      errors.education = 'Highest Qualification is required';
+    }
+    if (!((form.educationDetails.employmentType as string) || '').trim()) {
+      errors.occupation = 'Occupation Type is required';
+    }
+  }
+
+  if (step === 7) {
+    const hasProfile = !!(form.profilePhoto || form.existingProfilePhotoUrl);
+    const pendingGallery = form.pendingDocuments.filter((d) => d.type === 'customer_photo').length;
+    const existingDocs = existingDocuments || [];
+    const existingGallery = existingDocs.filter((d) => d.type === 'customer_photo').length;
+    if ((hasProfile ? 1 : 0) + pendingGallery + existingGallery < 2) {
+      errors.galleryPhotos = 'A minimum of 2 profile photos must be uploaded before the profile can be saved or submitted.';
+    }
   }
 
   return errors;
 }
 
-export function validateAll(form: AddCustomerFormState): Record<string, string> {
+export function validateAll(
+  form: AddCustomerFormState,
+  existingDocuments?: { type: string }[],
+): Record<string, string> {
   const errors: Record<string, string> = {};
   for (let step = 0; step < 8; step += 1) {
-    Object.assign(errors, validateStep(step as WizardStepId, form));
+    Object.assign(errors, validateStep(step as WizardStepId, form, existingDocuments));
   }
   return errors;
 }

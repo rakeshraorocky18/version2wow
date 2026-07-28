@@ -76,7 +76,7 @@ export default function AddCustomer() {
     };
 
   const handleNext = () => {
-    const stepErrors = validateStep(step as WizardStepId, form);
+    const stepErrors = validateStep(step as WizardStepId, form, customerQuery.data?.documents);
     setErrors(stepErrors);
     if (Object.keys(stepErrors).length > 0) {
       toast.error('Please fix the highlighted fields before continuing.');
@@ -92,12 +92,12 @@ export default function AddCustomer() {
   };
 
   const handleSubmit = async () => {
-    const allErrors = validateAll(form);
+    const allErrors = validateAll(form, customerQuery.data?.documents);
     setErrors(allErrors);
     if (Object.keys(allErrors).length > 0) {
       toast.error('Please complete all required fields before submitting.');
       const firstInvalidStep = [0, 1, 2, 3, 4, 5, 6, 7].find(
-        (s) => Object.keys(validateStep(s as WizardStepId, form)).length > 0,
+        (s) => Object.keys(validateStep(s as WizardStepId, form, customerQuery.data?.documents)).length > 0,
       );
       if (firstInvalidStep != null) setStep(firstInvalidStep);
       return;

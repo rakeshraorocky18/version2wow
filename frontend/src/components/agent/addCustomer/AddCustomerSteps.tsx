@@ -376,13 +376,13 @@ export function PersonalStep({ form, errors, update, updatePersonal }: StepProps
         <FormField label="First Name" required error={errors.firstName}>
           <FormInput value={form.firstName} onChange={(v) => update({ firstName: v })} />
         </FormField>
-        <FormField label="Middle Name">
+        <FormField label="Surname" required error={errors.middleName}>
           <FormInput
             value={(form.personalDetails.middleName as string) || ''}
             onChange={(v) => updatePersonal('middleName', v)}
           />
         </FormField>
-        <FormField label="Last Name" required error={errors.lastName}>
+        <FormField label="Last Name">
           <FormInput value={form.lastName} onChange={(v) => update({ lastName: v })} />
         </FormField>
         <FormField label="Gender" required error={errors.gender}>
@@ -472,7 +472,7 @@ export function PersonalStep({ form, errors, update, updatePersonal }: StepProps
             </div>
           </div>
         </FormField>
-        <FormField label="Email" error={errors.email}>
+        <FormField label="Email" required error={errors.email}>
           <FormInput
             type="email"
             value={form.email}
@@ -492,7 +492,7 @@ export function PersonalStep({ form, errors, update, updatePersonal }: StepProps
 }
 
 /* ─── 2. Religion Details ─── */
-export function ReligionStep({ form, update, updatePersonal }: StepProps) {
+export function ReligionStep({ form, errors, update, updatePersonal }: StepProps) {
   const isReligionOther = String(form.religion || '').trim().toLowerCase() === 'other';
   const isCasteOther = String(form.caste || '').trim().toLowerCase() === 'other';
   const casteOptions = isReligionOther ? CASTE_OPTIONS : getCasteOptionsForReligion(form.religion);
@@ -505,7 +505,7 @@ export function ReligionStep({ form, update, updatePersonal }: StepProps) {
       subtitle="Religion, caste, subcaste, and mother tongue details."
     >
       <FormGrid>
-        <FormField label="Religion">
+        <FormField label="Religion" required error={errors.religion}>
           <OptionWithOther
             value={form.religion}
             otherValue={form.religionOther}
@@ -584,7 +584,7 @@ export function HoroscopeStep({ form, errors, update, updatePersonal }: StepProp
   return (
     <WizardSection icon="✨" title="Horoscope Details">
       <FormGrid>
-        <FormField label="Do you have Horoscope?">
+        <FormField label="Do you have Horoscope?" required error={errors.hasHoroscope}>
           <FormSelect
             value={(form.personalDetails.hasHoroscope as string) || ''}
             onChange={(v) => updatePersonal('hasHoroscope', v)}
@@ -645,12 +645,17 @@ export function HoroscopeStep({ form, errors, update, updatePersonal }: StepProp
             </FormField>
           </FormGrid>
 
-          <LocationPicker
-            title="Place of Birth"
-            value={birthPlace}
-            onChange={(v) => updatePersonal('birthPlace', v)}
-            mode="full"
-          />
+          <div className="space-y-1">
+            <LocationPicker
+              title="Place of Birth *"
+              value={birthPlace}
+              onChange={(v) => updatePersonal('birthPlace', v)}
+              mode="full"
+            />
+            {errors.birthPlace && (
+              <p className="text-xs text-red-500 font-medium">{errors.birthPlace}</p>
+            )}
+          </div>
 
           {showFull && (
             <FormField label="Horoscope Upload">
@@ -692,7 +697,7 @@ export function HoroscopeStep({ form, errors, update, updatePersonal }: StepProp
 }
 
 /* ─── 3. Relationship Status ─── */
-export function RelationshipStep({ form, updatePersonal }: StepProps) {
+export function RelationshipStep({ form, errors, updatePersonal }: StepProps) {
   const status = ((form.personalDetails.maritalStatus as string) || '').toLowerCase();
   const isDivorced = status === 'divorced';
   const isWidowed = status === 'widowed';
@@ -706,7 +711,7 @@ export function RelationshipStep({ form, updatePersonal }: StepProps) {
   return (
     <WizardSection icon="💍" title="Relationship Status">
       <FormGrid>
-        <FormField label="Relationship Status">
+        <FormField label="Relationship Status" required error={errors.maritalStatus}>
           <FormSelect
             value={(form.personalDetails.maritalStatus as string) || ''}
             onChange={(v) => {
@@ -897,13 +902,18 @@ export function FamilyStep({ form, errors, updatePersonal, updateFamily }: StepP
   return (
     <WizardSection icon="👨‍👩‍👧" title="Family Details">
       <div className="space-y-8">
-        <LocationPicker
-          title="Native Place Details"
-          value={nativePlace}
-          onChange={(v) => updatePersonal('nativePlace', v)}
-          mode="native"
-          labelPrefix="Native"
-        />
+        <div className="space-y-1">
+          <LocationPicker
+            title="Native Place Details *"
+            value={nativePlace}
+            onChange={(v) => updatePersonal('nativePlace', v)}
+            mode="native"
+            labelPrefix="Native"
+          />
+          {errors.nativePlace && (
+            <p className="text-xs text-red-500 font-medium">{errors.nativePlace}</p>
+          )}
+        </div>
 
         <div>
           <h3 className="text-sm font-medium text-wow-text mb-3">Father</h3>
@@ -1050,7 +1060,7 @@ export function FamilyStep({ form, errors, updatePersonal, updateFamily }: StepP
 }
 
 /* ─── 6. Education & Career ─── */
-export function EducationStep({ form, update, updateEducation }: StepProps) {
+export function EducationStep({ form, errors, update, updateEducation }: StepProps) {
   const employmentType = ((form.educationDetails.employmentType as string) || '').toLowerCase();
   const showEmployee = employmentType === 'employee';
   const showBusiness = employmentType === 'business' || employmentType === 'self employed';
@@ -1058,7 +1068,7 @@ export function EducationStep({ form, update, updateEducation }: StepProps) {
   return (
     <WizardSection icon="💼" title="Education & Career">
       <FormGrid>
-        <FormField label="Highest Qualification">
+        <FormField label="Highest Qualification" required error={errors.education}>
           <OptionWithOther
             value={form.education}
             otherValue={form.educationOther}
@@ -1097,7 +1107,7 @@ export function EducationStep({ form, update, updateEducation }: StepProps) {
             placeholder="City / place"
           />
         </FormField>
-        <FormField label="Occupation Type">
+        <FormField label="Occupation Type" required error={errors.occupation}>
           <FormSelect
             value={(form.educationDetails.employmentType as string) || ''}
             onChange={(v) => {
@@ -1313,7 +1323,7 @@ export function PartnerStep({ form, updatePartner }: StepProps) {
 }
 
 /* ─── 8. Photos ─── */
-export function GalleryPhotosStep({ form, update }: StepProps) {
+export function GalleryPhotosStep({ form, update, errors }: StepProps) {
   const galleryPhotos = form.pendingDocuments.filter((doc) => doc.type === 'customer_photo');
   const otherDocs = form.pendingDocuments.filter((doc) => doc.type !== 'customer_photo');
 
@@ -1381,6 +1391,9 @@ export function GalleryPhotosStep({ form, update }: StepProps) {
               </div>
             ))}
           </div>
+        )}
+        {errors?.galleryPhotos && (
+          <p className="text-sm text-red-500 font-medium mt-2">{errors.galleryPhotos}</p>
         )}
       </div>
     </WizardSection>

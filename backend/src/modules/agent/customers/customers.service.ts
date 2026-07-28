@@ -95,7 +95,66 @@ export class AgentCustomersService {
     return `WOW-${String(nextNumber).padStart(5, '0')}`;
   }
 
+  private validateCustomerProfile(dto: any) {
+    const errors: string[] = [];
+
+    // 1. Personal Details
+    if (!dto.firstName?.trim()) {
+      errors.push('First Name is required');
+    }
+    const personal = dto.personalDetails || {};
+    if (!personal.middleName?.trim()) {
+      errors.push('Surname is required');
+    }
+    if (!dto.email?.trim()) {
+      errors.push('Email Address is required');
+    } else {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(dto.email.trim())) {
+        errors.push('Email Address must be a valid email');
+      }
+    }
+
+    // 2. Religion Details
+    if (!dto.religion?.trim()) {
+      errors.push('Religion is required');
+    }
+    if (!personal.hasHoroscope?.trim()) {
+      errors.push('Horoscope availability is required');
+    }
+    const bp = personal.birthPlace || {};
+    const bpCountry = bp.country || bp.countryOther;
+    const bpState = bp.state || bp.stateOther;
+    if (!bpCountry?.trim() || !bpState?.trim()) {
+      errors.push('Place of Birth (Country and State) is required');
+    }
+    if (!personal.maritalStatus?.trim()) {
+      errors.push('Relationship Status is required');
+    }
+
+    // 3. Family Details
+    const np = personal.nativePlace || {};
+    const npCountry = np.country || np.countryOther;
+    const npState = np.state || np.stateOther;
+    if (!npCountry?.trim() || !npState?.trim()) {
+      errors.push('Native Place (Country and State) is required');
+    }
+
+    // 4. Career Details
+    if (!dto.occupation?.trim()) {
+      errors.push('Occupation is required');
+    }
+    if (!dto.education?.trim()) {
+      errors.push('Highest Education is required');
+    }
+
+    if (errors.length > 0) {
+      throw new BadRequestException(errors.join(', '));
+    }
+  }
+
   async create(agentId: string, dto: CreateAgentCustomerDto) {
+    this.validateCustomerProfile(dto);
     return this.customerRepo.manager.transaction(async (manager) => {
       const customerCode = await this.generateCustomerCode(manager);
       const customer = manager.create(AgentCustomerEntity, {
@@ -248,14 +307,38 @@ export class AgentCustomersService {
 
   async update(agentId: string, customerId: string, dto: UpdateAgentCustomerDto) {
     const customer = await this.findAssignedOrFail(agentId, customerId);
+
+    const merged = {
+      ...customer,
+      ...dto,
+      personalDetails: {
+        ...(customer.personalDetails || {}),
+        ...(dto.personalDetails || {}),
+      },
+      familyDetails: {
+        ...(customer.familyDetails || {}),
+        ...(dto.familyDetails || {}),
+      },
+      educationDetails: {
+        ...(customer.educationDetails || {}),
+        ...(dto.educationDetails || {}),
+      },
+      religionDetails: {
+        ...(customer.religionDetails || {}),
+        ...(dto.religionDetails || {}),
+      },
+    };
+
+    this.validateCustomerProfile(merged);
+
     Object.assign(customer, dto);
     await this.recomputeCompletion(customer);
 
-  if (customer.profileCompletion === 100) {
-    customer.status = AgentCustomerStatus.ACTIVE;
-  } else {
-    customer.status = AgentCustomerStatus.PENDING;
-  }
+    if (customer.profileCompletion === 100) {
+      customer.status = AgentCustomerStatus.ACTIVE;
+    } else {
+      customer.status = AgentCustomerStatus.PENDING;
+    }
 
     const saved = await this.customerRepo.save(customer);
 
