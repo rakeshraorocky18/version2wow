@@ -155,7 +155,17 @@ export default function MatchMemberCard({
       className={cardClasses}
       style={{ animationDelay: `${animationDelay}ms` }}
       onClick={onClick}
-      onKeyDown={onClick ? (e) => e.key === 'Enter' && onClick() : undefined}
+      onKeyDown={
+        onClick
+          ? (e: React.KeyboardEvent) => {
+              if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
+                e.preventDefault();
+                // @ts-expect-error onClick exists when this branch runs
+                onClick();
+              }
+            }
+          : undefined
+      }
       role={onClick ? 'button' : undefined}
       tabIndex={onClick ? 0 : undefined}
     >
@@ -286,17 +296,41 @@ export default function MatchMemberCard({
               <MessageCircle size={16} />
             </Link>
           ) : onMessage ? (
-            <button type="button" className="dp-quick-actions__btn" title="Message" onClick={onMessage}>
+            <button
+              type="button"
+              className="dp-quick-actions__btn"
+              title="Message"
+              onClick={(e) => {
+                e.stopPropagation();
+                onMessage();
+              }}
+            >
               <MessageCircle size={16} />
             </button>
           ) : null}
           {onBlock && (
-            <button type="button" className="dp-quick-actions__btn" title="Block" onClick={onBlock}>
+            <button
+              type="button"
+              className="dp-quick-actions__btn"
+              title="Block"
+              onClick={(e) => {
+                e.stopPropagation();
+                onBlock();
+              }}
+            >
               <Ban size={16} />
             </button>
           )}
           {onReport && (
-            <button type="button" className="dp-quick-actions__btn" title="Report" onClick={onReport}>
+            <button
+              type="button"
+              className="dp-quick-actions__btn"
+              title="Report"
+              onClick={(e) => {
+                e.stopPropagation();
+                onReport();
+              }}
+            >
               <Flag size={16} />
             </button>
           )}
@@ -310,7 +344,7 @@ export default function MatchMemberCard({
             <span>Matched</span>
           </div>
           <p className="dp-matched-text">You&apos;re connected. Start a conversation!</p>
-          <Link to={`/app/chat?userId=${chatUserId}`} className="dp-chat-btn">
+          <Link to={`/app/chat?userId=${chatUserId}`} className="dp-chat-btn" onClick={(e) => e.stopPropagation()}>
             <MessageCircle size={16} />
             Start Chat
           </Link>

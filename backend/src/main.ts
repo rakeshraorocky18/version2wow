@@ -1,5 +1,5 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { BadRequestException, ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
@@ -16,8 +16,18 @@ async function bootstrap() {
   app.useStaticAssets(uploadsDir, { prefix: '/uploads/' });
 
   app.setGlobalPrefix('api');
+  const allowedOrigins = [
+    process.env.FRONTEND_URL || 'http://localhost:5173',
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+  ];
   app.enableCors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    origin: (origin, callback) => {
+      // Allow requests with no origin (e.g. curl, Swagger, mobile)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      return callback(null, false);
+    },
     credentials: true,
   });
 
@@ -26,6 +36,24 @@ async function bootstrap() {
       whitelist: true,
       forbidNonWhitelisted: false,
       transform: true,
+      transformOptions: { enableImplicitConversion: true },
+      exceptionFactory: (errors) => {
+        const details = errors.map((err) => ({
+          property: err.property,
+          value: err.value,
+          constraints: err.constraints,
+        }));
+        // Surface the real validation failure in the Nest terminal (not just HTTP 400).
+        console.error(
+          '[ValidationPipe] Bad Request — validation failed:',
+          JSON.stringify(details, null, 2),
+        );
+        return new BadRequestException({
+          statusCode: 400,
+          message: 'Validation failed',
+          errors: details,
+        });
+      },
     }),
   );
 

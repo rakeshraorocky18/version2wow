@@ -8,7 +8,7 @@ import {
   MessageBody,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { ChatServiceTypeorm } from './chat.service.typeorm';
+import { ChatServiceMongodb } from './chat.service.mongodb';
 
 @WebSocketGateway({
   cors: { origin: '*' },
@@ -20,7 +20,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   private userSockets = new Map<string, string>();
 
-  constructor(private readonly chatService: ChatServiceTypeorm) {}
+  constructor(private readonly chatService: ChatServiceMongodb) {}
 
   handleConnection(client: Socket) {
     const userId = client.handshake.query.userId as string;
@@ -53,11 +53,45 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       });
 
       this.server.to(`user_${data.receiverId}`).emit('newMessage', message);
+      this.server.to(`user_${message.senderId}`).emit('newMessage', message);
       return message;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Unable to send message';
       return { error: msg };
     }
+  }
+
+  notifyNewMessage(message: Record<string, unknown>) {
+    this.server.to(`user_${message.senderId as string}`).emit('newMessage', message);
+    this.server.to(`user_${message.receiverId as string}`).emit('newMessage', message);
+  }
+
+  notifyMessageDeleted(
+    messageId: string,
+    senderId: string,
+    receiverId: string,
+    mode: 'me' | 'everyone',
+    requesterId: string,
+  ) {
+    if (mode === 'me') {
+      this.server.to(`user_${requesterId}`).emit('messageDeleted', {
+        messageId,
+        senderId,
+        receiverId,
+      });
+      return;
+    }
+
+    this.server.to(`user_${senderId}`).emit('messageDeleted', {
+      messageId,
+      senderId,
+      receiverId,
+    });
+    this.server.to(`user_${receiverId}`).emit('messageDeleted', {
+      messageId,
+      senderId,
+      receiverId,
+    });
   }
 
   @SubscribeMessage('typing')

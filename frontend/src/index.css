@@ -67,6 +67,85 @@
   .profile-section-card {
     @apply rounded-2xl border border-[#F2DFE8] bg-gradient-to-br from-[#FFFBFC] to-[#FFF8FB] p-5;
   }
+
+  /* Auth — cherry blossom shell & form (login/signup mockup) */
+  .auth-blossom-shell {
+    background:
+      radial-gradient(ellipse 80% 60% at 10% 20%, rgba(255, 182, 193, 0.45), transparent 55%),
+      radial-gradient(ellipse 70% 50% at 90% 80%, rgba(244, 143, 177, 0.35), transparent 50%),
+      linear-gradient(160deg, #ffe4ec 0%, #fff0f5 40%, #ffe8f0 100%);
+  }
+
+  .auth-blossom-petals {
+    background-image:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Cg fill='%23e91e63' fill-opacity='0.12'%3E%3Cellipse cx='28' cy='36' rx='10' ry='6' transform='rotate(-25 28 36)'/%3E%3Cellipse cx='40' cy='28' rx='10' ry='6' transform='rotate(20 40 28)'/%3E%3Cellipse cx='42' cy='44' rx='9' ry='5' transform='rotate(55 42 44)'/%3E%3Cellipse cx='24' cy='48' rx='9' ry='5' transform='rotate(-60 24 48)'/%3E%3Ccircle cx='34' cy='38' r='3.5' fill-opacity='0.2'/%3E%3C/g%3E%3Cg fill='%23f48fb1' fill-opacity='0.18'%3E%3Cellipse cx='120' cy='110' rx='12' ry='7' transform='rotate(15 120 110)'/%3E%3Cellipse cx='134' cy='102' rx='11' ry='6' transform='rotate(-30 134 102)'/%3E%3Cellipse cx='132' cy='122' rx='10' ry='6' transform='rotate(50 132 122)'/%3E%3C/g%3E%3C/svg%3E");
+    background-size: 180px 180px;
+    opacity: 0.9;
+    animation: auth-petal-drift 48s linear infinite;
+  }
+
+  .auth-card {
+    @apply w-full max-w-[420px] bg-white rounded-2xl p-8 sm:p-10;
+    box-shadow: 0 18px 50px rgba(233, 30, 99, 0.12), 0 4px 16px rgba(44, 38, 48, 0.06);
+  }
+
+  .auth-input-wrap {
+    @apply relative flex items-center;
+  }
+
+  .auth-input-wrap .auth-input-icon {
+    @apply absolute left-3.5 text-gray-400 pointer-events-none;
+  }
+
+  .auth-input-wrap .auth-input-action {
+    @apply absolute right-3.5 text-gray-400 hover:text-gray-600 transition;
+  }
+
+  .auth-input {
+    @apply w-full rounded-xl border border-gray-200 bg-white pl-11 pr-4 py-3 text-sm text-gray-800
+           placeholder:text-gray-400 outline-none transition-all duration-200
+           focus:border-[#E91E63] focus:ring-2 focus:ring-[#E91E63]/15;
+  }
+
+  .auth-input.has-toggle {
+    @apply pr-11;
+  }
+
+  .auth-btn-primary {
+    @apply w-full rounded-xl py-3.5 text-sm font-semibold text-white transition
+           focus:outline-none focus:ring-2 focus:ring-[#E91E63]/40 focus:ring-offset-2
+           disabled:opacity-60 disabled:cursor-not-allowed;
+    background: linear-gradient(90deg, #F06292 0%, #E91E63 55%, #C2185B 100%);
+    box-shadow: 0 8px 20px rgba(233, 30, 99, 0.28);
+  }
+
+  .auth-btn-primary:hover:not(:disabled) {
+    filter: brightness(1.03);
+    box-shadow: 0 10px 24px rgba(233, 30, 99, 0.34);
+  }
+
+  .auth-link {
+    @apply text-[#E91E63] font-semibold hover:underline;
+  }
+
+  .auth-divider {
+    @apply relative flex items-center justify-center my-5;
+  }
+
+  .auth-divider::before,
+  .auth-divider::after {
+    content: '';
+    @apply flex-1 h-px bg-gray-200;
+  }
+
+  .auth-divider span {
+    @apply px-3 text-xs text-gray-400 uppercase tracking-wide;
+  }
+}
+
+@keyframes auth-petal-drift {
+  from { background-position: 0 0; }
+  to { background-position: 180px 360px; }
 }
 
 @layer utilities {
@@ -5050,3 +5129,215 @@ header.sticky {
     width: 100%;
   }
 }
+
+/* ────────────────────────────────────────────────────────── */
+/*                      DARK MODE SYSTEM                      */
+/* ────────────────────────────────────────────────────────── */
+
+.dark body,
+.dark .min-h-screen,
+.dark main {
+  background-color: #0f172a !important; /* Deep Slate Blue */
+  color: #f1f5f9 !important;
+}
+
+.dark .bg-white,
+.dark .card,
+.dark header,
+.dark .bg-gradient-to-br,
+.dark .rounded-3xl.bg-gradient-to-br {
+  background-color: #1e293b !important; /* Rich Dark Slate Card */
+  color: #f1f5f9 !important;
+  border-color: #334155 !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -4px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Modal specific background */
+.dark .bg-white.rounded-3xl,
+.dark [role="dialog"] > div {
+  background-color: #1e293b !important;
+  color: #f1f5f9 !important;
+  border: 1px solid #334155 !important;
+}
+
+.dark p, 
+.dark h1, 
+.dark h2, 
+.dark h3, 
+.dark span, 
+.dark label, 
+.dark dt, 
+.dark dd, 
+.dark div:not(.bg-pink-50):not(.bg-pink-100):not(.bg-emerald-100):not(.bg-emerald-50) {
+  color: #f1f5f9;
+}
+
+.dark .text-gray-800, 
+.dark .text-gray-700, 
+.dark .text-gray-900, 
+.dark .text-wow-text {
+  color: #f1f5f9 !important;
+}
+
+.dark .text-gray-500, 
+.dark .text-gray-400, 
+.dark .text-wow-muted {
+  color: #94a3b8 !important; /* Muted Slate */
+}
+
+/* Inputs & Forms */
+.dark input, 
+.dark select, 
+.dark textarea {
+  background-color: #0f172a !important;
+  color: #ffffff !important;
+  border-color: #334155 !important;
+}
+.dark input::placeholder {
+  color: #64748b !important;
+}
+
+.dark .border-gray-50,
+.dark .border-gray-100, 
+.dark .border-gray-200, 
+.dark .border-pink-100 {
+  border-color: #334155 !important;
+}
+
+/* Pink badge & highlights */
+.dark .bg-pink-50 {
+  background-color: #311221 !important; /* Deep maroon/rose bg */
+  border: 1px solid #881337 !important;
+}
+.dark .bg-pink-50 svg,
+.dark .bg-pink-50 .text-\[\#E91E63\],
+.dark .bg-pink-50 .text-pink-600 {
+  color: #fb7185 !important; /* Soft rose */
+}
+
+.dark .bg-pink-100 {
+  background-color: #881337 !important; /* Rose-900 */
+  color: #ffe4e6 !important; /* Rose-100 */
+}
+
+.dark .text-\[\#E91E63\], 
+.dark .text-pink-600,
+.dark .text-pink-500,
+.dark .text-pink-400 {
+  color: #fb7185 !important; /* Soft rose text */
+}
+
+.dark .border-pink-200 {
+  border-color: #f43f5e !important;
+}
+
+.dark .hover\:bg-pink-50:hover {
+  background-color: #4c0519 !important;
+  color: #fecdd3 !important;
+}
+
+.dark .bg-emerald-100 {
+  background-color: #064e3b !important;
+  color: #a7f3d0 !important;
+}
+
+/* Quick Action / Option rows in modals */
+.dark .bg-gray-50,
+.dark .bg-gray-100 {
+  background-color: #0f172a !important;
+  border: 1px solid #334155 !important;
+}
+.dark .bg-gray-50:hover,
+.dark .bg-gray-100:hover {
+  background-color: #1e293b !important;
+}
+
+/* Quick Action card highlights */
+.dark .hover\:border-pink-200:hover {
+  border-color: #f43f5e !important;
+  box-shadow: 0 10px 15px -3px rgba(244, 63, 94, 0.1) !important;
+}
+
+/* Other colored quick action card bg values */
+.dark .bg-amber-50 {
+  background-color: #2e2008 !important;
+  border: 1px solid #78350f !important;
+}
+.dark .bg-amber-50 svg {
+  color: #fbbf24 !important;
+}
+.dark .bg-blue-50 {
+  background-color: #0a192f !important;
+  border: 1px solid #1e3a8a !important;
+}
+.dark .bg-blue-50 svg {
+  color: #60a5fa !important;
+}
+.dark .bg-purple-50 {
+  background-color: #1e1b4b !important;
+  border: 1px solid #4c1d95 !important;
+}
+.dark .bg-purple-50 svg {
+  color: #c084fc !important;
+}
+.dark .bg-orange-50 {
+  background-color: #2d1710 !important;
+  border: 1px solid #7c2d12 !important;
+}
+.dark .bg-orange-50 svg {
+  color: #f97316 !important;
+}
+.dark .bg-emerald-50 {
+  background-color: #064e3b !important;
+  border: 1px solid #065f46 !important;
+}
+.dark .bg-emerald-50 svg {
+  color: #34d399 !important;
+}
+.dark .text-emerald-700 {
+  color: #34d399 !important;
+}
+
+.dark button.border-pink-200 {
+  border-color: #334155 !important;
+}
+.dark button.border-pink-200:hover {
+  border-color: #fb7185 !important;
+}
+
+.dark header .bg-\[\#FFF0F4\] {
+  background-color: #4c0519 !important;
+  color: #fb7185 !important;
+}
+.dark header .hover\:bg-gray-50:hover {
+  background-color: #334155 !important;
+  color: #ffffff !important;
+}
+
+/* Compact View Overrides */
+.compact-view .p-6, .compact-view .p-8 {
+  padding: 0.75rem !important;
+}
+.compact-view .p-4 {
+  padding: 0.5rem !important;
+}
+.compact-view .py-3.5, .compact-view .py-4 {
+  padding-top: 0.35rem !important;
+  padding-bottom: 0.35rem !important;
+}
+.compact-view .gap-6, .compact-view .gap-8 {
+  gap: 0.75rem !important;
+}
+.compact-view .space-y-6 > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 0.75rem !important;
+  margin-bottom: 0.75rem !important;
+}
+.compact-view .card {
+  padding: 0.75rem !important;
+}
+.compact-view table td, .compact-view table th {
+  padding-top: 0.25rem !important;
+  padding-bottom: 0.25rem !important;
+}
+
+

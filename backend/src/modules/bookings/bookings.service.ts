@@ -4,13 +4,14 @@ import { Repository } from 'typeorm';
 import { BookingEntity, PaymentEntity } from './entities/booking.entity';
 import { CreateBookingDto, UpdateBookingStatusDto, InitiatePaymentDto, ConfirmPaymentDto, RefundDto } from './dto/booking.dto';
 import { BookingStatus, PaymentStatus } from '../../common/enums';
+import { POSTGRES_CONNECTION } from '../../config/database.constants';
 
 @Injectable()
 export class BookingsService {
   constructor(
-    @InjectRepository(BookingEntity)
+    @InjectRepository(BookingEntity, POSTGRES_CONNECTION)
     private bookingRepository: Repository<BookingEntity>,
-    @InjectRepository(PaymentEntity)
+    @InjectRepository(PaymentEntity, POSTGRES_CONNECTION)
     private paymentRepository: Repository<PaymentEntity>,
   ) {}
 

@@ -32,6 +32,10 @@ export default function MatchProfileCard({
   const navigate = useNavigate();
   const score = profile.compatibility?.score ?? profile.compatibilityScore ?? undefined;
   const canChat = interestStatus === 'accepted';
+  const openProfile = (id?: string) => {
+    if (!id) return;
+    navigate(`/app/matches/${id}`);
+  };
 
   return (
     <MatchMemberCard
@@ -48,7 +52,7 @@ export default function MatchProfileCard({
       }
       onBlock={() => toast('Block feature coming soon', { icon: '🛡️' })}
       onReport={() => toast('Report submitted — our team will review', { icon: '🚩' })}
-      onClick={() => navigate(`/app/matches/${profile.id}`)}
+      onClick={() => openProfile(profile.id)}
       animationDelay={animationDelay}
       interestLoading={interestLoading}
       shortlistLoading={shortlistLoading}

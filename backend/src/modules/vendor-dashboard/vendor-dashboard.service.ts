@@ -4,14 +4,15 @@ import { Repository } from 'typeorm';
 import { BookingStatus } from '../../common/enums';
 import { VendorEntity } from '../vendors/entities/vendor.entity';
 import { BookingEntity } from '../bookings/entities/booking.entity';
+import { SQLITE_CONNECTION, POSTGRES_CONNECTION } from '../../config/database.constants';
 
 @Injectable()
 export class VendorDashboardService {
   constructor(
-    @InjectRepository(VendorEntity)
+    @InjectRepository(VendorEntity, SQLITE_CONNECTION)
     private vendorRepository: Repository<VendorEntity>,
 
-    @InjectRepository(BookingEntity)
+    @InjectRepository(BookingEntity, POSTGRES_CONNECTION)
     private bookingRepository: Repository<BookingEntity>,
   ) {}
 

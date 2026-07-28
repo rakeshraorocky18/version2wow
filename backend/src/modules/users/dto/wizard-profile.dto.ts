@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsArray, IsObject, ValidateNested } from 'class-validator';
+import { IsString, IsOptional, IsArray, IsObject, ValidateNested, ValidateIf } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -8,7 +8,7 @@ export class PersonalDetailsDto {
   @IsOptional() @IsString() displayName?: string;
   @IsOptional() @IsString() gender?: string;
   @IsOptional() @IsString() dateOfBirth?: string;
-  @IsOptional() @IsString() phone?: string;
+  @IsOptional() @IsString() @ValidateIf((_, value) => value !== undefined && value !== null && value !== '') phone?: string;
   @IsOptional() @IsString() email?: string;
   @IsOptional() @IsString() country?: string;
   @IsOptional() @IsString() state?: string;

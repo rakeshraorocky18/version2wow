@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { Sparkles } from 'lucide-react';
 import type { MatchProfile } from '../../types/matchmaking';
 import type { InterestStatus } from '../../lib/matchInterestUtils';
-import MatchProfileCard from '../matchmaking/MatchProfileCard';
+// import MatchProfileCard from '../matchmaking/MatchProfileCard';
 import DashboardCard from './DashboardCard';
 
 interface RecommendedMatchesProps {
@@ -37,18 +37,14 @@ export default function RecommendedMatches({
             {profiles.map((profile, i) => {
               const interestStatus = (profile.interestStatus || 'none') as InterestStatus;
               return (
-                <MatchProfileCard
+                <div
                   key={profile.id}
-                  profile={profile}
-                  showScore
-                  interestStatus={interestStatus}
-                  partnerUserId={profile.matchPartnerUserId || profile.userId}
-                  animationDelay={i * 80}
-                  interestLoading={interestLoadingId === profile.id}
-                  onInterest={
-                    interestStatus === 'none' ? () => onSendInterest(profile) : undefined
-                  }
-                />
+                  className="p-4 border rounded bg-gray-50"
+                >
+                  <p className="font-semibold">{profile.firstName} {profile.lastName}</p>
+                  <p className="text-sm text-gray-600">{profile.city}, {profile.state}</p>
+                  {/* TODO: Implement MatchProfileCard when useMatchmaking module is available */}
+                </div>
               );
             })}
           </div>

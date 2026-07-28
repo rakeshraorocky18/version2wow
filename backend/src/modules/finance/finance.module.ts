@@ -6,13 +6,14 @@ import {
   BudgetEntity, BudgetItemEntity, ExpenseEntity,
   LoanApplicationEntity, GiftRegistryItemEntity,
 } from './entities/finance.entity';
+import { POSTGRES_CONNECTION } from '../../config/database.constants';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([
       BudgetEntity, BudgetItemEntity, ExpenseEntity,
       LoanApplicationEntity, GiftRegistryItemEntity,
-    ]),
+    ], POSTGRES_CONNECTION),
   ],
   controllers: [FinanceController],
   providers: [FinanceService],

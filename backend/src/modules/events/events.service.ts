@@ -4,17 +4,18 @@ import { Repository } from 'typeorm';
 import { EventEntity, GuestEntity } from './entities/event.entity';
 import { CreateEventDto, AddGuestDto, UpdateRsvpDto, AssignSeatDto } from './dto/event.dto';
 import { RsvpStatus } from '../../common/enums';
+import { POSTGRES_CONNECTION } from '../../config/database.constants';
 
 @Injectable()
 export class EventsService {
   constructor(
-    @InjectRepository(EventEntity)
+    @InjectRepository(EventEntity, POSTGRES_CONNECTION)                     
     private eventRepository: Repository<EventEntity>,
-    @InjectRepository(GuestEntity)
+    @InjectRepository(GuestEntity, POSTGRES_CONNECTION)
     private guestRepository: Repository<GuestEntity>,
   ) {}
 
-  // ─── Events ───
+  // ── Events ──
 
   async createEvent(userId: string, dto: CreateEventDto): Promise<EventEntity> {
     const event = this.eventRepository.create({ userId, ...dto });
@@ -82,7 +83,7 @@ export class EventsService {
     return summary;
   }
 
-  // ─── Guests ───
+  // ── Guests ── 
 
   async addGuest(eventId: string, userId: string, dto: AddGuestDto): Promise<GuestEntity> {
     const event = await this.getEvent(eventId);

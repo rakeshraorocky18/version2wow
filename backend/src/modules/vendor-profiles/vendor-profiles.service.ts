@@ -4,11 +4,12 @@ import { Repository } from 'typeorm';
 import { VendorProfileCategory } from '../../common/enums';
 import { VendorProfileEntity } from './entities/vendor-profile.entity';
 import { CreateVendorProfileDto, UpdateVendorProfileDto } from './dto/vendor-profile.dto';
+import { SQLITE_CONNECTION } from '../../config/database.constants';
 
 @Injectable()
 export class VendorProfilesService {
   constructor(
-    @InjectRepository(VendorProfileEntity)
+    @InjectRepository(VendorProfileEntity, SQLITE_CONNECTION)
     private readonly repo: Repository<VendorProfileEntity>,
   ) {}
 

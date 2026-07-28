@@ -4,6 +4,8 @@ import { Repository } from 'typeorm';
 import { VendorEntity, VendorReviewEntity } from './entities/vendor.entity';
 import { CreateVendorDto, CreateReviewDto } from './dto/vendor.dto';
 import { VendorCategory } from '../../common/enums';
+import { SQLITE_CONNECTION } from '../../config/database.constants';
+import { fetchJsonWithTimeout } from '../../common/utils/fetch-with-timeout';
 
 type SearchFilters = {
   category?: VendorCategory;
@@ -53,9 +55,9 @@ type OverpassElement = {
 @Injectable()
 export class VendorsServiceTypeorm {
   constructor(
-    @InjectRepository(VendorEntity)
+    @InjectRepository(VendorEntity, SQLITE_CONNECTION)
     private vendorRepository: Repository<VendorEntity>,
-    @InjectRepository(VendorReviewEntity)
+    @InjectRepository(VendorReviewEntity, SQLITE_CONNECTION)
     private reviewRepository: Repository<VendorReviewEntity>,
   ) {}
 
@@ -91,7 +93,10 @@ export class VendorsServiceTypeorm {
 
   async getVendorById(id: string): Promise<VendorEntity> {
     const vendor = await this.vendorRepository.findOne({ where: { id } });
-    if (!vendor) throw new NotFoundException('Vendor not found');
+    if (!vendor) {
+      throw new NotFoundException('Vendor not found');
+    }
+
     return vendor;
   }
 
@@ -229,21 +234,16 @@ export class VendorsServiceTypeorm {
 
     for (const endpoint of endpoints) {
       try {
-        const overpassRes = await fetch(endpoint, {
+        const overpass = await fetchJsonWithTimeout<{ elements?: OverpassElement[] }>(endpoint, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
             'User-Agent': 'wow-world-of-weddings/1.0 (vendor-search)',
           },
           body: `data=${encodeURIComponent(overpassQuery)}`,
-        });
+        }, 1800);
 
-        if (!overpassRes.ok) {
-          continue;
-        }
-
-        const overpass = (await overpassRes.json()) as { elements?: OverpassElement[] };
-        if (Array.isArray(overpass.elements)) {
+        if (overpass && Array.isArray(overpass.elements)) {
           return overpass.elements;
         }
       } catch {
@@ -330,13 +330,12 @@ export class VendorsServiceTypeorm {
       nominatim.searchParams.set('format', 'jsonv2');
       nominatim.searchParams.set('limit', '1');
 
-      const geocodeRes = await fetch(nominatim.toString(), {
-        headers: { 'User-Agent': 'wow-world-of-weddings/1.0 (vendor-search)' },
-      });
-      if (!geocodeRes.ok) return [];
-
-      const geocode = (await geocodeRes.json()) as Array<{ lat?: string; lon?: string; display_name?: string }>;
-      if (!geocode.length || !geocode[0].lat || !geocode[0].lon) return [];
+      const geocode = await fetchJsonWithTimeout<Array<{ lat?: string; lon?: string; display_name?: string }>>(
+        nominatim.toString(),
+        { headers: { 'User-Agent': 'wow-world-of-weddings/1.0 (vendor-search)' } },
+        1800,
+      );
+      if (!geocode?.length || !geocode[0].lat || !geocode[0].lon) return [];
 
       const lat = Number(geocode[0].lat);
       const lon = Number(geocode[0].lon);

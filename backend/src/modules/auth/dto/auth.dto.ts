@@ -1,4 +1,4 @@
-import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, MinLength, ValidateIf } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { UserRole } from '../../../common/enums';
 
@@ -12,9 +12,10 @@ export class RegisterDto {
   @MinLength(8)
   password: string;
 
-  @ApiProperty({ example: '+919876543210', required: false })
+  @ApiProperty({ example: '9876543210', required: false })
   @IsOptional()
   @IsString()
+  @ValidateIf((_, value) => value !== undefined && value !== null && value !== '')
   phone?: string;
 
   @ApiProperty({ enum: UserRole, example: UserRole.BRIDE })
@@ -38,4 +39,28 @@ export class RefreshTokenDto {
   @IsString()
   @IsNotEmpty()
   refreshToken: string;
+}
+export class ForgotPasswordDto {
+  @IsEmail()
+  email: string;
+}
+
+export class VerifyOtpDto {
+  @IsEmail()
+  email: string;
+
+  @IsString()
+  otp: string;
+}
+
+export class ResetPasswordDto {
+  @IsEmail()
+  email: string;
+
+  @IsString()
+  otp: string;
+
+  @IsString()
+  @MinLength(8)
+  newPassword: string;
 }

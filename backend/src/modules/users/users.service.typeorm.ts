@@ -6,13 +6,14 @@ import { CreateProfileDto, UpdateProfileDto } from './dto/profile.dto';
 import { WizardProfileDto } from './dto/wizard-profile.dto';
 import { toPublicUrl } from './profile-upload.config';
 import { UploadedFile } from './types/uploaded-file.type';
+import { SQLITE_CONNECTION } from '../../config/database.constants';
 
 @Injectable()
 export class UsersService implements OnModuleInit {
   private readonly maxProfilePhotos = 6;
 
   constructor(
-    @InjectRepository(ProfileEntity)
+    @InjectRepository(ProfileEntity, SQLITE_CONNECTION)
     private profileRepository: Repository<ProfileEntity>,
   ) {}
 
@@ -796,7 +797,7 @@ export class UsersService implements OnModuleInit {
     const skip = (page - 1) * limit;
     qb
       .orderBy(
-        `CASE WHEN p.boostExpiresAt IS NOT NULL AND p.boostExpiresAt > datetime('now') THEN 0 ELSE 1 END`,
+        `CASE WHEN p.boostExpiresAt IS NOT NULL AND p.boostExpiresAt > CURRENT_TIMESTAMP THEN 0 ELSE 1 END`,
         'ASC',
       )
       .addOrderBy(

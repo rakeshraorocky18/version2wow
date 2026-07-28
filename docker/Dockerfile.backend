@@ -2,10 +2,21 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-COPY package*.json ./
+# Install native build tools required for better-sqlite3 and other native modules
+RUN apk add --no-cache python3 make g++
 
-RUN npm install
+# Copy package manifests
+COPY package.json ./
 
+# Pre-install dependencies (rebuilt from source for Alpine/musl)
+# This layer is cached; the runtime command will do a fast --prefer-offline refresh
+RUN npm_config_build_from_source=true npm install \
+    --legacy-peer-deps \
+    --prefer-offline \
+    --no-audit \
+    --no-fund
+
+# Copy source (individual files will be overridden by volume mounts in dev)
 COPY . .
 
 EXPOSE 3000

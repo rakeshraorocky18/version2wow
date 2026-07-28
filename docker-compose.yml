@@ -1,0 +1,174 @@
+# Root-level convenience file — run from the project root:
+#   docker compose up --build
+#   docker compose up -d --build
+#
+# Note: uses inline service definitions (compatible with all Docker Compose v2 versions)
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: wow-postgres
+    environment:
+      POSTGRES_USER: wow_user
+      POSTGRES_PASSWORD: wow_password
+      POSTGRES_DB: wow_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wow_user -d wow_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MongoDB Database
+  mongodb:
+    image: mongo:7
+    container_name: wow-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --eval \"quit(db.runCommand({ ping: 1 }).ok ? 0 : 1)\""]
+      interval: 10s
+      timeout: 15s
+      retries: 10
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: wow-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Neo4j Graph DB (optional — powers graph-based recommendations)
+  neo4j:
+    image: neo4j:5-community
+    container_name: wow-neo4j
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    environment:
+      # Password applies only on first volume init. If auth fails against an old volume:
+      # docker compose stop neo4j && docker compose rm -f neo4j && docker volume rm docker_neo4j_data && docker compose up -d neo4j
+      NEO4J_AUTH: neo4j/wow_password
+    volumes:
+      - neo4j_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:7474 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: ../docker/Dockerfile.backend
+    container_name: wow-backend
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      FRONTEND_URL: http://localhost:5173
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: wow_user
+      POSTGRES_PASSWORD: wow_password
+      POSTGRES_DB: wow_db
+      MONGODB_URI: mongodb://mongodb:27017/wow
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: wow-jwt-secret-change-in-production
+      JWT_REFRESH_SECRET: wow-refresh-secret-change-in-production
+      SQLITE_DATABASE: /app/data/wow_dev.db
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USERNAME: neo4j
+      NEO4J_PASSWORD: wow_password
+      AGENT_MATCH_COMPLETION_THRESHOLD: "80"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
+    # Rebuild better-sqlite3 from source for Alpine/musl then start NestJS in watch mode
+    command: >
+      sh -c "
+        npm_config_build_from_source=true npm install --legacy-peer-deps --prefer-offline --no-audit --no-fund &&
+        npm run start:dev
+      "
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/docs > /dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 30
+      start_period: 180s
+    volumes:
+      - ./backend/src:/app/src
+      - ./backend/data:/app/data
+      - ./backend/package.json:/app/package.json
+      - ./backend/tsconfig.json:/app/tsconfig.json
+      - ./backend/tsconfig.build.json:/app/tsconfig.build.json
+      - ./backend/nest-cli.json:/app/nest-cli.json
+      - backend_uploads:/app/uploads
+
+  # Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: ../docker/Dockerfile.frontend
+    container_name: wow-frontend
+    ports:
+      - "5173:5173"
+    environment:
+      # VITE_API_URL is used by the browser (via Vite proxy) - keep as /api
+      VITE_API_URL: /api
+      # VITE_BACKEND_URL is used by the Vite server-side proxy to reach backend container
+      VITE_BACKEND_URL: http://backend:3000
+    depends_on:
+      backend:
+        condition: service_healthy
+    command: >
+      sh -c "
+        npm install --prefer-offline --no-audit --no-fund &&
+        npm run dev -- --host --force
+      "
+    restart: unless-stopped
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+      - ./frontend/index.html:/app/index.html
+      - ./frontend/vite.config.ts:/app/vite.config.ts
+      - ./frontend/tailwind.config.js:/app/tailwind.config.js
+      - ./frontend/postcss.config.js:/app/postcss.config.js
+      - ./frontend/package.json:/app/package.json
+      - ./frontend/package-lock.json:/app/package-lock.json
+      - ./frontend/tsconfig.json:/app/tsconfig.json
+      - ./frontend/tsconfig.node.json:/app/tsconfig.node.json
+
+volumes:
+  postgres_data:
+  mongo_data:
+  redis_data:
+  backend_uploads:
+  neo4j_data:

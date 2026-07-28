@@ -15,14 +15,18 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
-import { ChatServiceTypeorm } from './chat.service.typeorm';
+import { ChatServiceMongodb } from './chat.service.mongodb';
 import {
   SendMessageDto,
   UpdateChatPrivacyDto,
   ScheduleMeetingDto,
   UpdateMeetingStatusDto,
+  MarkConversationReadDto,
+  UpdateThreadSettingsDto,
+  ReportUserDto,
 } from './dto/chat.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { ChatGateway } from './chat.gateway';
 import {
   createImageFileFilter,
   createVideoFileFilter,
@@ -38,12 +42,17 @@ type UploadedMulterFile = { filename: string; mimetype: string };
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class ChatController {
-  constructor(private readonly chatService: ChatServiceTypeorm) {}
+  constructor(
+    private readonly chatService: ChatServiceMongodb,
+    private readonly chatGateway: ChatGateway,
+  ) {}
 
   @Post('messages')
   @ApiOperation({ summary: 'Send a message (post-match only)' })
   async sendMessage(@Req() req: any, @Body() dto: SendMessageDto) {
-    return this.chatService.sendMessage(req.user.id, dto);
+    const message = await this.chatService.sendMessage(req.user.id, dto);
+    this.chatGateway.notifyNewMessage(message);
+    return message;
   }
 
   @Get('conversations')
@@ -53,7 +62,7 @@ export class ChatController {
   }
 
   @Get('contacts')
-  @ApiOperation({ summary: 'Get chat contacts (accepted matches minus deleted)' })
+  @ApiOperation({ summary: 'Get chat contacts (accepted + blocked matches, minus deleted)' })
   async getChatContacts(@Req() req: any) {
     return this.chatService.getChatContacts(req.user.id);
   }
@@ -66,9 +75,15 @@ export class ChatController {
   }
 
   @Delete('conversations/:userId')
-  @ApiOperation({ summary: 'Delete (hide) a conversation with a match' })
+  @ApiOperation({ summary: 'Clear chat history with a match (keeps contact in list)' })
   async deleteConversation(@Req() req: any, @Param('userId') userId: string) {
     return this.chatService.deleteConversation(req.user.id, userId);
+  }
+
+  @Post('conversations/:userId/hide')
+  @ApiOperation({ summary: 'Delete chat from list (hide contact)' })
+  async hideConversation(@Req() req: any, @Param('userId') userId: string) {
+    return this.chatService.hideConversation(req.user.id, userId);
   }
 
   @Get('messages')
@@ -82,10 +97,56 @@ export class ChatController {
     return this.chatService.getMessages(req.user.id, userId, page, limit);
   }
 
+  @Get('shared')
+  @ApiOperation({ summary: 'Get shared media, links, or docs in a chat' })
+  async getShared(
+    @Req() req: any,
+    @Query('userId') userId: string,
+    @Query('kind') kind: 'media' | 'links' | 'docs' = 'media',
+  ) {
+    return this.chatService.getSharedMedia(req.user.id, userId, kind);
+  }
+
+  @Get('thread-settings/:userId')
+  @ApiOperation({ summary: 'Get mute / disappearing settings for a chat' })
+  async getThreadSettings(@Req() req: any, @Param('userId') userId: string) {
+    return this.chatService.getThreadSettings(req.user.id, userId);
+  }
+
+  @Put('thread-settings/:userId')
+  @ApiOperation({ summary: 'Update mute / disappearing settings for a chat' })
+  async updateThreadSettings(
+    @Req() req: any,
+    @Param('userId') userId: string,
+    @Body() dto: UpdateThreadSettingsDto,
+  ) {
+    return this.chatService.updateThreadSettings(req.user.id, userId, dto);
+  }
+
+  @Post('report')
+  @ApiOperation({ summary: 'Report a chat user' })
+  async reportUser(@Req() req: any, @Body() dto: ReportUserDto) {
+    return this.chatService.reportUser(req.user.id, dto);
+  }
+
   @Delete('messages/:messageId')
-  @ApiOperation({ summary: 'Delete one message sent by current user' })
-  async deleteMessage(@Req() req: any, @Param('messageId') messageId: string) {
-    return this.chatService.deleteMessage(req.user.id, messageId);
+  @ApiOperation({ summary: 'Delete a message for me or for everyone' })
+  async deleteMessage(
+    @Req() req: any,
+    @Param('messageId') messageId: string,
+    @Query('mode') mode: 'me' | 'everyone' = 'everyone',
+  ) {
+    const result = await this.chatService.deleteMessage(req.user.id, messageId, mode);
+    if (result.senderId && result.receiverId) {
+      this.chatGateway.notifyMessageDeleted(
+        result.messageId,
+        result.senderId,
+        result.receiverId,
+        mode,
+        req.user.id,
+      );
+    }
+    return result;
   }
 
   @Get('unread')
@@ -93,6 +154,12 @@ export class ChatController {
   async getUnreadCount(@Req() req: any) {
     const count = await this.chatService.getUnreadCount(req.user.id);
     return { unreadCount: count };
+  }
+
+  @Post('read')
+  @ApiOperation({ summary: 'Mark messages from a partner as read' })
+  async markRead(@Req() req: any, @Body() body: MarkConversationReadDto) {
+    return this.chatService.markConversationRead(req.user.id, body.userId);
   }
 
   @Post('media')

@@ -8,8 +8,8 @@ export const EDIT_SECTIONS = [
   'Location',
   'Family Background',
   'Express Yourself',
-  'Partner Preferences',
   'Lifestyle',
+  'Partner Preferences',
 ] as const;
 
 export type EditSection = (typeof EDIT_SECTIONS)[number];
@@ -17,13 +17,13 @@ export type EditSection = (typeof EDIT_SECTIONS)[number];
 export const SECTION_ERROR_FIELDS: Record<number, string[]> = {
   0: ['firstName', 'lastName', 'gender', 'dateOfBirth', 'height', 'phone', 'email', 'occupation', 'currentStatus', 'currentStatusOther'],
   1: ['rashi', 'nakshatra', 'manglik', 'placeOfBirth'],
-  2: ['religion', 'religionOther'],
-  3: ['maritalStatus', 'yearsMarried'],
+  2: ['religion', 'religionOther', 'caste', 'casteOther', 'subCaste', 'subCasteOther', 'motherTongue', 'motherTongueOther'],
+  3: ['maritalStatus', 'yearsMarried', 'divorceReason'],
   4: ['country', 'state', 'city'],
-  5: [],
+  5: ['familyType'],
   6: ['bio'],
-  7: ['prefAgeMax'],
-  8: [],
+  7: ['diet'],
+  8: ['prefAgeMax', 'prefReligions', 'prefMaritalStatuses', 'prefFamilyType'],
 };
 
 export const FIELD_LABELS: Record<string, string> = {
@@ -43,14 +43,31 @@ export const FIELD_LABELS: Record<string, string> = {
   placeOfBirth: 'Place of Birth',
   religion: 'Religion',
   religionOther: 'Specify Religion',
+  caste: 'Caste',
+  casteOther: 'Specify Caste',
+  subCaste: 'Sub Caste',
+  subCasteOther: 'Specify Sub Caste',
+  motherTongue: 'Mother Tongue',
+  motherTongueOther: 'Specify Mother Tongue',
   maritalStatus: 'Marital Status',
   yearsMarried: 'Years Married',
+  divorceReason: 'Reason for Divorce',
   country: 'Country',
   state: 'State',
   city: 'City',
+  familyType: 'Family Type',
   bio: 'About Me',
+  diet: 'Eating Habit',
   prefAgeMax: 'Preferred Max Age',
 };
+
+function hasText(value: unknown): boolean {
+  return String(value ?? '').trim().length > 0;
+}
+
+function hasList(value: unknown): boolean {
+  return Array.isArray(value) && value.length > 0;
+}
 
 export function validateSectionFields(sectionIndex: number, form: ProfileForm): Record<string, string> {
   const next: Record<string, string> = {};
@@ -58,26 +75,29 @@ export function validateSectionFields(sectionIndex: number, form: ProfileForm): 
   switch (sectionIndex) {
     case 0: {
       ['firstName', 'lastName', 'gender', 'dateOfBirth', 'height', 'phone', 'email'].forEach((k) => {
-        if (!String(form[k] ?? '').trim()) next[k] = 'Required';
+        if (!hasText(form[k])) next[k] = 'Required';
       });
       const phoneDigits = String(form.phone ?? '').replace(/\D/g, '');
-      if (form.phone && phoneDigits.length < 10) {
-        next.phone = 'Enter a valid mobile number (at least 10 digits)';
+      if (form.phone && phoneDigits.length !== 10) {
+        next.phone = 'Enter a valid 10-digit mobile number';
+      }
+      if (form.phone && !/^[6789]/.test(phoneDigits)) {
+        next.phone = 'Mobile number must start with 6, 7, 8, or 9';
       }
       const email = String(form.email ?? '').trim();
       if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         next.email = 'Enter a valid email address';
       }
-      if (form.currentlyWorking && !String(form.occupation || '').trim()) {
+      if (form.currentlyWorking && !hasText(form.occupation)) {
         next.occupation = 'Occupation is required when currently working';
       }
-      if (!form.currentlyWorking && !String(form.currentStatus || '').trim()) {
+      if (!form.currentlyWorking && !hasText(form.currentStatus)) {
         next.currentStatus = 'Current status is required';
       }
       if (
         !form.currentlyWorking &&
         form.currentStatus === 'Other' &&
-        !String(form.currentStatusOther || '').trim()
+        !hasText(form.currentStatusOther)
       ) {
         next.currentStatusOther = 'Please specify current status';
       }
@@ -86,38 +106,70 @@ export function validateSectionFields(sectionIndex: number, form: ProfileForm): 
     case 1: {
       if (form.horoscopeAvailable) {
         ['rashi', 'nakshatra', 'manglik', 'placeOfBirth'].forEach((k) => {
-          if (!String(form[k] ?? '').trim()) next[k] = 'Required';
+          if (!hasText(form[k])) next[k] = 'Required';
         });
       }
       break;
     }
     case 2: {
-      if (!String(form.religion ?? '').trim()) next.religion = 'Required';
-      if (form.religion === 'Other' && !String(form.religionOther || '').trim()) {
+      if (!hasText(form.religion)) next.religion = 'Required';
+      if (form.religion === 'Other' && !hasText(form.religionOther)) {
         next.religionOther = 'Please specify religion';
+      }
+      if (form.caste === 'Other' && !hasText(form.casteOther)) {
+        next.casteOther = 'Please specify your caste';
+      }
+      if (form.subCaste === 'Other' && !hasText(form.subCasteOther)) {
+        next.subCasteOther = 'Please specify your sub caste';
+      }
+      if (form.motherTongue === 'Other' && !hasText(form.motherTongueOther)) {
+        next.motherTongueOther = 'Please specify your mother tongue';
       }
       break;
     }
     case 3: {
-      if (!String(form.maritalStatus ?? '').trim()) next.maritalStatus = 'Required';
+      if (!hasText(form.maritalStatus)) next.maritalStatus = 'Required';
       if (form.maritalStatus === 'Divorced' && !form.yearsMarried) {
         next.yearsMarried = 'Required';
+      }
+      if (form.maritalStatus === 'Divorced' && !hasText(form.divorceReason)) {
+        next.divorceReason = 'Please specify the reason for divorce';
       }
       break;
     }
     case 4: {
       ['country', 'state', 'city'].forEach((k) => {
-        if (!String(form[k] ?? '').trim()) next[k] = 'Required';
+        if (!hasText(form[k])) next[k] = 'Required';
       });
       break;
     }
+    case 5: {
+      if (!hasText(form.familyType)) next.familyType = 'Required';
+      break;
+    }
     case 6: {
+      if (!hasText(form.bio)) next.bio = 'Required';
       if (typeof form.bio === 'string' && form.bio.length > 1000) next.bio = 'Max 1000 characters';
       break;
     }
     case 7: {
+      if (!hasText(form.diet)) next.diet = 'Required';
+      break;
+    }
+    case 8: {
       if (Number(form.prefAgeMin) > Number(form.prefAgeMax)) {
         next.prefAgeMax = 'Max age must be greater than min age';
+      }
+      const hasPreference =
+        hasList(form.prefReligions) ||
+        hasList(form.prefMaritalStatuses) ||
+        hasList(form.prefCastes) ||
+        hasList(form.prefCities) ||
+        hasText(form.prefFamilyType) ||
+        Boolean(form.prefHeightMin) ||
+        Boolean(form.prefHeightMax);
+      if (!hasPreference) {
+        next.prefAgeMax = next.prefAgeMax || 'Select at least one partner preference';
       }
       break;
     }
@@ -132,15 +184,69 @@ export function isSectionValid(sectionIndex: number, form: ProfileForm): boolean
   return Object.keys(validateSectionFields(sectionIndex, form)).length === 0;
 }
 
+/** True when the section has real user-filled details (not just empty/default-valid). */
+export function isSectionFilled(sectionIndex: number, form: ProfileForm): boolean {
+  if (!isSectionValid(sectionIndex, form)) return false;
+
+  switch (sectionIndex) {
+    case 0:
+      return (
+        hasText(form.firstName) &&
+        hasText(form.lastName) &&
+        hasText(form.gender) &&
+        Boolean(form.dateOfBirth) &&
+        Boolean(form.height) &&
+        hasText(form.phone) &&
+        hasText(form.email)
+      );
+    case 1:
+      if (form.horoscopeAvailable === true) {
+        return hasText(form.rashi) && hasText(form.nakshatra) && hasText(form.manglik) && hasText(form.placeOfBirth);
+      }
+      // Explicitly chose "no horoscope"
+      return form.horoscopeAvailable === false;
+    case 2:
+      return hasText(form.religion);
+    case 3:
+      return hasText(form.maritalStatus);
+    case 4:
+      return hasText(form.country) && hasText(form.state) && hasText(form.city);
+    case 5:
+      return hasText(form.familyType);
+    case 6:
+      return hasText(form.bio);
+    case 7:
+      return hasText(form.diet);
+    case 8:
+      return (
+        Number(form.prefAgeMin) <= Number(form.prefAgeMax) &&
+        (hasList(form.prefReligions) ||
+          hasList(form.prefMaritalStatuses) ||
+          hasList(form.prefCastes) ||
+          hasList(form.prefCities) ||
+          hasText(form.prefFamilyType) ||
+          Boolean(form.prefHeightMin) ||
+          Boolean(form.prefHeightMax))
+      );
+    default:
+      return false;
+  }
+}
+
 export function getMaxUnlockedStep(form: ProfileForm): number {
   for (let i = 0; i < EDIT_SECTIONS.length; i++) {
-    if (!isSectionValid(i, form)) return i;
+    if (!isSectionFilled(i, form)) return i;
   }
   return EDIT_SECTIONS.length - 1;
 }
 
+/** Tick mark only after the section's details are actually filled. */
+export function isSectionCompleted(sectionIndex: number, form: ProfileForm): boolean {
+  return isSectionFilled(sectionIndex, form);
+}
+
 export function profileCompletion(form: ProfileForm): number {
-  const done = EDIT_SECTIONS.filter((_, i) => isSectionValid(i, form)).length;
+  const done = EDIT_SECTIONS.filter((_, i) => isSectionCompleted(i, form)).length;
   return Math.round((done / EDIT_SECTIONS.length) * 100);
 }
 
@@ -156,6 +262,7 @@ export function getMissingBySection(form: ProfileForm): { sectionIndex: number; 
     return { sectionIndex, section, fields };
   }).filter((item) => item.fields.length > 0);
 }
+
 
 export function apiProfileToForm(data: Record<string, unknown>): ProfileForm {
   const wizard = (data.wizardProfile as Record<string, unknown>) || {};
@@ -175,6 +282,7 @@ export function apiProfileToForm(data: Record<string, unknown>): ProfileForm {
     religionOther: data.religionOther || '',
     maritalStatus: data.maritalStatus || '',
     yearsMarried: data.yearsMarried || '',
+    divorceReason: data.divorceReason || '',
     horoscopeAvailable: data.horoscopeAvailable ?? false,
     rashi: data.rashi || '',
     nakshatra: data.nakshatra || '',

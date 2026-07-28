@@ -6,13 +6,12 @@ import { BookingEntity } from '../bookings/entities/booking.entity';
 
 import { VendorDashboardController } from './vendor-dashboard.controller';
 import { VendorDashboardService } from './vendor-dashboard.service';
+import { SQLITE_CONNECTION, POSTGRES_CONNECTION } from '../../config/database.constants';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([
-      VendorEntity,
-      BookingEntity,
-    ]),
+    TypeOrmModule.forFeature([VendorEntity], SQLITE_CONNECTION),
+    TypeOrmModule.forFeature([BookingEntity], POSTGRES_CONNECTION),
   ],
   controllers: [VendorDashboardController],
   providers: [VendorDashboardService],

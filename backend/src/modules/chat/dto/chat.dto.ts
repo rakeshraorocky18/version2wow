@@ -22,6 +22,12 @@ export class SendMessageDto {
   mediaUrl?: string;
 }
 
+export class MarkConversationReadDto {
+  @ApiProperty({ description: 'Partner user ID whose messages should be marked read' })
+  @IsString()
+  userId: string;
+}
+
 export class UpdateChatPrivacyDto {
   @ApiPropertyOptional()
   @IsOptional()
@@ -88,4 +94,28 @@ export class UpdateMeetingStatusDto {
   @ApiProperty({ enum: ChatMeetingStatus })
   @IsEnum(ChatMeetingStatus)
   status: ChatMeetingStatus;
+}
+
+export class UpdateThreadSettingsDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  muted?: boolean;
+
+  @ApiPropertyOptional({ description: '0 = off; otherwise seconds until new messages expire' })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  disappearingSeconds?: number;
+}
+
+export class ReportUserDto {
+  @ApiProperty()
+  @IsString()
+  userId: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  reason?: string;
 }
