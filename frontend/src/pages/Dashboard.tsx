@@ -33,6 +33,8 @@ import RelationshipJourneyCard from '../components/dashboard/RelationshipJourney
 import SuccessStoriesCarousel from '../components/dashboard/SuccessStoriesCarousel';
 import ProfileVisitorsCard from '../components/dashboard/ProfileVisitorsCard';
 import PremiumUpgradeCard from '../components/dashboard/PremiumUpgradeCard';
+import InterestRequestCard from '../components/dashboard/InterestRequestCard';
+import RecentInterestMoments from '../components/dashboard/RecentInterestMoments';
 import { useDashboard } from '../hooks/useDashboard';
 
 const quickActions = [
@@ -67,6 +69,13 @@ export default function Dashboard() {
     profileVisitors,
     profileVisitorsGrowth,
     journeySteps,
+    compatibilityScore,
+    newMatchesCount,
+    activeConversationsCount,
+    pendingRequests,
+    receivedInterests,
+    recentMoments,
+    userCity,
   } = useDashboard();
 
   const quickActions = [
@@ -76,6 +85,21 @@ export default function Dashboard() {
     { icon: <Wallet size={20} className="text-white" />, label: 'Manage Budget', to: '/app/finance', color: '', bg: '' },
     { icon: <Camera size={20} className="text-white" />, label: 'Upload Photos', to: '/app/profile/photos', color: '', bg: '' },
     { icon: <Send size={20} className="text-white" />, label: 'Create Invitation', to: '/app/events/new', color: '', bg: '' },
+  ];
+
+  const handleAcceptInterest = async (_id: string) => {
+    toast.success('Interest accepted');
+  };
+
+  const handleRejectInterest = async (_id: string) => {
+    toast.success('Interest declined');
+  };
+
+  const matchmakingStats = [
+    { label: 'Matches Found', value: newMatchesCount, subtitle: 'Fresh recommendations ready', icon: Heart },
+    { label: 'Conversations', value: activeConversationsCount, subtitle: 'Active chats in motion', icon: MessageCircle },
+    { label: 'Interest Requests', value: pendingRequests, subtitle: 'Waiting for your reply', icon: Star },
+    { label: 'Compatibility', value: `${compatibilityScore}%`, subtitle: 'Best fit score', icon: Flame },
   ];
 
   return (

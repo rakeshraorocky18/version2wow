@@ -392,9 +392,10 @@
           queryClient.setQueryData(['agent-portal-chat-messages', activePartnerId], (old: any) => {
             if (!old?.messages) return old;
             const removedIds = new Set(variables.messageIds);
-            const filtered = (old.messages || []).filter(
-              (message: ChatMessage) => !removedIds.has(message.id || message._id),
-            );
+            const filtered = (old.messages || []).filter((message: ChatMessage) => {
+              const messageId = message.id || message._id || '';
+              return !removedIds.has(messageId);
+            });
             return {
               ...old,
               messages: filtered,

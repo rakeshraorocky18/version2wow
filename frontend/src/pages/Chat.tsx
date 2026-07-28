@@ -32,6 +32,7 @@ type ChatMessage = {
   id?: string;
   _id?: string;
   senderId: string;
+  receiverId?: string;
   content: string;
   type?: string;
   mediaUrl?: string;
