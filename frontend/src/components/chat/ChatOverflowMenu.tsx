@@ -31,6 +31,7 @@ type Props = {
   onUnblock: () => void;
   onDeleteChat: () => void;
   busy?: boolean;
+  agentMode?: boolean;
 };
 
 export default function ChatOverflowMenu({
@@ -51,8 +52,52 @@ export default function ChatOverflowMenu({
   onUnblock,
   onDeleteChat,
   busy,
+  agentMode = false,
 }: Props) {
   const [showMore, setShowMore] = useState(false);
+
+  if (agentMode) {
+    if (isBlocked) {
+      return (
+        <div className="absolute right-0 top-full z-20 mt-1 w-56 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+          <button
+            type="button"
+            onClick={onUnblock}
+            disabled={busy}
+            className="flex w-full items-center gap-2 px-4 py-2 text-sm text-primary-700 hover:bg-primary-50 disabled:opacity-60"
+          >
+            Unblock user
+          </button>
+          <button
+            type="button"
+            onClick={onReport}
+            disabled={busy}
+            className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+          >
+            Report user
+          </button>
+        </div>
+      );
+    }
+
+    return (
+      <div className="absolute right-0 top-full z-20 mt-1 w-56 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+        <button type="button" onClick={onSearch} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+          <Search size={14} /> Search in chat
+        </button>
+        <button type="button" onClick={onClearChat} disabled={busy} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 disabled:opacity-60">
+          <Eraser size={14} /> Clear chat
+        </button>
+        <button type="button" onClick={onBlock} disabled={busy} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-700 hover:bg-red-50 disabled:opacity-60">
+          <Ban size={14} /> Block user
+        </button>
+        <div className="border-t border-gray-100 my-1" />
+        <button type="button" onClick={onDeleteForMe} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50">
+          <Eraser size={14} /> Delete for me
+        </button>
+      </div>
+    );
+  }
 
   if (isBlocked) {
     return (
@@ -98,9 +143,6 @@ export default function ChatOverflowMenu({
           </button>
           <button type="button" onClick={onDisappearing} disabled={busy} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-60">
             <Clock size={14} /> Disappearing messages{disappearingSeconds > 0 ? ' · On' : ''}
-          </button>
-          <button type="button" onClick={onDeleteForEveryone} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50">
-            <Trash2 size={14} /> Delete for everyone
           </button>
           <button type="button" onClick={onDeleteForMe} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50">
             <Eraser size={14} /> Delete for me

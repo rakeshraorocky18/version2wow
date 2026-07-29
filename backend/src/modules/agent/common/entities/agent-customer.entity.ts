@@ -9,11 +9,11 @@ import {
 import { AgentCustomerStatus } from '../enums/agent.enums';
 
 @Entity('agent_customers')
+@Index(['assignedAgentId', 'customerCode'], { unique: true })
 export class AgentCustomerEntity {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @Index({ unique: true })
   @Column()
   customerCode!: string;
 

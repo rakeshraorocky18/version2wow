@@ -54,6 +54,8 @@ import { ErrorState, TableSkeleton } from '../../components/agent/AgentUI';
 import PartnerPreferenceSidebar from '../../components/agent/matching/PartnerPreferenceSidebar';
 import SuggestionSlidePanel from '../../components/agent/matching/SuggestionSlidePanel';
 
+import Chat from '../../components/agent/Chat';
+
 type WorkspaceTab = 'matches' | 'chat' | 'history';
 type HistoryCategory = 'friends' | 'requestsReceived' | 'requestsSent' | 'shortlisted' | 'blocked' | 'declined';
 type CustomerActionName =
@@ -369,7 +371,9 @@ export default function CustomerDetailsWorkspace() {
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<MatchSortBy>('compatibility');
   const [page, setPage] = useState(1);
-  const [activeChatProfileId, setActiveChatProfileId] = useState<string | undefined>();
+  const [activeChatProfileId, setActiveChatProfileId] = useState<string | undefined>(() => {
+    return localStorage.getItem(`activeChatProfileId_${customerId}`) || undefined;
+  });
   const [message, setMessage] = useState('');
   const [recommendationsOpen, setRecommendationsOpen] = useState(true);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -392,6 +396,11 @@ export default function CustomerDetailsWorkspace() {
   const chat = useAgentCustomerChat(customerId, { profileId: activeChatProfileId, page: 1, limit: 50 }, true);
   const action = useAgentCustomerAction(customerId);
   const sendMessage = useSendAgentCustomerChatMessage(customerId);
+
+  const activeId = activeChatProfileId;
+  const selectedContact = useMemo(() => {
+    return chat.data?.contacts.find((c: any) => c.userId === activeId) || null;
+  }, [chat.data?.contacts, activeId]);
 
   const qc = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -465,12 +474,28 @@ export default function CustomerDetailsWorkspace() {
     });
   };
 
+  const handleClearConversation = (partnerId: string) => {
+    void api.delete(`/agent/customers/${customerId}/chat/${partnerId}`).then(() => {
+      void chat.refetch();
+      toast.success('Chat cleared');
+    }).catch(() => toast.error('Could not clear chat'));
+  };
+
+  const handleDeleteConversation = (partnerId: string) => {
+    void api.post(`/agent/customers/${customerId}/chat/${partnerId}/hide`).then(() => {
+      setActiveChatProfileId(undefined);
+      localStorage.removeItem(`activeChatProfileId_${customerId}`);
+      void chat.refetch();
+      toast.success('Chat deleted');
+    }).catch(() => toast.error('Could not delete chat'));
+  };
+
   useChatSocket({
     onNewMessage: (data: any) => {
       updateChatCache(data);
       qc.invalidateQueries({ queryKey: ['agent', 'customerNotifications', customerId] });
 
-      const activeId = activeChatProfileId || chat.data?.activeProfileId;
+      const activeId = activeChatProfileId;
       if (activeId && (data.senderId === activeId || data.receiverId === activeId)) {
         api.post('/chat/read', { userId: activeId })
           .then(() => {
@@ -493,7 +518,7 @@ export default function CustomerDetailsWorkspace() {
   }, customerId);
 
   useEffect(() => {
-    const activeId = activeChatProfileId || chat.data?.activeProfileId;
+    const activeId = activeChatProfileId;
     if (activeId && activeTab === 'chat') {
       api.post('/chat/read', { userId: activeId })
         .then(() => {
@@ -512,7 +537,7 @@ export default function CustomerDetailsWorkspace() {
         })
         .catch(() => undefined);
     }
-  }, [activeChatProfileId, activeTab, chat.data?.activeProfileId]);
+  }, [activeChatProfileId, activeTab]);
 
   const uploadMedia = useMutation({
     mutationFn: async (file: File) => {
@@ -526,7 +551,7 @@ export default function CustomerDetailsWorkspace() {
       return data as { mediaUrl: string; type: string };
     },
     onSuccess: (data, file) => {
-      const receiverId = activeChatProfileId || chat.data?.activeProfileId;
+      const receiverId = activeChatProfileId;
       if (!receiverId) return;
       const fileName = file.name || 'Attachment';
       sendMessage.mutate(
@@ -801,160 +826,35 @@ export default function CustomerDetailsWorkspace() {
       )}
 
       {activeTab === 'chat' && (
-        <section className="card overflow-hidden !p-0">
-          <div className="grid min-h-[34rem] lg:grid-cols-[320px_1fr]">
-            <aside className="border-b border-gray-100 lg:border-b-0 lg:border-r">
-              <div className="p-4">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-wow-muted" />
-                  <input className="input-field !pl-10" placeholder="Search accepted matches..." />
-                </div>
-              </div>
-              <div className="max-h-[30rem] overflow-y-auto">
-                {chat.isLoading ? (
-                  <p className="p-6 text-sm text-wow-muted">Loading chats...</p>
-                ) : !chat.data?.contacts.length ? (
-                  <p className="p-6 text-sm text-wow-muted">Only accepted matches can chat.</p>
-                ) : (
-                  chat.data.contacts.map((contact) => (
-                    <button
-                      key={contact.userId}
-                      type="button"
-                      onClick={() => setActiveChatProfileId(contact.userId)}
-                      className={`flex w-full items-center gap-3 border-b border-gray-50 p-4 text-left hover:bg-[#FFF8FB] ${
-                        (activeChatProfileId || chat.data?.activeProfileId) === contact.userId ? 'bg-[#FFF0F4]' : ''
-                      }`}
-                    >
-                      <ProfileAvatar name={contact.name} />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <p className="truncate text-sm font-semibold text-wow-text">{contact.name}</p>
-                          <span className={`h-2 w-2 rounded-full ${contact.onlineStatus ? 'bg-emerald-400' : 'bg-gray-300'}`} />
-                        </div>
-                        <p className="truncate text-xs text-wow-muted">{contact.subtitle}</p>
-                      </div>
-                      {contact.unreadCount > 0 && <span className="rounded-full bg-wow-primary px-2 py-0.5 text-xs text-white">{contact.unreadCount}</span>}
-                    </button>
-                  ))
-                )}
-              </div>
-            </aside>
-
-            <div className="flex min-h-0 flex-col">
-              <div className="border-b border-gray-100 p-4">
-                <h3 className="font-semibold text-wow-text">Conversation</h3>
-                <p className="text-xs text-wow-muted">Read receipts, attachments, emoji, and typing indicators use the existing chat channel.</p>
-              </div>
-              <div className="flex-1 space-y-3 overflow-y-auto bg-[#FAF8FB] p-4">
-                {(chat.data?.messages.messages || []).length === 0 ? (
-                  <div className="flex min-h-[20rem] items-center justify-center text-center text-sm text-wow-muted">
-                    Select an accepted match to start chatting.
-                  </div>
-                ) : (
-                  (chat.data?.messages.messages || []).map((msg) => {
-                    const mediaSrc = msg.mediaUrl ? getPhotoUrl(msg.mediaUrl) : '';
-                    const isFile = msg.type === 'file' || msg.type === 'document';
-                    return (
-                      <div key={msg.id || msg._id} className={`flex ${msg.senderId === customerId ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-[75%] rounded-2xl px-4 py-2 text-sm ${msg.senderId === customerId ? 'bg-wow-primary text-white' : 'bg-white text-wow-text'}`}>
-                          {msg.type === 'image' && mediaSrc ? (
-                            <a href={mediaSrc} target="_blank" rel="noreferrer" className="block mb-1">
-                              <img src={mediaSrc} alt="Shared" className="max-h-48 rounded-lg object-cover" />
-                            </a>
-                          ) : msg.type === 'video' && mediaSrc ? (
-                            <video src={mediaSrc} controls className="max-h-48 rounded-lg mb-1" />
-                          ) : isFile && mediaSrc ? (
-                            <a href={mediaSrc} target="_blank" rel="noreferrer" className={`break-all underline block mb-1 ${msg.senderId === customerId ? 'text-white' : 'text-wow-primary'}`}>
-                              📎 {msg.content || 'Download attachment'}
-                            </a>
-                          ) : (
-                            <p>{msg.content}</p>
-                          )}
-                          <p className={`mt-1 text-[10px] ${msg.senderId === customerId ? 'text-white/70' : 'text-wow-muted'}`}>
-                            {formatTime(msg.createdAt)} {msg.isRead ? ' · Read' : ''}
-                          </p>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-              <div className="border-t border-gray-100 p-4">
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={uploading || sendMessage.isPending || !(activeChatProfileId || chat.data?.activeProfileId)}
-                    className="rounded-xl border border-gray-200 px-3 text-wow-muted hover:bg-gray-50 flex items-center justify-center min-w-[70px] disabled:opacity-60"
-                  >
-                    {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Attach'}
-                  </button>
-                  <input
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        const receiverId = activeChatProfileId || chat.data?.activeProfileId;
-                        if (!message.trim() || sendMessage.isPending || !receiverId) return;
-                        sendMessage.mutate(
-                          { receiverId, content: message },
-                          {
-                            onSuccess: (sentMsg: any) => {
-                              setMessage('');
-                              toast.success('Message sent');
-                              if (sentMsg) {
-                                updateChatCache(sentMsg);
-                              }
-                            },
-                            onError: (err: unknown) =>
-                              toast.error(getErrorMessage(err, 'Unable to send message')),
-                          }
-                        );
-                      }
-                    }}
-                    className="input-field flex-1"
-                    placeholder="Type a message..."
-                  />
-                  <button
-                    disabled={!message.trim() || sendMessage.isPending || !(activeChatProfileId || chat.data?.activeProfileId)}
-                    onClick={() => {
-                      const receiverId = activeChatProfileId || chat.data?.activeProfileId;
-                      if (!receiverId) return;
-                      sendMessage.mutate(
-                        { receiverId, content: message },
-                        {
-                          onSuccess: (sentMsg: any) => {
-                            setMessage('');
-                            toast.success('Message sent');
-                            if (sentMsg) {
-                              updateChatCache(sentMsg);
-                            }
-                          },
-                          onError: (err: unknown) =>
-                            toast.error(getErrorMessage(err, 'Unable to send message')),
-                        },
-                      );
-                    }}
-                    className="btn-primary !px-4 disabled:opacity-60"
-                  >
-                    {sendMessage.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                  </button>
-                </div>
-                {uploading ? (
-                  <p className="mt-2 text-xs text-gray-500">Uploading {uploadProgress}%</p>
-                ) : null}
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  className="hidden"
-                  accept="image/*,video/*,.pdf,.doc,.docx,.txt"
-                  onChange={handleFileSelect}
-                />
-              </div>
-            </div>
-          </div>
-        </section>
+        <Chat
+          embedded
+          agentMode
+          agentCustomerId={customerId}
+          agentContacts={chat.data?.contacts}
+          agentMessages={chat.data?.messages?.messages}
+          agentLoading={chat.isLoading}
+          initialUserId={activeChatProfileId}
+          onSelectContact={(userId) => {
+            setActiveChatProfileId(userId);
+            localStorage.setItem(`activeChatProfileId_${customerId}`, userId);
+          }}
+          onAgentSendMessage={(payload) => {
+            sendMessage.mutate(payload, {
+              onSuccess: (sentMsg: any) => {
+                if (sentMsg) {
+                  updateChatCache(sentMsg);
+                }
+              },
+              onError: (err: unknown) =>
+                toast.error(getErrorMessage(err, 'Unable to send message')),
+            });
+          }}
+          onAgentClearChat={handleClearConversation}
+          onAgentDeleteChat={handleDeleteConversation}
+          onAgentBlockUser={(partnerId) => runAction('block', partnerId)}
+          onAgentUnblockUser={(partnerId) => runAction('unblock', partnerId)}
+          onAgentDeleteMessages={() => void chat.refetch()}
+        />
       )}
 
       {activeTab === 'history' && (
@@ -998,7 +898,7 @@ export default function CustomerDetailsWorkspace() {
                       return (
                         <>
                           <button onClick={() => navigate(`/agent/customers/${customerId}/profile/${item.profile.id}`)} className="btn-secondary !px-3 !py-2 text-sm">View Profile</button>
-                          <button onClick={() => { setActiveChatProfileId(item.profile.id); setActiveTab('chat'); }} className="btn-primary !px-3 !py-2 text-sm">Open Chat</button>
+                          <button onClick={() => { setActiveChatProfileId(item.profile.id); localStorage.setItem(`activeChatProfileId_${customerId}`, item.profile.id); setActiveTab('chat'); }} className="btn-primary !px-3 !py-2 text-sm">Open Chat</button>
                         </>
                       );
                     }
@@ -1102,6 +1002,7 @@ export default function CustomerDetailsWorkspace() {
                             setActiveTab(target.tab);
                             if (target.tab === 'chat' && target.profileId) {
                               setActiveChatProfileId(target.profileId);
+                              localStorage.setItem(`activeChatProfileId_${customerId}`, target.profileId);
                             }
                             if (target.tab === 'history') {
                               setHistoryCategory('requestsReceived');

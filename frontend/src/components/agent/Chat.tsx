@@ -1,4 +1,4 @@
-  import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
+  import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
   import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
   import {
     Check,
@@ -57,6 +57,11 @@
     onAgentSendMessage?: (payload: { receiverId: string; content: string; type?: string; mediaUrl?: string }) => void;
     onSelectContact?: (userId: string) => void;
     agentLoading?: boolean;
+    onAgentBlockUser?: (partnerId: string) => void;
+    onAgentUnblockUser?: (partnerId: string) => void;
+    onAgentClearChat?: (partnerId: string) => void;
+    onAgentDeleteChat?: (partnerId: string) => void;
+    onAgentDeleteMessages?: (messageIds: string[]) => void;
   };
 
   type DeleteDialogState = {
@@ -151,12 +156,34 @@
     onAgentSendMessage,
     onSelectContact,
     agentLoading = false,
+    onAgentBlockUser,
+    onAgentUnblockUser,
+    onAgentClearChat,
+    onAgentDeleteChat,
+    onAgentDeleteMessages,
   }: ChatProps) {
     const queryClient = useQueryClient();
     const user = useAgentAuthStore((state) => state.user);
     const currentUserId = agentMode ? (agentCustomerId || user?.id) : user?.id;
     const normalizedCurrentUserId = useMemo(() => normalizeUserId(currentUserId), [currentUserId]);
-    const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
+    const [selectedConversation, setSelectedConversation] = useState<string | null>(() => {
+      if (!currentUserId) return null;
+      return localStorage.getItem(`agent_chat_selected_user_${currentUserId}`) || null;
+    });
+
+    const handleSelectConversation = useCallback((id: string | null) => {
+      setSelectedConversation(id);
+      if (currentUserId) {
+        if (id) {
+          localStorage.setItem(`agent_chat_selected_user_${currentUserId}`, id);
+        } else {
+          localStorage.removeItem(`agent_chat_selected_user_${currentUserId}`);
+        }
+      }
+      if (id) {
+        onSelectContact?.(id);
+      }
+    }, [currentUserId, onSelectContact]);
     const [searchQuery, setSearchQuery] = useState('');
     const [messageInput, setMessageInput] = useState('');
     const [showMenu, setShowMenu] = useState(false);
@@ -218,18 +245,9 @@
     }, [contactList, searchQuery]);
 
     useEffect(() => {
-      if (!selectedConversation && contactList.length > 0) {
-        const firstId = contactList[0].userId;
-        setSelectedConversation(firstId);
-        onSelectContact?.(firstId);
-      }
-    }, [contactList, onSelectContact, selectedConversation]);
-
-    useEffect(() => {
       if (!initialUserId) return;
-      setSelectedConversation(initialUserId);
-      onSelectContact?.(initialUserId);
-    }, [initialUserId, onSelectContact]);
+      handleSelectConversation(initialUserId);
+    }, [initialUserId, handleSelectConversation]);
 
     const activePartnerId = selectedConversation;
 
@@ -377,6 +395,10 @@
     const deleteMessageMutation = useMutation({
       mutationFn: async ({ messageIds, mode }: { messageIds: string[]; mode: 'me' | 'everyone' }) => {
         if (messageIds.length === 0) return;
+        if (agentMode && agentCustomerId) {
+          await Promise.all(messageIds.map((id) => api.delete(`/agent/customers/${agentCustomerId}/chat/messages/${id}?mode=${mode}`)));
+          return;
+        }
         await Promise.all(messageIds.map((id) => api.delete(`/chat/messages/${id}?mode=${mode}`)));
       },
       onSuccess: (_, variables) => {
@@ -385,6 +407,9 @@
         setSelectionMode(false);
 
         if (agentMode && activePartnerId) {
+          if (onAgentDeleteMessages) {
+            onAgentDeleteMessages(variables.messageIds);
+          }
           queryClient.setQueryData(['agent-portal-chat-messages', activePartnerId], (old: any) => {
             if (!old?.messages) return old;
             const removedIds = new Set(variables.messageIds);
@@ -509,6 +534,10 @@
     const handleClearChat = () => {
       if (!activePartnerId) return;
       if (window.confirm(`Clear chat with ${selectedContact?.name || 'this customer'}?`)) {
+        if (agentMode && onAgentClearChat) {
+          onAgentClearChat(activePartnerId);
+          return;
+        }
         void api.delete(`/chat/conversations/${activePartnerId}`).then(() => {
           queryClient.invalidateQueries({ queryKey: ['agent-portal-chat-contacts'] });
           queryClient.invalidateQueries({ queryKey: ['agent-portal-chat-messages', activePartnerId] });
@@ -520,8 +549,13 @@
     const handleDeleteChat = () => {
       if (!activePartnerId) return;
       if (window.confirm(`Delete chat with ${selectedContact?.name || 'this customer'}?`)) {
+        if (agentMode && onAgentDeleteChat) {
+          onAgentDeleteChat(activePartnerId);
+          handleSelectConversation(null);
+          return;
+        }
         void api.post(`/chat/conversations/${activePartnerId}/hide`).then(() => {
-          setSelectedConversation(null);
+          handleSelectConversation(null);
           queryClient.invalidateQueries({ queryKey: ['agent-portal-chat-contacts'] });
           queryClient.removeQueries({ queryKey: ['agent-portal-chat-messages', activePartnerId] });
           toast.success('Chat deleted');
@@ -532,6 +566,10 @@
     const handleBlockUser = () => {
       if (!activePartnerId) return;
       if (window.confirm(`Block ${selectedContact?.name || 'this customer'}?`)) {
+        if (agentMode && onAgentBlockUser) {
+          onAgentBlockUser(activePartnerId);
+          return;
+        }
         void api.post('/matches/block', { userId: activePartnerId }).then(() => {
           queryClient.invalidateQueries({ queryKey: ['agent-portal-chat-contacts'] });
           toast.success('User blocked');
@@ -541,6 +579,10 @@
 
     const handleUnblockUser = () => {
       if (!activePartnerId) return;
+      if (agentMode && onAgentUnblockUser) {
+        onAgentUnblockUser(activePartnerId);
+        return;
+      }
       void api.post('/matches/unblock', { userId: activePartnerId }).then(() => {
         queryClient.invalidateQueries({ queryKey: ['agent-portal-chat-contacts'] });
         toast.success('User unblocked');
@@ -580,8 +622,7 @@
                       key={contact.userId}
                       type="button"
                       onClick={() => {
-                        setSelectedConversation(contact.userId);
-                        onSelectContact?.(contact.userId);
+                        handleSelectConversation(contact.userId);
                         setShowMenu(false);
                         setSharedPanel(null);
                         setShowInChatSearch(false);
@@ -628,11 +669,13 @@
                     </div>
                     <div>
                       <p className="font-semibold text-gray-900">{selectedContact.name}</p>
-                      <p className="text-xs text-gray-500">{selectedContact.onlineStatus ? 'Online' : 'Offline'}</p>
+                      <p className="text-xs text-gray-500">
+                        {isBlockedThread ? 'Blocked User' : (selectedContact.onlineStatus ? 'Online' : 'Offline')}
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-1">
-                    {!isBlockedThread && (
+                    {!isBlockedThread && !agentMode && (
                       <button
                         type="button"
                         onClick={() => startCall('audio')}
@@ -652,6 +695,7 @@
                           muted={threadMuted}
                           disappearingSeconds={disappearingSeconds}
                           busy={threadSettingsMutation.isPending || reportUserMutation.isPending}
+                          agentMode={agentMode}
                           onSearch={() => {
                             setShowMenu(false);
                             setShowInChatSearch(true);
@@ -698,7 +742,7 @@
                         />
                       ) : null}
                     </div>
-                    <button type="button" onClick={() => { setSelectedConversation(null); setShowMenu(false); setShowInChatSearch(false); setSharedPanel(null); }} className="rounded-full p-2 text-gray-500 hover:bg-gray-100" title="Close chat">
+                    <button type="button" onClick={() => { handleSelectConversation(null); setShowMenu(false); setShowInChatSearch(false); setSharedPanel(null); }} className="rounded-full p-2 text-gray-500 hover:bg-gray-100" title="Close chat">
                       <X size={18} />
                     </button>
                   </div>
@@ -800,43 +844,53 @@
                     <div className="mb-3 flex items-center justify-between rounded-2xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm">
                       <span>{selectedMessageIds.length} selected</span>
                       <div className="flex gap-2">
-                        <button type="button" onClick={() => setSelectionMode(false)} className="text-gray-500">Cancel</button>
-                        <button type="button" onClick={() => setDeleteDialog({ messageIds: selectedMessageIds, allowEveryone: true })} className="rounded-full bg-primary-600 px-3 py-1 text-white">Delete</button>
+                        <button type="button" onClick={() => { setSelectionMode(false); setSelectedMessageIds([]); }} className="text-gray-500">Cancel</button>
+                        <button type="button" onClick={() => {
+                          if (selectedMessageIds.length > 0 && window.confirm('Delete selected messages?')) {
+                            deleteMessageMutation.mutate({ messageIds: selectedMessageIds, mode: 'me' });
+                          }
+                        }} className="rounded-full bg-primary-600 px-3 py-1 text-white">Delete</button>
                       </div>
                     </div>
                   ) : null}
-                  <div className="flex items-end gap-2">
-                    <button type="button" onClick={() => setSelectionMode((current) => !current)} className={`rounded-full border px-3 py-2 text-sm ${selectionMode ? 'border-primary-600 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600'}`}>
-                      {selectionMode ? 'Done' : 'Select'}
-                    </button>
-                    <div className="relative flex-1">
-                      <textarea
-                        value={messageInput}
-                        onChange={(event) => setMessageInput(event.target.value)}
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter' && !event.shiftKey) {
-                            event.preventDefault();
-                            handleSend();
-                          }
-                        }}
-                        placeholder="Type a message"
-                        className="min-h-[44px] w-full rounded-2xl border border-gray-200 px-3 py-2 pr-12 text-sm outline-none focus:border-primary-400"
-                      />
+                  {isBlockedThread ? (
+                    <div className="flex h-12 items-center justify-center bg-red-50 text-sm font-semibold text-red-600 rounded-xl">
+                      Blocked User
                     </div>
-                    <button type="button" onClick={() => fileInputRef.current?.click()} className="rounded-full border border-gray-200 p-2 text-gray-500 hover:bg-gray-100" title="Attach file">
-                      {uploading ? <Loader2 size={18} className="animate-spin" /> : <Paperclip size={18} />}
-                    </button>
-                    <button type="button" onClick={handleSend} disabled={sendMessageMutation.isPending || !messageInput.trim()} className="rounded-full bg-primary-600 p-2 text-white disabled:opacity-60">
-                      {sendMessageMutation.isPending ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
-                    </button>
-                  </div>
-                  {uploading ? <p className="mt-2 text-xs text-gray-500">Uploading {uploadProgress}%</p> : null}
+                  ) : (
+                    <div className="flex items-end gap-2">
+                      <button type="button" onClick={() => setSelectionMode((current) => !current)} className={`rounded-full border px-3 py-2 text-sm ${selectionMode ? 'border-primary-600 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600'}`}>
+                        {selectionMode ? 'Done' : 'Select'}
+                      </button>
+                      <div className="relative flex-1">
+                        <textarea
+                          value={messageInput}
+                          onChange={(event) => setMessageInput(event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter' && !event.shiftKey) {
+                              event.preventDefault();
+                              handleSend();
+                            }
+                          }}
+                          placeholder="Type a message"
+                          className="min-h-[44px] w-full rounded-2xl border border-gray-200 px-3 py-2 pr-12 text-sm outline-none focus:border-primary-400"
+                        />
+                      </div>
+                      <button type="button" onClick={() => fileInputRef.current?.click()} className="rounded-full border border-gray-200 p-2 text-gray-500 hover:bg-gray-100" title="Attach file">
+                        {uploading ? <Loader2 size={18} className="animate-spin" /> : <Paperclip size={18} />}
+                      </button>
+                      <button type="button" onClick={handleSend} disabled={sendMessageMutation.isPending || !messageInput.trim()} className="rounded-full bg-primary-600 p-2 text-white disabled:opacity-60">
+                        {sendMessageMutation.isPending ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+                      </button>
+                    </div>
+                  )}
+                  {uploading && !isBlockedThread ? <p className="mt-2 text-xs text-gray-500">Uploading {uploadProgress}%</p> : null}
                   <input ref={fileInputRef} type="file" className="hidden" accept="image/*,video/*,.pdf,.doc,.docx,.txt" onChange={handleFileSelect} />
                 </div>
               </>
             ) : (
               <div className="flex h-full items-center justify-center p-8 text-center text-sm text-gray-500">
-                Select a customer to begin the chat experience.
+                Select a conversation to start chatting.
               </div>
             )}
           </section>

@@ -3,6 +3,7 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  OnModuleInit,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, In, Repository } from 'typeorm';
@@ -12,6 +13,7 @@ import {
 } from '../../../config/database.constants';
 import { paginate } from '../../../common/utils/pagination';
 import { AgentCustomerEntity } from '../common/entities/agent-customer.entity';
+import { AgentProfileEntity } from '../common/entities/agent-profile.entity';
 import { AgentDocumentEntity } from '../common/entities/agent-document.entity';
 import {
   AgentCustomerMatchEntity,
@@ -63,7 +65,53 @@ import {
 } from './matching.helpers';
 
 @Injectable()
-export class AgentCustomersService {
+export class AgentCustomersService implements OnModuleInit {
+  async onModuleInit() {
+    try {
+      await this.migrateExistingCustomerCodes();
+    } catch (err) {
+      console.error('Failed to migrate customer codes:', err);
+    }
+  }
+
+  async migrateExistingCustomerCodes() {
+    const manager = this.customerRepo.manager;
+    await manager.transaction(async (transactionalManager) => {
+      const customers = await transactionalManager.find(AgentCustomerEntity, {
+        order: { createdAt: 'ASC' },
+      });
+
+      if (!customers.length) return;
+
+      const customersByAgent = new Map<string, AgentCustomerEntity[]>();
+      for (const customer of customers) {
+        const agentId = customer.assignedAgentId;
+        if (!customersByAgent.has(agentId)) {
+          customersByAgent.set(agentId, []);
+        }
+        customersByAgent.get(agentId)!.push(customer);
+      }
+
+      for (const [agentId, agentCustomers] of customersByAgent.entries()) {
+        const agentProfile = await transactionalManager.findOne(AgentProfileEntity, {
+          where: { userId: agentId },
+        });
+        const agentName = agentProfile?.firstName || 'WOW';
+        const prefix = agentName.slice(0, 3).toUpperCase().padEnd(3, 'X');
+
+        let index = 1;
+        for (const customer of agentCustomers) {
+          const expectedCode = `${prefix}-${String(index).padStart(4, '0')}`;
+          if (customer.customerCode !== expectedCode) {
+            customer.customerCode = expectedCode;
+            await transactionalManager.save(AgentCustomerEntity, customer);
+          }
+          index++;
+        }
+      }
+    });
+  }
+
   constructor(
     @InjectRepository(AgentCustomerEntity, POSTGRES_CONNECTION)
     private readonly customerRepo: Repository<AgentCustomerEntity>,
@@ -84,17 +132,46 @@ export class AgentCustomersService {
 
   private async generateCustomerCode(
     manager: EntityManager,
+    agentId: string,
   ): Promise<string> {
     await manager.query('LOCK TABLE agent_customers IN SHARE ROW EXCLUSIVE MODE');
 
+    const agentProfile = await manager.findOne(AgentProfileEntity, {
+      where: { userId: agentId },
+    });
+    const agentName = agentProfile?.firstName || 'WOW';
+    const prefix = agentName.slice(0, 3).toUpperCase().padEnd(3, 'X');
+
     const result = await manager
       .createQueryBuilder(AgentCustomerEntity, 'c')
-      .select('MAX(c.customerCode)', 'max')
-      .getRawOne<{ max: string }>();
+      .select('c.customerCode', 'code')
+      .where('c.assignedAgentId = :agentId', { agentId })
+      .andWhere('c.customerCode LIKE :pattern', { pattern: `${prefix}-%` })
+      .getRawMany<{ code: string }>();
 
-    const maxCode = result?.max;
-    const nextNumber = maxCode ? Number(maxCode.replace(/^WOW-/, '')) + 1 : 1;
-    return `WOW-${String(nextNumber).padStart(5, '0')}`;
+    let maxNumber = 0;
+    for (const row of result) {
+      const parts = row.code.split('-');
+      if (parts.length === 2 && parts[0] === prefix) {
+        const num = Number(parts[1]);
+        if (!isNaN(num) && num > maxNumber) {
+          maxNumber = num;
+        }
+      }
+    }
+
+    const nextNumber = maxNumber + 1;
+    const customerCode = `${prefix}-${String(nextNumber).padStart(4, '0')}`;
+
+    // Safety validation
+    const exists = await manager.findOne(AgentCustomerEntity, {
+      where: { assignedAgentId: agentId, customerCode },
+    });
+    if (exists) {
+      throw new BadRequestException(`Duplicate customer code detected: ${customerCode}`);
+    }
+
+    return customerCode;
   }
 
   private validateCustomerProfile(dto: any) {
@@ -162,7 +239,7 @@ export class AgentCustomersService {
   async create(agentId: string, dto: CreateAgentCustomerDto) {
     this.validateCustomerProfile(dto);
     return this.customerRepo.manager.transaction(async (manager) => {
-      const customerCode = await this.generateCustomerCode(manager);
+      const customerCode = await this.generateCustomerCode(manager, agentId);
       const customer = manager.create(AgentCustomerEntity, {
         ...dto,
         customerCode,
@@ -1561,11 +1638,14 @@ console.log("=================================");
   async getChat(agentId: string, customerId: string, query: CustomerChatQueryDto) {
     await this.findAssignedOrFail(agentId, customerId);
     const accepted = await this.customerMatchRepo.find({
-      where: { customerId, status: AgentCustomerMatchStatus.ACCEPTED },
+      where: [
+        { customerId, status: AgentCustomerMatchStatus.ACCEPTED },
+        { customerId, status: AgentCustomerMatchStatus.BLOCKED },
+      ],
       order: { updatedAt: 'DESC' },
     });
 
-    const activeProfileId = query.profileId || accepted[0]?.profileId;
+    const activeProfileId = query.profileId || undefined;
 
     if (activeProfileId) {
       await this.chatService.markConversationRead(customerId, activeProfileId);
@@ -1602,6 +1682,7 @@ console.log("=================================");
           lastMessageAt: lastMsg?.createdAt || row.updatedAt,
           onlineStatus: Date.now() - new Date(profile.updatedAt).getTime() < 24 * 60 * 60 * 1000,
           unreadCount,
+          isBlocked: row.status === AgentCustomerMatchStatus.BLOCKED || row.blocked,
         };
       }),
     );
@@ -1633,10 +1714,27 @@ console.log("=================================");
       where: {
         customerId,
         profileId: dto.receiverId,
-        status: AgentCustomerMatchStatus.ACCEPTED,
       },
     });
     if (!relationship) throw new BadRequestException('Only accepted matches can chat');
+    if (relationship.status === AgentCustomerMatchStatus.BLOCKED || relationship.blocked) {
+      throw new BadRequestException('Messaging is disabled because this user is blocked');
+    }
+
+    const reverseRelationship = await this.customerMatchRepo.findOne({
+      where: {
+        customerId: dto.receiverId,
+        profileId: customerId,
+      },
+    });
+    if (reverseRelationship && (reverseRelationship.status === AgentCustomerMatchStatus.BLOCKED || reverseRelationship.blocked)) {
+      throw new BadRequestException('Messaging is disabled because you are blocked by this user');
+    }
+
+    if (relationship.status !== AgentCustomerMatchStatus.ACCEPTED) {
+      throw new BadRequestException('Only accepted matches can chat');
+    }
+
     const message = await this.chatService.sendMessage(customerId, dto);
     
     // Notify Socket.IO clients in real-time
@@ -1648,6 +1746,36 @@ console.log("=================================");
       profileId: customerId,
     });
     return message;
+  }
+
+  async clearChat(agentId: string, customerId: string, profileId: string) {
+    await this.findAssignedOrFail(agentId, customerId);
+    return this.chatService.deleteConversation(customerId, profileId);
+  }
+
+  async hideChat(agentId: string, customerId: string, profileId: string) {
+    await this.findAssignedOrFail(agentId, customerId);
+    return this.chatService.hideConversation(customerId, profileId);
+  }
+
+  async deleteMessage(
+    agentId: string,
+    customerId: string,
+    messageId: string,
+    mode: 'me' | 'everyone',
+  ) {
+    await this.findAssignedOrFail(agentId, customerId);
+    const result = await this.chatService.deleteMessage(customerId, messageId, mode);
+    if (result.senderId && result.receiverId) {
+      this.chatGateway.notifyMessageDeleted(
+        result.messageId,
+        result.senderId,
+        result.receiverId,
+        mode,
+        customerId,
+      );
+    }
+    return result;
   }
 
   async attachProfileImageUrls<T extends { id: string }>(

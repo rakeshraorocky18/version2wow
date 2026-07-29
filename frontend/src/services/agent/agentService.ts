@@ -96,6 +96,9 @@ export type AgentCustomerChatContact = {
   subtitle: string;
   onlineStatus: boolean;
   unreadCount: number;
+  photo?: string;
+  lastMessageAt?: string;
+  isBlocked?: boolean;
 };
 
 export interface AgentNotificationItem {

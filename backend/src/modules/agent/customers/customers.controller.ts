@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -152,6 +153,37 @@ export class AgentCustomersController {
     @Body() dto: SendMessageDto,
   ) {
     return this.customersService.sendChatMessage(req.user.id, customerId, dto);
+  }
+
+  @Delete(':customerId/chat/:profileId')
+  @ApiOperation({ summary: 'Clear customer chat history with a match' })
+  clearCustomerChat(
+    @Req() req: { user: { id: string } },
+    @Param('customerId') customerId: string,
+    @Param('profileId') profileId: string,
+  ) {
+    return this.customersService.clearChat(req.user.id, customerId, profileId);
+  }
+
+  @Post(':customerId/chat/:profileId/hide')
+  @ApiOperation({ summary: 'Hide customer chat' })
+  hideCustomerChat(
+    @Req() req: { user: { id: string } },
+    @Param('customerId') customerId: string,
+    @Param('profileId') profileId: string,
+  ) {
+    return this.customersService.hideChat(req.user.id, customerId, profileId);
+  }
+
+  @Delete(':customerId/chat/messages/:messageId')
+  @ApiOperation({ summary: 'Delete a customer chat message' })
+  deleteCustomerMessage(
+    @Req() req: { user: { id: string } },
+    @Param('customerId') customerId: string,
+    @Param('messageId') messageId: string,
+    @Query('mode') mode: 'me' | 'everyone' = 'me',
+  ) {
+    return this.customersService.deleteMessage(req.user.id, customerId, messageId, mode);
   }
 
   @Get(':customerId/history')

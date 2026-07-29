@@ -85,6 +85,15 @@
       }
     }
 
+    private async resolveProfileId(idOrUserId: string): Promise<string> {
+      try {
+        const profile = await this.usersService.getProfileByIdOrUserId(idOrUserId);
+        return (profile.id || profile._id || idOrUserId) as string;
+      } catch {
+        return idOrUserId;
+      }
+    }
+
     private async getHiddenUserIds(userId: string): Promise<Set<string>> {
       try {
         const resolvedUserId = await this.resolveUserId(userId);
@@ -265,10 +274,12 @@
       if (match?.status === MatchStatus.ACCEPTED || match?.status === MatchStatus.BLOCKED) return true;
 
       if (this.agentCustomerMatchRepo) {
+        const profileA = await this.resolveProfileId(userA);
+        const profileB = await this.resolveProfileId(userB);
         const rel = await this.agentCustomerMatchRepo.findOne({
           where: [
-            { customerId: userA, profileId: userB },
-            { customerId: userB, profileId: userA },
+            { customerId: profileA, profileId: profileB },
+            { customerId: profileB, profileId: profileA },
           ],
         });
         if (rel && (rel.status === AgentCustomerMatchStatus.ACCEPTED || rel.status === AgentCustomerMatchStatus.BLOCKED)) {
@@ -280,7 +291,24 @@
 
     async isBlockedWith(userA: string, userB: string): Promise<boolean> {
       const match = await this.findPairMatch(userA, userB);
-      return match?.status === MatchStatus.BLOCKED;
+      if (match?.status === MatchStatus.BLOCKED) return true;
+
+      if (this.agentCustomerMatchRepo) {
+        const profileA = await this.resolveProfileId(userA);
+        const profileB = await this.resolveProfileId(userB);
+        const rel = await this.agentCustomerMatchRepo.findOne({
+          where: [
+            { customerId: profileA, profileId: profileB, status: AgentCustomerMatchStatus.BLOCKED },
+            { customerId: profileB, profileId: profileA, status: AgentCustomerMatchStatus.BLOCKED },
+            { customerId: profileA, profileId: profileB, blocked: true },
+            { customerId: profileB, profileId: profileA, blocked: true },
+          ],
+        });
+        if (rel) {
+          return true;
+        }
+      }
+      return false;
     }
 
     private async findPairMatch(userA: string, userB: string): Promise<Match | null> {
