@@ -143,6 +143,12 @@ export class CreateAgentCustomerDto {
   @IsObject()
   partnerPreferences?: Record<string, unknown>;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Transform(emptyToUndefined)
+  @IsString()
+  aadhaarNumber?: string;
+
   @ApiPropertyOptional({ enum: AgentCustomerStatus })
   @IsOptional()
   @Transform(toOptionalStatus)

@@ -20,6 +20,7 @@ import {
 import { ErrorState, TableSkeleton } from '../../components/agent/AgentUI';
 import { WizardStepper } from '../../components/agent/addCustomer/WizardUI';
 import {
+  VerificationStep,
   EducationStep,
   FamilyStep,
   GalleryPhotosStep,
@@ -30,7 +31,7 @@ import {
   RelationshipStep,
 } from '../../components/agent/addCustomer/AddCustomerSteps';
 
-const LAST_STEP = 7;
+const LAST_STEP = 8;
 
 export default function AddCustomer() {
   const navigate = useNavigate();
@@ -96,7 +97,7 @@ export default function AddCustomer() {
     setErrors(allErrors);
     if (Object.keys(allErrors).length > 0) {
       toast.error('Please complete all required fields before submitting.');
-      const firstInvalidStep = [0, 1, 2, 3, 4, 5, 6, 7].find(
+      const firstInvalidStep = [0, 1, 2, 3, 4, 5, 6, 7, 8].find(
         (s) => Object.keys(validateStep(s as WizardStepId, form, customerQuery.data?.documents)).length > 0,
       );
       if (firstInvalidStep != null) setStep(firstInvalidStep);
@@ -181,6 +182,7 @@ export default function AddCustomer() {
         <WizardStepper
           currentStep={step}
           completedSteps={completedSteps}
+          isAadhaarVerified={form.isAadhaarVerified}
           onStepSelect={(nextStep) => {
             setErrors({});
             setStep(nextStep);
@@ -196,6 +198,7 @@ export default function AddCustomer() {
           {step === 5 && <EducationStep {...stepProps} />}
           {step === 6 && <PartnerStep {...stepProps} />}
           {step === 7 && <GalleryPhotosStep {...stepProps} />}
+          {step === 8 && <VerificationStep {...stepProps} />}
 
           <div className="flex justify-between items-center pt-2 pb-8">
             {step > 0 ? (

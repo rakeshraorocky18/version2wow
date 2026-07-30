@@ -14,6 +14,7 @@ import {
 import { paginate } from '../../../common/utils/pagination';
 import { AgentCustomerEntity } from '../common/entities/agent-customer.entity';
 import { AgentProfileEntity } from '../common/entities/agent-profile.entity';
+import { AadhaarVerificationEntity } from '../verification/verification.entity';
 import { AgentDocumentEntity } from '../common/entities/agent-document.entity';
 import {
   AgentCustomerMatchEntity,
@@ -239,6 +240,25 @@ export class AgentCustomersService implements OnModuleInit {
   async create(agentId: string, dto: CreateAgentCustomerDto) {
     this.validateCustomerProfile(dto);
     return this.customerRepo.manager.transaction(async (manager) => {
+      if (dto.aadhaarNumber) {
+        const duplicate = await manager.findOne(AgentCustomerEntity, {
+          where: { aadhaarNumber: dto.aadhaarNumber },
+        });
+        if (duplicate) {
+          throw new BadRequestException('Customer already exists. This Aadhaar is already registered.');
+        }
+
+        const masked = `XXXX XXXX ${dto.aadhaarNumber.replace(/\s/g, '').slice(-4)}`;
+        const verified = await manager.findOne(AadhaarVerificationEntity, {
+          where: { maskedAadhaar: masked, isVerified: true },
+        });
+        if (!verified) {
+          throw new BadRequestException('Aadhaar verification is not completed');
+        }
+      } else {
+        throw new BadRequestException('Aadhaar number is required');
+      }
+
       const customerCode = await this.generateCustomerCode(manager, agentId);
       const customer = manager.create(AgentCustomerEntity, {
         ...dto,
@@ -258,6 +278,7 @@ export class AgentCustomersService implements OnModuleInit {
         description: `Customer ${saved.firstName} ${saved.lastName ?? ''} (${saved.customerCode}) created`,
       });
 
+      this.maskCustomerAadhaar(saved);
       return { ...saved, profileImageUrl: null };
     });
   }
@@ -334,14 +355,24 @@ export class AgentCustomersService implements OnModuleInit {
 
     const imageMap = await this.getProfileImageMap(rows.map((c) => c.id));
 
-    const data = rows.map((c) => ({
-      ...c,
-      name: [c.firstName, c.lastName].filter(Boolean).join(' ').trim(),
-      agentId: c.assignedAgentId,
-      profileImageUrl: imageMap.get(c.id) ?? null,
-    }));
+    const data = rows.map((c) => {
+      this.maskCustomerAadhaar(c);
+      return {
+        ...c,
+        name: [c.firstName, c.lastName].filter(Boolean).join(' ').trim(),
+        agentId: c.assignedAgentId,
+        profileImageUrl: imageMap.get(c.id) ?? null,
+      };
+    });
 
     return paginate(data, total, page, limit);
+  }
+
+  private maskCustomerAadhaar(customer: any) {
+    if (customer && customer.aadhaarNumber && !customer.aadhaarNumber.startsWith('XXXX')) {
+      customer.aadhaarNumber = `XXXX XXXX ${customer.aadhaarNumber.slice(-4)}`;
+    }
+    return customer;
   }
 
   async findAssignedOrFail(agentId: string, customerId: string) {
@@ -359,6 +390,7 @@ export class AgentCustomersService implements OnModuleInit {
 
   async getOne(agentId: string, customerId: string) {
     const customer = await this.findAssignedOrFail(agentId, customerId);
+    this.maskCustomerAadhaar(customer);
     const documents = await this.documentRepo.find({
       where: { customerId },
       order: { createdAt: 'DESC' },
@@ -390,6 +422,23 @@ export class AgentCustomersService implements OnModuleInit {
 
   async update(agentId: string, customerId: string, dto: UpdateAgentCustomerDto) {
     const customer = await this.findAssignedOrFail(agentId, customerId);
+
+    if (dto.aadhaarNumber && dto.aadhaarNumber !== customer.aadhaarNumber) {
+      const duplicate = await this.customerRepo.findOne({
+        where: { aadhaarNumber: dto.aadhaarNumber },
+      });
+      if (duplicate && duplicate.id !== customer.id) {
+        throw new BadRequestException('Customer already exists. This Aadhaar is already registered.');
+      }
+
+      const masked = `XXXX XXXX ${dto.aadhaarNumber.replace(/\s/g, '').slice(-4)}`;
+      const verified = await this.customerRepo.manager.findOne(AadhaarVerificationEntity, {
+        where: { maskedAadhaar: masked, isVerified: true },
+      });
+      if (!verified) {
+        throw new BadRequestException('Aadhaar verification is not completed');
+      }
+    }
 
     const merged = {
       ...customer,
@@ -433,10 +482,12 @@ export class AgentCustomersService implements OnModuleInit {
     });
 
     const imageMap = await this.getProfileImageMap([saved.id]);
-    return {
+    const result = {
       ...saved,
       profileImageUrl: imageMap.get(saved.id) ?? null,
     };
+    this.maskCustomerAadhaar(result);
+    return result;
   }
 
   async refreshCompletion(customerId: string) {

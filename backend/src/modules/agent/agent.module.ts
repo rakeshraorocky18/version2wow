@@ -35,6 +35,7 @@ import { AgentWorksheetService } from './worksheet/worksheet.service';
 import { AgentActivityController } from './activity-log/activity-log.controller';
 import { AgentActivityService } from './activity-log/activity-log.service';
 import { PublicProfileController } from './customers/public-profile.controller';
+import { AadhaarVerificationModule } from './verification/verification.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { PublicProfileController } from './customers/public-profile.controller';
     ChatModule,
     NotificationsModule,
     Neo4jModule,
+    AadhaarVerificationModule,
     TypeOrmModule.forFeature(
       [
         User,

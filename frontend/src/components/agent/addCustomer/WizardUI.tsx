@@ -6,10 +6,12 @@ export function WizardStepper({
   currentStep,
   completedSteps = new Set<number>(),
   onStepSelect,
+  isAadhaarVerified = false,
 }: {
   currentStep: number;
   completedSteps?: Set<number>;
   onStepSelect?: (step: number) => void;
+  isAadhaarVerified?: boolean;
 }) {
   return (
     <aside className="overflow-hidden rounded-2xl border border-[#F2DFE8] bg-white shadow-sm lg:sticky lg:top-24">
@@ -19,7 +21,7 @@ export function WizardStepper({
       </div>
       <nav className="space-y-1 p-2">
         {WIZARD_STEPS.map((step, i) => {
-          const canSelect = i <= currentStep || completedSteps.has(i);
+          const canSelect = i === 0 || i <= currentStep || completedSteps.has(i);
           return (
           <button
             key={step.id}

@@ -17,6 +17,10 @@ export class AgentCustomerEntity {
   @Column()
   customerCode!: string;
 
+  @Index({ unique: true })
+  @Column({ nullable: true })
+  aadhaarNumber?: string;
+
   @Column()
   firstName!: string;
 
