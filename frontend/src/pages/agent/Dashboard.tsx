@@ -5,7 +5,6 @@ import {
   Clock,
   ClipboardList,
   AlertTriangle,
-  Plus,
   ArrowRight,
 } from 'lucide-react';
 import { useAgentDashboard } from '../../hooks/agent/useAgent';
@@ -71,14 +70,11 @@ export default function AgentDashboard() {
             Your customer pipeline and today&apos;s priorities
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Link to="/agent/customers/new" className="btn-primary inline-flex items-center gap-2 !py-2.5 !px-4 text-sm">
-            <Plus className="w-4 h-4" /> Add Customer
-          </Link>
-          <Link to="/agent/customers" className="btn-secondary inline-flex items-center gap-2 !py-2.5 !px-4 text-sm">
-            View Customers
-          </Link>
-          <Link to="/agent/worksheet" className="btn-secondary inline-flex items-center gap-2 !py-2.5 !px-4 text-sm">
+        <div className="flex justify-end">
+          <Link
+            to="/agent/worksheet"
+            className="btn-secondary inline-flex items-center gap-2 !py-2.5 !px-4 text-sm"
+          >
             Create Task
           </Link>
         </div>
