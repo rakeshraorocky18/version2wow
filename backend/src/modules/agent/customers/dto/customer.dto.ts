@@ -154,6 +154,11 @@ export class CreateAgentCustomerDto {
   @Transform(toOptionalStatus)
   @IsEnum(AgentCustomerStatus)
   status?: AgentCustomerStatus;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  sessionId?: string;
 }
 
 export class UpdateAgentCustomerDto extends PartialType(CreateAgentCustomerDto) {}

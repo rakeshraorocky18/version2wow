@@ -1339,11 +1339,7 @@ export default function Chat({
                       isMine={normalizeUserId(message.senderId) === normalizedCurrentUserId}
                       deleting={deleteMessageMutation.isPending}
                       onDeleteForMe={() => handleDeleteSingleMessage(message, 'me')}
-                      onDeleteForEveryone={
-                        normalizeUserId(message.senderId) === normalizedCurrentUserId
-                          ? () => handleDeleteSingleMessage(message, 'everyone')
-                          : undefined
-                      }
+                      onDeleteForEveryone={undefined}
                     />
                   ))
                 ) : (

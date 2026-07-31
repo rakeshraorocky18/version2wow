@@ -51,6 +51,12 @@ export class AgentCustomerMatchEntity {
   @Column({ type: 'boolean', default: false })
   blocked: boolean;
 
+  @Column({ type: 'timestamp', nullable: true })
+  blockedAt: Date | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  blockedBy: string | null;
+
   @Column({ type: 'boolean', default: false })
   ignored: boolean;
 

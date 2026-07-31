@@ -183,6 +183,7 @@ export const PROPERTY_TYPE_CONFIG: PropertyTypeConfig[] = [
 export interface AddCustomerFormState {
   aadhaarNumber: string;
   isAadhaarVerified?: boolean;
+  isMobileVerified?: boolean;
   firstName: string;
   lastName: string;
   gender: string;
@@ -210,6 +211,7 @@ export interface AddCustomerFormState {
   profilePhoto: File | null;
   existingProfilePhotoUrl?: string | null;
   pendingDocuments: PendingDocument[];
+  sessionId: string;
 }
 
 export const WIZARD_STEPS = [
@@ -289,6 +291,7 @@ export function createEmptyForm(): AddCustomerFormState {
   return {
     aadhaarNumber: '',
     isAadhaarVerified: false,
+    isMobileVerified: false,
     firstName: '',
     lastName: '',
     gender: '',
@@ -401,6 +404,7 @@ export function createEmptyForm(): AddCustomerFormState {
     profilePhoto: null,
     existingProfilePhotoUrl: null,
     pendingDocuments: [],
+    sessionId: '',
   };
 }
 

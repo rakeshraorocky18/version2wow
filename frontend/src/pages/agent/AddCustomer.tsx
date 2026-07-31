@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { ArrowLeft } from 'lucide-react';
+import agentApi from '../../lib/agentApi';
 import {
   useAgentCustomer,
   useCreateCustomer,
@@ -50,15 +51,57 @@ export default function AddCustomer() {
 
   const agentName = agent?.name || `${agent?.firstName || ''} ${agent?.lastName || ''}`.trim();
 
+  const [sessionId] = useState(() => {
+    return 'sess-' + Math.random().toString(36).substring(2, 15) + '-' + Date.now();
+  });
+
+  const update = (patch: Partial<AddCustomerFormState>) =>
+    setForm((prev) => ({ ...prev, ...patch }));
+
+  useEffect(() => {
+    update({ sessionId });
+  }, [sessionId]);
+
+  // Cleanup session on unmount
+  useEffect(() => {
+    return () => {
+      if (sessionId) {
+        agentApi.post('/mobile/cleanup', { sessionId }).catch(() => {});
+      }
+    };
+  }, [sessionId]);
+
+  // Tab/window close cleanup (beforeunload)
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (sessionId) {
+        const url = `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/mobile/cleanup`;
+        const headers = { 'Content-Type': 'application/json' };
+        if (navigator.sendBeacon) {
+          navigator.sendBeacon(url, JSON.stringify({ sessionId }));
+        } else {
+          fetch(url, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ sessionId }),
+            keepalive: true,
+          }).catch(() => {});
+        }
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [sessionId]);
+
   useEffect(() => {
     if (!isEditMode || !customerQuery.data || editFormLoaded.current) return;
     setForm(formFromAgentCustomer(customerQuery.data));
     setCompletedSteps(new Set([0, 1, 2, 3, 4, 5, 6, 7]));
     editFormLoaded.current = true;
   }, [customerQuery.data, isEditMode]);
-
-  const update = (patch: Partial<AddCustomerFormState>) =>
-    setForm((prev) => ({ ...prev, ...patch }));
 
   const updateNested =
     (key: keyof Pick<

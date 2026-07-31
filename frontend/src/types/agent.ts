@@ -152,4 +152,5 @@ export interface CreateCustomerPayload {
   religionDetails?: Record<string, unknown>;
   partnerPreferences?: Record<string, unknown>;
   status?: AgentCustomerStatus;
+  sessionId?: string;
 }

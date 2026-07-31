@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { POSTGRES_CONNECTION } from '../../config/database.constants';
@@ -152,28 +152,43 @@ await this.deliveryLogRepo.save(failedDeliveryLog);
 }
 
 async findAll(userId: string) {
-  return await this.notificationRepository.find({
-    where: {
-      userId,
-    },
-    order: {
-      createdAt: 'DESC',
-    },
-  });
+  try {
+    return await this.notificationRepository.find({
+      where: {
+        userId,
+      },
+      order: {
+        createdAt: 'DESC',
+      },
+    });
+  } catch (error) {
+    console.error('Error loading notifications:', error);
+    throw new InternalServerErrorException('Unable to load notifications.');
+  }
 }
 
 async markAsRead(id: number) {
-  await this.notificationRepository.update(id, {
-    isRead: true,
-  });
+  try {
+    await this.notificationRepository.update(id, {
+      isRead: true,
+    });
+  } catch (error) {
+    console.error('Error marking notification read:', error);
+    throw new InternalServerErrorException('Unable to update notification.');
+  }
 }
 
 async unreadCount(userId: string) {
-  return await this.notificationRepository.count({
-    where: {
-      userId,
-      isRead: false,
-    },
-  });
+  try {
+    return await this.notificationRepository.count({
+      where: {
+        userId,
+        isRead: false,
+      },
+    });
+  } catch (error) {
+    console.error('Error counting unread notifications:', error);
+    throw new InternalServerErrorException('Unable to count notifications.');
+  }
 }
 }

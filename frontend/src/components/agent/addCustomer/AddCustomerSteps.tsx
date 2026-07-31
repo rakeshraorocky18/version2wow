@@ -355,6 +355,118 @@ export function PersonalStep({ form, errors, update, updatePersonal }: StepProps
   const altIso = getIsoFromPhone(alternatePhone);
   const altRequiredLen = getExpectedLength(altIso);
 
+  // Mobile Verification states
+  const [mobileOtpInput, setMobileOtpInput] = useState('');
+  const [showMobileOtpField, setShowMobileOtpField] = useState(false);
+  const [mobileVerifying, setMobileVerifying] = useState(false);
+  const [mobileSubmittingOtp, setMobileSubmittingOtp] = useState(false);
+  const [mobileStatusMessage, setMobileStatusMessage] = useState('');
+  const [mobileStatusType, setMobileStatusType] = useState<'success' | 'error' | ''>('');
+  const [mobileTimer, setMobileTimer] = useState(300);
+  const [mobileTimerActive, setMobileTimerActive] = useState(false);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    if (mobileTimerActive && mobileTimer > 0) {
+      interval = setInterval(() => {
+        setMobileTimer((t) => t - 1);
+      }, 1000);
+    } else if (mobileTimer === 0) {
+      setMobileTimerActive(false);
+      setMobileStatusType('error');
+      setMobileStatusMessage('OTP expired.');
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [mobileTimerActive, mobileTimer]);
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  };
+
+  const handleSendMobileOtp = async () => {
+    const mobileDigits = form.phone.replace(/\D/g, '').slice(-10);
+    if (!/^\d{10}$/.test(mobileDigits)) {
+      setMobileStatusType('error');
+      setMobileStatusMessage('Mobile number must be exactly 10 numeric digits');
+      return;
+    }
+
+    setMobileVerifying(true);
+    setMobileStatusMessage('');
+    setMobileStatusType('');
+    try {
+      // Step 2 - Check duplicate mobile number
+      const checkRes = await agentApi.post('/mobile/check', { mobile: mobileDigits });
+      if (checkRes.data.exists) {
+        setMobileStatusType('error');
+        setMobileStatusMessage(checkRes.data.message || 'Mobile number already exists.');
+        update({ isMobileVerified: false });
+        return;
+      }
+
+      // Step 3 - Send OTP
+      const response = await agentApi.post('/mobile/send-otp', {
+        mobile: mobileDigits,
+        sessionId: form.sessionId,
+      });
+
+      // Browser developer console logging (development only)
+      if (response.data.otp) {
+        const masked = `******${mobileDigits.slice(-4)}`;
+        console.log(
+          `\n========================================\nDEV MOBILE OTP\n\nMobile:\n${masked}\n\nOTP:\n${response.data.otp}\n\nExpires:\n5 minutes\n========================================\n`
+        );
+      }
+
+      setShowMobileOtpField(true);
+      setMobileTimer(300); // 5 minutes countdown
+      setMobileTimerActive(true);
+      setMobileStatusType('success');
+      setMobileStatusMessage('OTP generated and printed in dev console.');
+    } catch (err: any) {
+      setMobileStatusType('error');
+      setMobileStatusMessage(err.response?.data?.message || 'Failed to send OTP.');
+      update({ isMobileVerified: false });
+    } finally {
+      setMobileVerifying(false);
+    }
+  };
+
+  const handleVerifyMobileOtp = async () => {
+    const mobileDigits = form.phone.replace(/\D/g, '').slice(-10);
+    if (!/^\d{6}$/.test(mobileOtpInput)) {
+      setMobileStatusType('error');
+      setMobileStatusMessage('OTP must be exactly 6 numeric digits');
+      return;
+    }
+
+    setMobileSubmittingOtp(true);
+    setMobileStatusMessage('');
+    setMobileStatusType('');
+    try {
+      await agentApi.post('/mobile/verify-otp', {
+        mobile: mobileDigits,
+        otp: mobileOtpInput,
+        sessionId: form.sessionId,
+      });
+      setMobileTimerActive(false);
+      setMobileStatusType('success');
+      setMobileStatusMessage('✓ Mobile Number Verified');
+      update({ isMobileVerified: true });
+      toast.success('Mobile Number Verified Successfully');
+    } catch (err: any) {
+      setMobileStatusType('error');
+      setMobileStatusMessage(err.response?.data?.message || 'Invalid OTP. Please try again.');
+      update({ isMobileVerified: false });
+    } finally {
+      setMobileSubmittingOtp(false);
+    }
+  };
+
   return (
     <WizardSection icon="👤" title="Personal Details">
       <FormGrid>
@@ -420,13 +532,14 @@ export function PersonalStep({ form, errors, update, updatePersonal }: StepProps
         </FormField>
         <FormField label="Mobile Number" required error={errors.phone} className="md:col-span-2">
           <div className="flex gap-2 items-start">
-            <div className="w-[160px] sm:w-[180px] shrink-0">
+            <div className="w-[120px] shrink-0">
               <SearchableSelect
                 value={phoneIso}
                 onChange={(val) => {
                   const code = getCallingCode(val);
-                  update({ phone: `${code} ${phoneParsed.number}`.trim() });
+                  update({ phone: `${code} ${phoneParsed.number}`.trim(), isMobileVerified: false });
                 }}
+                disabled={form.isMobileVerified}
                 options={countryOptions}
                 placeholder="Country"
               />
@@ -434,17 +547,110 @@ export function PersonalStep({ form, errors, update, updatePersonal }: StepProps
             <div className="flex-1 min-w-0">
               <FormInput
                 value={phoneParsed.number}
+                disabled={form.isMobileVerified}
                 onChange={(v) => {
                   let digits = v.replace(/\D/g, '');
                   if (digits.startsWith('0')) digits = digits.slice(1);
                   digits = digits.slice(0, phoneRequiredLen);
                   const formatted = new AsYouType(phoneIso as any).input(digits);
-                  update({ phone: `${phoneParsed.countryCode} ${formatted}`.trim() });
+                  update({ phone: `${phoneParsed.countryCode} ${formatted}`.trim(), isMobileVerified: false });
                 }}
                 placeholder={`${phoneRequiredLen}-digit number`}
               />
             </div>
+            {!form.isMobileVerified && !showMobileOtpField && (
+              <button
+                type="button"
+                onClick={handleSendMobileOtp}
+                disabled={mobileVerifying || !form.phone}
+                className="btn-primary whitespace-nowrap px-6 shrink-0 py-2.5"
+              >
+                {mobileVerifying ? 'Verifying...' : 'Verify'}
+              </button>
+            )}
+            {form.isMobileVerified && (
+              <div className="flex items-center gap-1 text-xs text-[#3D8B5F] bg-[#E8F8EF] px-3 py-2 rounded-xl font-semibold shrink-0 self-center">
+                <Check className="h-4 w-4 shrink-0" />
+                <span>Verified</span>
+              </div>
+            )}
           </div>
+
+          {showMobileOtpField && !form.isMobileVerified && (
+            <div className="mt-3 space-y-3 p-4 bg-wow-bg/30 rounded-2xl border border-gray-100">
+              <div>
+                <label className="text-xs font-semibold text-wow-text block mb-1">
+                  Enter 6-Digit OTP <span className="text-red-500 font-semibold">*</span>
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    pattern="\d*"
+                    maxLength={6}
+                    value={mobileOtpInput}
+                    disabled={mobileTimer === 0}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, '');
+                      setMobileOtpInput(val);
+                    }}
+                    placeholder="Enter OTP"
+                    className="input-field flex-1"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleVerifyMobileOtp}
+                    disabled={mobileSubmittingOtp || mobileOtpInput.length !== 6 || mobileTimer === 0}
+                    className="btn-primary whitespace-nowrap px-6 shrink-0"
+                  >
+                    {mobileSubmittingOtp ? 'Submitting...' : 'Verify OTP'}
+                  </button>
+                </div>
+              </div>
+              <div className="flex justify-between items-center text-xs">
+                <div className="flex items-center gap-2">
+                  {mobileTimer > 0 ? (
+                    <span className="text-wow-muted font-mono">Time remaining: {formatTime(mobileTimer)}</span>
+                  ) : (
+                    <span className="text-red-600 font-medium">OTP expired.</span>
+                  )}
+
+                  {(mobileTimer === 0 || mobileTimer < 270) && (
+                    <button
+                      type="button"
+                      onClick={handleSendMobileOtp}
+                      disabled={mobileVerifying}
+                      className="text-wow-primary hover:underline font-semibold"
+                    >
+                      Resend OTP
+                    </button>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowMobileOtpField(false);
+                    setMobileOtpInput('');
+                    setMobileStatusMessage('');
+                    setMobileStatusType('');
+                    setMobileTimerActive(false);
+                  }}
+                  className="text-wow-primary hover:underline font-medium"
+                >
+                  Change Number
+                </button>
+              </div>
+            </div>
+          )}
+
+          {mobileStatusMessage && !form.isMobileVerified && (
+            <p
+              className={`text-xs font-semibold mt-1.5 ${
+                mobileStatusType === 'success' ? 'text-[#3D8B5F]' : 'text-red-600'
+              }`}
+            >
+              {mobileStatusMessage}
+            </p>
+          )}
         </FormField>
         <FormField label="Alternate Mobile Number" error={errors.alternateMobile} className="md:col-span-2">
           <div className="flex gap-2 items-start">

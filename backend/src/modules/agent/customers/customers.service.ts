@@ -15,6 +15,7 @@ import { paginate } from '../../../common/utils/pagination';
 import { AgentCustomerEntity } from '../common/entities/agent-customer.entity';
 import { AgentProfileEntity } from '../common/entities/agent-profile.entity';
 import { AadhaarVerificationEntity } from '../verification/verification.entity';
+import { MobileVerificationEntity } from '../verification/mobile-verification.entity';
 import { AgentDocumentEntity } from '../common/entities/agent-document.entity';
 import {
   AgentCustomerMatchEntity,
@@ -259,6 +260,34 @@ export class AgentCustomersService implements OnModuleInit {
         throw new BadRequestException('Aadhaar number is required');
       }
 
+      if (dto.phone) {
+        const cleanPhone = dto.phone.replace(/\D/g, '').slice(-10);
+        const duplicate = await manager
+          .createQueryBuilder(AgentCustomerEntity, 'c')
+          .where("regexp_replace(c.phone, '\\D', '', 'g') LIKE :phone", { phone: `%${cleanPhone}` })
+          .getOne();
+        if (duplicate) {
+          throw new BadRequestException('Customer already exists. This mobile number is already registered.');
+        }
+
+        const now = new Date();
+        const verified = await manager.findOne(MobileVerificationEntity, {
+          where: {
+            mobile: cleanPhone,
+            sessionId: dto.sessionId || '',
+            isVerified: true,
+          },
+        });
+        if (!verified || verified.expiresAt < now) {
+          throw new BadRequestException('Mobile verification is not completed');
+        }
+
+        // On success: delete temporary verification
+        await manager.remove(verified);
+      } else {
+        throw new BadRequestException('Mobile number is required');
+      }
+
       const customerCode = await this.generateCustomerCode(manager, agentId);
       const customer = manager.create(AgentCustomerEntity, {
         ...dto,
@@ -438,6 +467,32 @@ export class AgentCustomersService implements OnModuleInit {
       if (!verified) {
         throw new BadRequestException('Aadhaar verification is not completed');
       }
+    }
+
+    if (dto.phone && dto.phone !== customer.phone) {
+      const cleanPhone = dto.phone.replace(/\D/g, '').slice(-10);
+      const duplicate = await this.customerRepo
+        .createQueryBuilder('c')
+        .where("regexp_replace(c.phone, '\\D', '', 'g') LIKE :phone", { phone: `%${cleanPhone}` })
+        .getOne();
+      if (duplicate && duplicate.id !== customer.id) {
+        throw new BadRequestException('Customer already exists. This mobile number is already registered.');
+      }
+
+      const now = new Date();
+      const verified = await this.customerRepo.manager.findOne(MobileVerificationEntity, {
+        where: {
+          mobile: cleanPhone,
+          sessionId: dto.sessionId || '',
+          isVerified: true,
+        },
+      });
+      if (!verified || verified.expiresAt < now) {
+        throw new BadRequestException('Mobile verification is not completed');
+      }
+
+      // delete temporary verification
+      await this.customerRepo.manager.remove(verified);
     }
 
     const merged = {
@@ -1239,17 +1294,16 @@ export class AgentCustomersService implements OnModuleInit {
     const customer = await this.getOne(agentId, customerId);
     const rows = await this.customerMatchRepo.find({ where: { customerId } });
     const matchCount = rows.filter(
-      (row) =>
-        row.status !== AgentCustomerMatchStatus.BLOCKED &&
-        row.status !== AgentCustomerMatchStatus.IGNORED,
+      (row) => !row.blocked && !row.ignored,
     ).length;
     const pendingRequests = rows.filter(
       (row) =>
-        row.status === AgentCustomerMatchStatus.PENDING_RECEIVED ||
-        row.status === AgentCustomerMatchStatus.PENDING_SENT,
+        !row.blocked &&
+        (row.status === AgentCustomerMatchStatus.PENDING_RECEIVED ||
+          row.status === AgentCustomerMatchStatus.PENDING_SENT),
     ).length;
     const acceptedMatches = rows.filter(
-      (row) => row.status === AgentCustomerMatchStatus.ACCEPTED,
+      (row) => !row.blocked && row.status === AgentCustomerMatchStatus.ACCEPTED,
     ).length;
 
     return {
@@ -1523,8 +1577,9 @@ console.log("=================================");
   async blockProfile(agentId: string, customerId: string, profileId: string) {
     await this.findAssignedOrFail(agentId, customerId);
     const relationship = await this.getOrCreateRelationship({ agentId, customerId, profileId });
-    relationship.status = AgentCustomerMatchStatus.BLOCKED;
     relationship.blocked = true;
+    relationship.blockedAt = new Date();
+    relationship.blockedBy = customerId;
     relationship.shortlisted = false;
     relationship.lastActionAt = new Date();
     const saved = await this.customerMatchRepo.save(relationship);
@@ -1556,10 +1611,23 @@ console.log("=================================");
   async unblockProfile(agentId: string, customerId: string, profileId: string) {
     await this.findAssignedOrFail(agentId, customerId);
     const relationship = await this.getOrCreateRelationship({ agentId, customerId, profileId });
-    relationship.status = AgentCustomerMatchStatus.RECOMMENDED;
     relationship.blocked = false;
+    relationship.blockedAt = null;
+    relationship.blockedBy = null;
     relationship.lastActionAt = new Date();
     const saved = await this.customerMatchRepo.save(relationship);
+
+    let sqliteStatus = MatchStatus.REJECTED;
+    if (relationship.status === AgentCustomerMatchStatus.ACCEPTED) {
+      sqliteStatus = MatchStatus.ACCEPTED;
+    } else if (
+      relationship.status === AgentCustomerMatchStatus.PENDING_SENT ||
+      relationship.status === AgentCustomerMatchStatus.PENDING_RECEIVED
+    ) {
+      sqliteStatus = MatchStatus.PENDING;
+    }
+    await this.ensureSqliteMatch(customerId, profileId, sqliteStatus, relationship.compatibilityScore);
+
     if (this.neo4jService.isEnabled()) await this.neo4jService.unblockUser(customerId, profileId);
     return saved;
   }
@@ -1708,35 +1776,40 @@ console.log("=================================");
 
     const imageMap = await this.getProfileImageMap(accepted.map((r) => r.profileId));
 
-    const contacts = await Promise.all(
-      accepted.map(async (row) => {
-        const profile = await this.findCandidateOrFail(row.profileId);
-        const unreadCount = await this.chatService.getUnreadCount(customerId, row.profileId);
-        const lastMsg = await this.chatService.getLatestMessage(customerId, row.profileId);
-        let subtitle = 'Accepted match';
-        if (lastMsg) {
-          subtitle =
-            lastMsg.type === 'image'
-              ? '📷 Photo'
-              : lastMsg.type === 'video'
-                ? '🎬 Video'
-                : lastMsg.type === 'file'
-                  ? '📎 File'
-                  : lastMsg.content || 'Accepted match';
-        }
+    const contacts = (
+      await Promise.all(
+        accepted.map(async (row) => {
+          const isHidden = await this.chatService.isContactHidden(customerId, row.profileId);
+          if (isHidden) return null;
 
-        return {
-          userId: row.profileId,
-          name: [profile.firstName, profile.lastName].filter(Boolean).join(' ').trim(),
-          subtitle,
-          photo: imageMap.get(row.profileId) ?? undefined,
-          lastMessageAt: lastMsg?.createdAt || row.updatedAt,
-          onlineStatus: Date.now() - new Date(profile.updatedAt).getTime() < 24 * 60 * 60 * 1000,
-          unreadCount,
-          isBlocked: row.status === AgentCustomerMatchStatus.BLOCKED || row.blocked,
-        };
-      }),
-    );
+          const profile = await this.findCandidateOrFail(row.profileId);
+          const unreadCount = await this.chatService.getUnreadCount(customerId, row.profileId);
+          const lastMsg = await this.chatService.getLatestMessage(customerId, row.profileId);
+          let subtitle = 'Accepted match';
+          if (lastMsg) {
+            subtitle =
+              lastMsg.type === 'image'
+                ? '📷 Photo'
+                : lastMsg.type === 'video'
+                  ? '🎬 Video'
+                  : lastMsg.type === 'file'
+                    ? '📎 File'
+                    : lastMsg.content || 'Accepted match';
+          }
+
+          return {
+            userId: row.profileId,
+            name: [profile.firstName, profile.lastName].filter(Boolean).join(' ').trim(),
+            subtitle,
+            photo: imageMap.get(row.profileId) ?? undefined,
+            lastMessageAt: lastMsg?.createdAt || row.updatedAt,
+            onlineStatus: Date.now() - new Date(profile.updatedAt).getTime() < 24 * 60 * 60 * 1000,
+            unreadCount,
+            isBlocked: row.status === AgentCustomerMatchStatus.BLOCKED || row.blocked,
+          };
+        }),
+      )
+    ).filter((c): c is NonNullable<typeof c> => c !== null);
 
     contacts.sort((a, b) => {
       const aTime = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;

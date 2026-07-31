@@ -6,7 +6,9 @@ import {
   Patch,
   Param,
   Query,
+  BadRequestException,
 } from '@nestjs/common';
+import { isUUID } from 'class-validator';
 
 import { NotificationsService } from './notifications.service';
 import { CreateNotificationDto } from './dto/create-notification.dto';
@@ -21,6 +23,12 @@ export class NotificationsController {
   findAll(
     @Query('userId') userId: string
   ) {
+    if (!userId) {
+      throw new BadRequestException('userId is required');
+    }
+    if (!isUUID(userId)) {
+      throw new BadRequestException('Invalid userId. Must be a valid UUID.');
+    }
     return this.notificationsService.findAll(userId);
   }
 
@@ -39,9 +47,16 @@ export class NotificationsController {
   }
 
   @Get('count')
-  count(
+  async count(
     @Query('userId') userId: string,
   ) {
-    return this.notificationsService.unreadCount(userId);
+    if (!userId) {
+      throw new BadRequestException('userId is required');
+    }
+    if (!isUUID(userId)) {
+      throw new BadRequestException('Invalid userId. Must be a valid UUID.');
+    }
+    const count = await this.notificationsService.unreadCount(userId);
+    return { count };
   }
 }

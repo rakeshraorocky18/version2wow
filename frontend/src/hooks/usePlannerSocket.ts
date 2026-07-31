@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../store/authStore';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
-const SOCKET_URL = API_URL.replace(/\/api\/?$/, '');
+const SOCKET_URL = API_URL.startsWith('http') ? API_URL.replace(/\/api\/?$/, '') : 'http://localhost:3000';
 
 export function usePlannerSocket(planId?: string) {
   const socketRef = useRef<Socket | null>(null);

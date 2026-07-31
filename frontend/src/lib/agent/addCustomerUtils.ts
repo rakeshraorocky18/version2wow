@@ -290,6 +290,7 @@ export function buildCreatePayload(form: AddCustomerFormState): CreateCustomerPa
       ...form.partnerPreferences,
       notes: (form.partnerPreferences.otherExpectations as string) || undefined,
     }),
+    sessionId: form.sessionId || undefined,
   };
 
   return payload;
@@ -334,6 +335,7 @@ export function formFromAgentCustomer(customer: AgentCustomer): AddCustomerFormS
     lastName: customer.lastName || '',
     aadhaarNumber: customer.aadhaarNumber || '',
     isAadhaarVerified: !!customer.aadhaarNumber,
+    isMobileVerified: !!customer.phone,
     gender: customer.gender || '',
     dateOfBirth: customer.dateOfBirth ? customer.dateOfBirth.slice(0, 10) : '',
     phone: customer.phone || '',
@@ -387,6 +389,8 @@ export function validateStep(
       const iso = getIsoFromPhone(form.phone);
       const len = getExpectedLength(iso);
       errors.phone = `Please enter a valid ${len}-digit mobile number.`;
+    } else if (!form.isMobileVerified) {
+      errors.phone = 'Mobile verification is not completed';
     }
 
     const alternate = ((form.personalDetails.alternateMobile as string) || '').trim();
