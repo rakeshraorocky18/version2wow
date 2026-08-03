@@ -6,7 +6,7 @@ import {
   UpdateDateColumn,
   Index,
 } from 'typeorm';
-import { AgentCustomerStatus } from '../enums/agent.enums';
+import { AgentCustomerStatus, CustomerMatchStatus  } from '../enums/agent.enums';
 
 @Entity('agent_customers')
 @Index(['assignedAgentId', 'customerCode'], { unique: true })
@@ -74,6 +74,24 @@ export class AgentCustomerEntity {
 
   @Column({ type: 'varchar', default: AgentCustomerStatus.PENDING })
   status!: AgentCustomerStatus;
+
+  @Column({
+    type: 'varchar',
+    default: CustomerMatchStatus.AVAILABLE,
+  })
+  matchStatus!: CustomerMatchStatus;
+
+  @Column({
+    type: 'uuid',
+    nullable: true,
+  })
+  matchedWith?: string;
+
+  @Column({
+    type: 'timestamp',
+    nullable: true,
+  })
+  matchedAt?: Date;
 
   @Column({ type: 'int', default: 0 })
   profileCompletion!: number;

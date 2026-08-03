@@ -342,4 +342,19 @@ export class AgentCustomersController {
   ) {
     return this.customersService.update(req.user.id, id, dto);
   }
+
+  @Post(':customerId/fix-match')
+  @ApiOperation({ summary: 'Fix match between two accepted profiles' })
+  fixMatch(
+    @Req() req: { user: { id: string } },
+    @Param('customerId') customerId: string,
+    @Body() dto: CustomerProfileActionDto,
+  ) {
+    return this.customersService.fixMatch(
+      req.user.id,
+      customerId,
+      dto.profileId,
+    );
+  }
+
 }

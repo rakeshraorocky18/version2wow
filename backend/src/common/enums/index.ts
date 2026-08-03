@@ -89,6 +89,7 @@ export enum MatchStatus {
   ACCEPTED = 'accepted',
   REJECTED = 'rejected',
   BLOCKED = 'blocked',
+  MATCHED = 'matched',
 }
 
 /** Chat is only allowed after mutual match acceptance (post_match). pre_match is reserved for future use. */
