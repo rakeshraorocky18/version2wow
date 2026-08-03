@@ -16,6 +16,7 @@ export enum AgentCustomerMatchStatus {
   WITHDRAWN = 'withdrawn',
   BLOCKED = 'blocked',
   IGNORED = 'ignored',
+  MATCH_FIXED = 'match_fixed',
 }
 
 @Entity('agent_customer_matches')

@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import api from '../../lib/api';
 import { getPhotoUrl } from '../../lib/profileUtils';
 import { useChatSocket } from '../../hooks/useChatSocket';
+import { useFixMatch } from '../../hooks/agent/useAgent';
 import {
   ArrowLeft,
   Ban,
@@ -57,7 +58,14 @@ import SuggestionSlidePanel from '../../components/agent/matching/SuggestionSlid
 import Chat from '../../components/agent/Chat';
 
 type WorkspaceTab = 'matches' | 'chat' | 'history';
-type HistoryCategory = 'friends' | 'requestsReceived' | 'requestsSent' | 'shortlisted' | 'blocked' | 'declined';
+type HistoryCategory =
+  | 'interested'
+  | 'matched'
+  | 'requestsReceived'
+  | 'requestsSent'
+  | 'shortlisted'
+  | 'blocked'
+  | 'declined';
 type CustomerActionName =
   | 'send-interest'
   | 'accept-interest'
@@ -78,7 +86,16 @@ const TABS: Array<{ id: WorkspaceTab; label: string; icon: typeof Heart }> = [
 ];
 
 const HISTORY_CATEGORIES: Array<{ id: HistoryCategory; label: string; description: string }> = [
-  { id: 'friends', label: 'Friends', description: 'Accepted matches' },
+  {
+    id: 'interested',
+    label: 'Interested',
+    description: 'Accepted Matches',
+  },
+  {
+    id: 'matched',
+    label: 'Matched',
+    description: 'Match Fixed',
+  },
   { id: 'requestsReceived', label: 'Requests', description: 'Received requests' },
   { id: 'requestsSent', label: 'Pending', description: 'Sent requests' },
   { id: 'shortlisted', label: 'Shortlist', description: 'Saved profiles' },
@@ -365,7 +382,7 @@ export default function CustomerDetailsWorkspace() {
   const { customerId = '' } = useParams();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<WorkspaceTab>('matches');
-  const [historyCategory, setHistoryCategory] = useState<HistoryCategory>('friends');
+  const [historyCategory, setHistoryCategory] = useState<HistoryCategory>('interested');
   const [draftFilters, setDraftFilters] = useState<AgentMatchFilters>(EMPTY_MATCH_FILTERS);
   const [appliedFilters, setAppliedFilters] = useState<AgentMatchFilters>(EMPTY_MATCH_FILTERS);
   const [search, setSearch] = useState('');
@@ -393,8 +410,17 @@ export default function CustomerDetailsWorkspace() {
   const history = useAgentCustomerHistory(customerId, activeTab === 'history');
   const notifications = useAgentCustomerNotifications(customerId, { page: 1, limit: 50 }, true);
   const recommendations = useAgentRecommendations(customerId, matchesPayload, activeTab === 'matches');
-  const chat = useAgentCustomerChat(customerId, { profileId: activeChatProfileId, page: 1, limit: 50 }, true);
+  const chat = useAgentCustomerChat(
+    customerId,
+    {
+      profileId: activeChatProfileId,
+      page: 1,
+      limit: 50,
+    },
+    activeTab === 'chat' && !!activeChatProfileId,
+  );
   const action = useAgentCustomerAction(customerId);
+  const fixMatch = useFixMatch(customerId);
   const sendMessage = useSendAgentCustomerChatMessage(customerId);
 
   const activeId = activeChatProfileId;
@@ -894,23 +920,110 @@ export default function CustomerDetailsWorkspace() {
                   items={history.data[historyCategory] || []}
                   empty="No profiles in this category."
                   actions={(item) => {
-                    if (historyCategory === 'friends') {
+                    if (historyCategory === 'interested') {
                       return (
                         <>
-                          <button onClick={() => navigate(`/agent/customers/${customerId}/profile/${item.profile.id}`)} className="btn-secondary !px-3 !py-2 text-sm">View Profile</button>
-                          <button onClick={() => { setActiveChatProfileId(item.profile.id); localStorage.setItem(`activeChatProfileId_${customerId}`, item.profile.id); setActiveTab('chat'); }} className="btn-primary !px-3 !py-2 text-sm">Open Chat</button>
+                          <button
+                            onClick={() =>
+                              navigate(`/agent/customers/${customerId}/profile/${item.profile.id}`)
+                            }
+                            className="btn-secondary !px-3 !py-2 text-sm"
+                          >
+                            View Profile
+                          </button>
+
+                          <button
+                            onClick={() => {
+                              setActiveChatProfileId(item.profile.id);
+                              localStorage.setItem(
+                                `activeChatProfileId_${customerId}`,
+                                item.profile.id,
+                              );
+                              setActiveTab('chat');
+                            }}
+                            className="btn-primary !px-3 !py-2 text-sm"
+                          >
+                            Open Chat
+                          </button>
+
+                          <button
+                            onClick={() =>
+                              fixMatch.mutate(item.profile.id, {
+                                onSuccess: () => {
+                                  toast.success('Match fixed successfully');
+                                  history.refetch();
+                                },
+                                onError: (error) => {
+                                  toast.error(getErrorMessage(error, 'Unable to fix match'));
+                                },
+                              })
+                            }
+                            disabled={fixMatch.isPending}
+                            className="btn-secondary !px-3 !py-2 text-sm"
+                          >
+                            {fixMatch.isPending ? 'Fixing...' : 'Fix Match'}
+                          </button>
                         </>
                       );
                     }
+                    if (historyCategory === 'matched') {
+                      return (
+                        <>
+                          <button
+                            onClick={() =>
+                              navigate(`/agent/customers/${customerId}/profile/${item.profile.id}`)
+                            }
+                            className="btn-secondary !px-3 !py-2 text-sm"
+                          >
+                            View Profile
+                          </button>
+
+                          <button
+                            onClick={() => {
+                              setActiveChatProfileId(item.profile.id);
+                              localStorage.setItem(
+                                `activeChatProfileId_${customerId}`,
+                                item.profile.id,
+                              );
+                              setActiveTab('chat');
+                            }}
+                            className="btn-primary !px-3 !py-2 text-sm"
+                          >
+                            Open Chat
+                          </button>
+                        </>
+                      );
+                    }
+
                     if (historyCategory === 'requestsReceived') {
                       return (
                         <>
-                          <button onClick={() => runAction('accept-interest', item.profile.id)} className="btn-primary !px-3 !py-2 text-sm"><CheckCircle2 className="mr-1 inline h-4 w-4" />Accept</button>
-                          <button onClick={() => runAction('decline-interest', item.profile.id)} className="btn-secondary !px-3 !py-2 text-sm">Decline</button>
-                          <button onClick={() => navigate(`/agent/customers/${customerId}/profile/${item.profile.id}`)} className="btn-secondary !px-3 !py-2 text-sm">View Profile</button>
+                          <button
+                            onClick={() =>
+                              navigate(`/agent/customers/${customerId}/profile/${item.profile.id}`)
+                            }
+                            className="btn-secondary !px-3 !py-2 text-sm"
+                          >
+                            View Profile
+                          </button>
+
+                          <button
+                            onClick={() => runAction('accept-interest', item.profile.id)}
+                            className="btn-primary !px-3 !py-2 text-sm"
+                          >
+                            Accept
+                          </button>
+
+                          <button
+                            onClick={() => runAction('decline-interest', item.profile.id)}
+                            className="rounded-xl border border-red-100 bg-white px-3 py-2 text-sm text-red-600"
+                          >
+                            Decline
+                          </button>
                         </>
                       );
                     }
+
                     if (historyCategory === 'requestsSent') {
                       return (
                         <>

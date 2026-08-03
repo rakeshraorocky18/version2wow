@@ -32,6 +32,7 @@ import {
   AgentActivityAction,
   AgentCustomerStatus,
   AgentDocumentType,
+  CustomerMatchStatus,
 } from '../common/enums/agent.enums';
 import {
   calculateProfileCompletion,
@@ -465,12 +466,14 @@ export class AgentCustomersService implements OnModuleInit {
     const targetGender = oppositeGender(gender);
     const qb = this.customerRepo
       .createQueryBuilder('c')
-      .where('c.id <> :customerId', { customerId });
-
-    // Prefer active/pending profiles; skip inactive when possible
-    qb.andWhere('c.status IN (:...statuses)', {
-      statuses: [AgentCustomerStatus.ACTIVE, AgentCustomerStatus.PENDING],
-    });
+      .where('c.id <> :customerId', { customerId })
+      .andWhere('c.status IN (:...statuses)', {
+        statuses: [AgentCustomerStatus.ACTIVE, AgentCustomerStatus.PENDING],
+      })
+      .andWhere('c.matchStatus = :matchStatus', {
+        matchStatus: CustomerMatchStatus.AVAILABLE,
+      })
+      .orderBy('c.createdAt', 'DESC');
 
     if (targetGender) {
       qb.andWhere(
@@ -523,13 +526,14 @@ export class AgentCustomersService implements OnModuleInit {
 
     const hiddenStatuses = [
       AgentCustomerMatchStatus.ACCEPTED,
+      AgentCustomerMatchStatus.MATCH_FIXED,
       AgentCustomerMatchStatus.PENDING_SENT,
       AgentCustomerMatchStatus.PENDING_RECEIVED,
       AgentCustomerMatchStatus.BLOCKED,
       AgentCustomerMatchStatus.IGNORED,
       AgentCustomerMatchStatus.DECLINED,
       AgentCustomerMatchStatus.WITHDRAWN,
-    ];
+  ];
 
     const relationships = await this.customerMatchRepo.find({
       where: [
@@ -964,7 +968,13 @@ export class AgentCustomersService implements OnModuleInit {
       .createQueryBuilder('c')
       .where('c.id <> :customerId', { customerId })
       .andWhere('c.status IN (:...statuses)', {
-        statuses: [AgentCustomerStatus.ACTIVE, AgentCustomerStatus.PENDING],
+        statuses: [
+          AgentCustomerStatus.ACTIVE,
+          AgentCustomerStatus.PENDING,
+        ],
+      })
+      .andWhere('c.matchStatus = :matchStatus', {
+        matchStatus: CustomerMatchStatus.AVAILABLE,
       })
       .orderBy('c.createdAt', 'DESC');
 
@@ -1007,6 +1017,9 @@ export class AgentCustomersService implements OnModuleInit {
       .andWhere('c.status IN (:...statuses)', {
         statuses: [AgentCustomerStatus.ACTIVE, AgentCustomerStatus.PENDING],
       })
+      .andWhere('c.matchStatus = :matchStatus', {
+        matchStatus: CustomerMatchStatus.AVAILABLE,
+      })
       .orderBy('c.createdAt', 'DESC');
 
     if (customer.gender) {
@@ -1019,9 +1032,20 @@ export class AgentCustomersService implements OnModuleInit {
       }
     }
 
-    const [rows, total] = await qb.getManyAndCount();
-    const docsByCustomer = await this.getProfileDocumentsMap(rows.map((row) => row.id));
-    const filtered = await this.applyCustomerFilters(customer, rows, docsByCustomer, dto);
+    const [rows] = await qb.getManyAndCount();
+    
+
+
+    const docsByCustomer = await this.getProfileDocumentsMap(
+      rows.map((row) => row.id),
+    );
+
+    const filtered = await this.applyCustomerFilters(
+      customer,
+      rows,
+      docsByCustomer,
+      dto,
+    );
 
     const profiles = filterProfilesByMinimumCompatibility(
       filtered.map(({ profile }) => profile),
@@ -1289,6 +1313,13 @@ console.log("=================================");
     reverse.lastActionAt = new Date();
     await this.customerMatchRepo.save(reverse);
 
+    console.log("========== ACCEPT DEBUG ==========");
+    console.log("Customer ID :", customerId);
+    console.log("Profile ID  :", profileId);
+    console.log("Forward Status :", relationship.status);
+    console.log("Reverse Status :", reverse.status);
+    console.log("==================================");
+
     const sqliteMatch = await this.ensureSqliteMatch(
       customerId,
       profileId,
@@ -1363,6 +1394,98 @@ console.log("=================================");
       profileName: customerName,
     });
     return saved;
+  }
+
+  async fixMatch(agentId: string, customerId: string, profileId: string) {
+    const customer = await this.findAssignedOrFail(agentId, customerId);
+    const partner = await this.findCandidateOrFail(profileId);
+
+    const relationship = await this.customerMatchRepo.findOne({
+      where: {
+        customerId,
+        profileId,
+      },
+    });
+
+    if (!relationship) {
+      throw new NotFoundException('Relationship not found');
+    }
+
+    if (customer.matchStatus === CustomerMatchStatus.MATCHED) {
+      throw new BadRequestException('Customer is already matched');
+    }
+
+    if (customer.id === partner.id) {
+      throw new BadRequestException('Cannot fix match with the same customer');
+    }
+
+    // FIRST check whether interest is accepted
+    if (relationship.status === AgentCustomerMatchStatus.MATCH_FIXED) {
+      throw new BadRequestException('Match has already been fixed.');
+    }
+
+    if (relationship.status !== AgentCustomerMatchStatus.ACCEPTED) {
+      throw new BadRequestException(
+        'Interest must be accepted before fixing the match.',
+      );
+    }
+
+    // Finally check whether partner is already matched
+    if (partner.matchStatus === CustomerMatchStatus.MATCHED) {
+      throw new BadRequestException(
+        'Partner is already matched',
+      );
+    }
+
+
+    return this.customerRepo.manager.transaction(async (manager) => {
+      // Update both customers
+      customer.matchStatus = CustomerMatchStatus.MATCHED;
+      customer.matchedWith = partner.id;
+      customer.matchedAt = new Date();
+
+      partner.matchStatus = CustomerMatchStatus.MATCHED;
+      partner.matchedWith = customer.id;
+      partner.matchedAt = new Date();
+
+      await manager.save(customer);
+      await manager.save(partner);
+
+      // Update relationship (customer -> partner)
+
+
+      if (relationship) {
+        relationship.status = AgentCustomerMatchStatus.MATCH_FIXED;
+        await manager.save(relationship);
+      }
+
+      // Update relationship (partner -> customer)
+      const reverse = await manager.findOne(AgentCustomerMatchEntity, {
+        where: {
+          customerId: profileId,
+          profileId: customerId,
+        },
+      });
+
+      if (!reverse) {
+        throw new NotFoundException('Reverse relationship not found');
+      }
+
+      reverse.status = AgentCustomerMatchStatus.MATCH_FIXED;
+      await manager.save(reverse);
+
+      await this.ensureSqliteMatch(
+      customerId,
+      profileId,
+      MatchStatus.MATCHED,
+      relationship.compatibilityScore,
+    );
+
+      return {
+        success: true,
+        message: 'Match fixed successfully',
+      };
+    });
   }
 
   async declineInterest(agentId: string, customerId: string, profileId: string) {
@@ -1567,6 +1690,16 @@ console.log("=================================");
       where: { customerId },
       order: { updatedAt: 'DESC' },
     });
+
+    console.log("========= HISTORY =========");
+    console.log(
+      rows.map(r => ({
+        customerId: r.customerId,
+        profileId: r.profileId,
+        status: r.status,
+      }))
+    );
+    console.log("===========================");
     const profileIds = [...new Set(rows.map((row) => row.profileId))];
     const profiles = profileIds.length
       ? await this.customerRepo.find({ where: { id: In(profileIds) } })
@@ -1588,18 +1721,44 @@ console.log("=================================");
     };
 
     const cards = rows.map(toCard).filter(Boolean);
+    const interested = cards.filter(
+      card =>
+        card!.relationship.status === AgentCustomerMatchStatus.ACCEPTED,
+    );
+
+    const matched = cards.filter(
+      card =>
+        card!.relationship.status === AgentCustomerMatchStatus.MATCH_FIXED,
+    );
+
     return {
-      friends: cards.filter((card) => card!.relationship.status === AgentCustomerMatchStatus.ACCEPTED),
-      requestsReceived: cards.filter((card) => card!.relationship.status === AgentCustomerMatchStatus.PENDING_RECEIVED),
-      requestsSent: cards.filter((card) => card!.relationship.status === AgentCustomerMatchStatus.PENDING_SENT),
-      shortlisted: cards.filter((card) => !!card!.relationship.shortlisted),
-      blocked: cards.filter((card) => !!card!.relationship.blocked || card!.relationship.status === AgentCustomerMatchStatus.BLOCKED),
-      declined: cards.filter((card) =>
-        [AgentCustomerMatchStatus.DECLINED, AgentCustomerMatchStatus.WITHDRAWN, AgentCustomerMatchStatus.IGNORED].includes(
-          card!.relationship.status,
-        ) || !!card!.relationship.ignored,
+      interested,
+      matched,
+      requestsReceived: cards.filter(
+        card =>
+          card!.relationship.status === AgentCustomerMatchStatus.PENDING_RECEIVED,
+      ),
+      requestsSent: cards.filter(
+        card =>
+          card!.relationship.status === AgentCustomerMatchStatus.PENDING_SENT,
+      ),
+      shortlisted: cards.filter(card => !!card!.relationship.shortlisted),
+      blocked: cards.filter(
+        card =>
+          !!card!.relationship.blocked ||
+          card!.relationship.status === AgentCustomerMatchStatus.BLOCKED,
+      ),
+      declined: cards.filter(
+        card =>
+          [
+            AgentCustomerMatchStatus.DECLINED,
+            AgentCustomerMatchStatus.WITHDRAWN,
+            AgentCustomerMatchStatus.IGNORED,
+          ].includes(card!.relationship.status) ||
+          !!card!.relationship.ignored,
       ),
     };
+
   }
 
   async getNotifications(
@@ -1639,8 +1798,18 @@ console.log("=================================");
     await this.findAssignedOrFail(agentId, customerId);
     const accepted = await this.customerMatchRepo.find({
       where: [
-        { customerId, status: AgentCustomerMatchStatus.ACCEPTED },
-        { customerId, status: AgentCustomerMatchStatus.BLOCKED },
+        {
+          customerId,
+          status: AgentCustomerMatchStatus.ACCEPTED,
+        },
+        {
+          customerId,
+          status: AgentCustomerMatchStatus.MATCH_FIXED,
+        },
+        {
+          customerId,
+          status: AgentCustomerMatchStatus.BLOCKED,
+        },
       ],
       order: { updatedAt: 'DESC' },
     });
@@ -1731,8 +1900,13 @@ console.log("=================================");
       throw new BadRequestException('Messaging is disabled because you are blocked by this user');
     }
 
-    if (relationship.status !== AgentCustomerMatchStatus.ACCEPTED) {
-      throw new BadRequestException('Only accepted matches can chat');
+    if (
+      relationship.status !== AgentCustomerMatchStatus.ACCEPTED &&
+      relationship.status !== AgentCustomerMatchStatus.MATCH_FIXED
+    ) {
+      throw new BadRequestException(
+        'Only accepted or fixed matches can chat',
+      );
     }
 
     const message = await this.chatService.sendMessage(customerId, dto);

@@ -341,6 +341,33 @@ export function useAgentCustomerAction(customerId: string) {
   });
 }
 
+export function useFixMatch(customerId: string) {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: (profileId: string) =>
+      agentService.fixMatch(customerId, profileId),
+
+    onSuccess: () => {
+      qc.invalidateQueries({
+        queryKey: agentKeys.customerHistory(customerId),
+      });
+
+      qc.invalidateQueries({
+        queryKey: ['agent', 'recentProfiles', customerId],
+      });
+
+      qc.invalidateQueries({
+        queryKey: agentKeys.recommendations(customerId),
+      });
+
+      qc.invalidateQueries({
+        queryKey: ['agent', 'customerWorkspaceMatches', customerId],
+      });
+    },
+  });
+}
+
 export function useSendAgentCustomerChatMessage(customerId: string) {
   const qc = useQueryClient();
   return useMutation({
