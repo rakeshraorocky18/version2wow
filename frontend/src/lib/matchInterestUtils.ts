@@ -36,17 +36,23 @@ function profileKeys(profile: ProfileRef): Set<string> {
 function matchesProfile(profile: ProfileRef, match: MatchInterest, currentUserId?: string): boolean {
   const keys = profileKeys(profile);
   if (match.partnerUserId && keys.has(match.partnerUserId)) return true;
-  if (match.receiverProfile && keys.has(match.receiverProfile.id)) return true;
+  if (match.receiverProfile?.id && keys.has(match.receiverProfile.id)) return true;
   if (match.receiverProfile?.userId && keys.has(match.receiverProfile.userId)) return true;
-  if (match.senderProfile && keys.has(match.senderProfile.id)) return true;
+  if (match.senderProfile?.id && keys.has(match.senderProfile.id)) return true;
   if (match.senderProfile?.userId && keys.has(match.senderProfile.userId)) return true;
   if (match.receiverId && keys.has(match.receiverId)) return true;
   if (match.senderId && keys.has(match.senderId)) return true;
   if (currentUserId && match.senderId === currentUserId && match.receiverProfile) {
-    return keys.has(match.receiverProfile.id) || keys.has(match.receiverProfile.userId);
+    return Boolean(
+      (match.receiverProfile.id && keys.has(match.receiverProfile.id)) ||
+        (match.receiverProfile.userId && keys.has(match.receiverProfile.userId)),
+    );
   }
   if (currentUserId && match.receiverId === currentUserId && match.senderProfile) {
-    return keys.has(match.senderProfile.id) || keys.has(match.senderProfile.userId);
+    return Boolean(
+      (match.senderProfile.id && keys.has(match.senderProfile.id)) ||
+        (match.senderProfile.userId && keys.has(match.senderProfile.userId)),
+    );
   }
   return false;
 }

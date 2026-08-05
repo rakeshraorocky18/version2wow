@@ -17,7 +17,7 @@ interface AgentAuthState {
   }) => Promise<void>;
   logout: () => void;
   setUser: (user: AgentUser) => void;
-  updateProfile: (payload: { firstName?: string; lastName?: string; phone?: string; profileImageUrl?: string | null }) => Promise<AgentUser>;
+  updateProfile: (payload: { firstName?: string; lastName?: string; email?: string; phone?: string; profileImageUrl?: string | null }) => Promise<AgentUser>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   deactivateAccount: () => Promise<void>;
 }

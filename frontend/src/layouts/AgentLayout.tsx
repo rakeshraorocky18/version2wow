@@ -23,6 +23,16 @@ const mobileItems = [
   { title: 'Settings', path: '/agent/settings', icon: Settings },
 ];
 
+function isMobileItemActive(pathname: string, path: string) {
+  if (path === '/agent/dashboard') {
+    return pathname === '/agent' || pathname === '/agent/dashboard';
+  }
+  if (path === '/agent/customers') {
+    return pathname === '/agent/customers';
+  }
+  return pathname.startsWith(path);
+}
+
 export default function AgentLayout() {
   const user = useAgentAuthStore((s) => s.user);
   const isAuthenticated = useAgentAuthStore((s) => s.isAuthenticated);
@@ -114,9 +124,15 @@ export default function AgentLayout() {
       <div className="flex min-h-screen flex-col">
         <AgentHeader
           mobileOpen={mobileOpen}
-          onToggleMobileNav={() => setMobileOpen((v) => !v)}
+          onToggleMobileNav={() => {
+            setNotificationOpen(false);
+            setMobileOpen((v) => !v);
+          }}
           notificationOpen={notificationOpen}
-          setNotificationOpen={setNotificationOpen}
+          setNotificationOpen={(next) => {
+            setMobileOpen(false);
+            setNotificationOpen(next);
+          }}
           unreadCount={unreadCount}
         />
 
@@ -129,38 +145,47 @@ export default function AgentLayout() {
         )}
 
         {mobileOpen && (
-          <div className="md:hidden border-b border-gray-100 bg-white px-4 py-3 space-y-1">
-            {mobileItems.map((item) => {
-              const Icon = item.icon;
-              const active = location.pathname.startsWith(item.path);
-              return (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  onClick={() => setMobileOpen(false)}
-                  className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm ${
-                    active ? 'bg-pink-50 text-[#E91E63]' : 'text-gray-800'
-                  }`}
-                >
-                  <Icon className="w-4 h-4" />
-                  {item.title}
-                </Link>
-              );
-            })}
-            <button
-              onClick={() => {
-                logout();
-                setMobileOpen(false);
-              }}
-              className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-red-600"
-            >
-              <LogOut className="w-4 h-4" />
-              Logout
-            </button>
-          </div>
+          <nav
+            aria-label="Agent portal navigation"
+            className="border-b border-gray-100 bg-white px-4 py-3 shadow-sm lg:hidden"
+          >
+            <div className="mx-auto max-w-7xl space-y-1">
+              {mobileItems.map((item) => {
+                const Icon = item.icon;
+                const active = isMobileItemActive(location.pathname, item.path);
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    onClick={() => setMobileOpen(false)}
+                    className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm ${
+                      active
+                        ? 'bg-pink-50 font-semibold text-[#E91E63]'
+                        : 'text-gray-700 hover:bg-gray-50'
+                    }`}
+                    aria-current={active ? 'page' : undefined}
+                  >
+                    <Icon className="w-4 h-4" />
+                    {item.title}
+                  </Link>
+                );
+              })}
+              <button
+                type="button"
+                onClick={() => {
+                  logout();
+                  setMobileOpen(false);
+                }}
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-red-600 hover:bg-red-50"
+              >
+                <LogOut className="w-4 h-4" />
+                Logout
+              </button>
+            </div>
+          </nav>
         )}
 
-        <main className="mx-auto w-full max-w-7xl flex-1 overflow-auto p-4 md:p-6 lg:p-8">
+        <main className="mx-auto w-full max-w-7xl flex-1 overflow-auto px-4 py-6 sm:px-6 lg:px-8 lg:py-9">
           <Outlet />
         </main>
       </div>

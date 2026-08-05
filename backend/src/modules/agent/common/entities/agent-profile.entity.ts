@@ -29,7 +29,7 @@ export class AgentProfileEntity {
   employeeCode: string;
 
   @Column({ nullable: true })
-  profileImageUrl: string;
+  profileImageUrl: string | null;
 
   @Column({ default: true })
   isActive: boolean;

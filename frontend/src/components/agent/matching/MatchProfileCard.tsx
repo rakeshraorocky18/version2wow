@@ -81,18 +81,10 @@ export default function MatchProfileCard({
       'Warm, family-oriented profile looking for a meaningful long-term relationship.';
 
   const openFullProfile = () => {
-  console.log("CARD CLICKED");
-  console.log({
-    locked,
-    profileUrl,
-    workspaceCustomerId,
-    profileId: profile.id,
-  });
-
-  if (!locked) {
-    navigate(profileUrl);
-  }
-};
+    if (!locked) {
+      navigate(profileUrl);
+    }
+  };
 
   return (
     <motion.article
@@ -102,10 +94,7 @@ export default function MatchProfileCard({
       whileHover={{ y: locked ? 0 : -5 }}
       onHoverStart={() => setHovered(true)}
       onHoverEnd={() => setHovered(false)}
-      onClick={() => {
-      alert("CARD CLICKED");
-      navigate(profileUrl);
-      }}
+      onClick={openFullProfile}
       onKeyDown={(e) => {
         if (locked) return;
         if (e.key === 'Enter' || e.key === ' ') {

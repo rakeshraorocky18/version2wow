@@ -1,10 +1,11 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import {
   Users,
   UserCheck,
   Clock,
   ClipboardList,
   AlertTriangle,
+  Plus,
   ArrowRight,
 } from 'lucide-react';
 import { useAgentDashboard } from '../../hooks/agent/useAgent';
@@ -19,7 +20,6 @@ import CustomerAvatar from '../../components/agent/CustomerAvatar';
 
 export default function AgentDashboard() {
   const { data, isLoading, isError } = useAgentDashboard();
-  const navigate = useNavigate();
 
   if (isError) return <ErrorState message="Unable to load dashboard." />;
 
@@ -29,6 +29,7 @@ export default function AgentDashboard() {
       value: data?.totalCustomers ?? 0,
       icon: Users,
       tone: 'from-wow-primary/20 to-wow-primary/5',
+      iconTone: 'bg-rose-100 text-wow-primary',
       path: '/agent/customers',
     },
     {
@@ -36,6 +37,7 @@ export default function AgentDashboard() {
       value: data?.activeCustomers ?? 0,
       icon: UserCheck,
       tone: 'from-green-200/60 to-green-50',
+      iconTone: 'bg-emerald-100 text-emerald-700',
       path: '/agent/customers?status=active',
     },
     {
@@ -43,6 +45,7 @@ export default function AgentDashboard() {
       value: data?.pendingProfiles ?? 0,
       icon: Clock,
       tone: 'from-blue-200/50 to-blue-50',
+      iconTone: 'bg-sky-100 text-sky-700',
       path: '/agent/customers?status=pending',
     },
     {
@@ -50,6 +53,7 @@ export default function AgentDashboard() {
       value: data?.todaysTasks ?? 0,
       icon: ClipboardList,
       tone: 'from-purple-200/40 to-purple-50',
+      iconTone: 'bg-violet-100 text-violet-700',
       path: '/agent/worksheet?filter=today',
     },
     {
@@ -57,26 +61,35 @@ export default function AgentDashboard() {
       value: data?.overdueTasks ?? 0,
       icon: AlertTriangle,
       tone: 'from-red-200/50 to-red-50',
+      iconTone: 'bg-red-100 text-red-700',
       path: '/agent/worksheet?filter=overdue',
     },
   ];
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-        <div>
-          <h1 className="font-display text-3xl text-wow-text">Dashboard</h1>
-          <p className="text-wow-muted mt-1">
-            Your customer pipeline and today&apos;s priorities
-          </p>
-        </div>
-        <div className="flex justify-end">
-          <Link
-            to="/agent/worksheet"
-            className="btn-secondary inline-flex items-center gap-2 !py-2.5 !px-4 text-sm"
-          >
-            Create Task
-          </Link>
+    <div className="space-y-8 soft-fade-in">
+      <div className="rounded-[28px] border border-rose-100 bg-gradient-to-r from-white via-[#FFF9FB] to-[#FFF0F4] p-5 shadow-[0_14px_40px_rgba(44,38,48,0.06)] sm:p-7">
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-wow-primary">
+              Agent portal
+            </p>
+            <h1 className="font-display text-3xl text-wow-text sm:text-4xl">Dashboard</h1>
+            <p className="mt-2 max-w-xl text-sm leading-6 text-wow-muted sm:text-base">
+              Your customer pipeline and today&apos;s priorities
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Link to="/agent/customers/new" className="btn-primary inline-flex items-center gap-2 !py-2.5 !px-4 text-sm">
+              <Plus className="w-4 h-4" /> Add Customer
+            </Link>
+            <Link to="/agent/customers" className="btn-secondary inline-flex items-center gap-2 !py-2.5 !px-4 text-sm">
+              View Customers
+            </Link>
+            <Link to="/agent/worksheet" className="btn-secondary inline-flex items-center gap-2 !py-2.5 !px-4 text-sm">
+              Create Task
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -86,10 +99,11 @@ export default function AgentDashboard() {
           : stats.map((stat) => {
               const Icon = stat.icon;
               return (
-                <div
+                <Link
                   key={stat.title}
-                  onClick={() => navigate(stat.path)}
-                  className={`card bg-gradient-to-br ${stat.tone} border-0 cursor-pointer hover:shadow-lg hover:scale-[1.02] transition-all duration-200`}
+                  to={stat.path}
+                  className={`card group bg-gradient-to-br ${stat.tone} border-0 hover:-translate-y-1 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-wow-primary/40 focus:ring-offset-2 transition-all duration-200`}
+                  aria-label={`${stat.title}: ${stat.value}`}
                 >
                   <div className="flex items-start justify-between">
                     <div>
@@ -98,11 +112,11 @@ export default function AgentDashboard() {
                         {stat.value}
                       </p>
                     </div>
-                    <div className="p-2.5 rounded-xl bg-white/70">
-                      <Icon className="w-5 h-5 text-wow-primary" />
+                    <div className={`rounded-xl p-2.5 transition-transform group-hover:scale-105 ${stat.iconTone}`}>
+                      <Icon className="w-5 h-5" />
                     </div>
                   </div>
-                </div>
+                </Link>
               );
             })}
       </div>

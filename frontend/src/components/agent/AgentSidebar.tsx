@@ -82,7 +82,7 @@ export default function AgentSidebar() {
           <div className="min-w-0">
             <p className="text-sm font-medium truncate">{user?.name || 'Agent'}</p>
             <p className="text-[11px] text-white/50 truncate">
-              {user?.employeeCode ? `ID: ${user.employeeCode}` : user?.email}
+              {user?.email || 'Agent'}
             </p>
           </div>
         </div>

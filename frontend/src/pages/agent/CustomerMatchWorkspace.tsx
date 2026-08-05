@@ -30,7 +30,6 @@ import MatchToolbar, {
   buildActiveFilterChips,
 } from '../../components/agent/matching/MatchToolbar';
 import MatchProfileCard from '../../components/agent/matching/MatchProfileCard';
-console.log("USING AGENT MATCH PROFILE CARD");
 import MatchLoadingSkeleton from '../../components/agent/matching/MatchLoadingSkeleton';
 import SuggestionSlidePanel from '../../components/agent/matching/SuggestionSlidePanel';
 import MatchLockBanner from '../../components/agent/matching/MatchLockBanner';

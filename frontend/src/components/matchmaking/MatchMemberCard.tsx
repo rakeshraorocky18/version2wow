@@ -160,8 +160,7 @@ export default function MatchMemberCard({
           ? (e: React.KeyboardEvent) => {
               if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
                 e.preventDefault();
-                // @ts-expect-error onClick exists when this branch runs
-                onClick();
+                onClick?.();
               }
             }
           : undefined

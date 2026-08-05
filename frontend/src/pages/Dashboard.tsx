@@ -96,10 +96,10 @@ export default function Dashboard() {
   };
 
   const matchmakingStats = [
-    { label: 'Matches Found', value: newMatchesCount, subtitle: 'Fresh recommendations ready', icon: Heart },
-    { label: 'Conversations', value: activeConversationsCount, subtitle: 'Active chats in motion', icon: MessageCircle },
-    { label: 'Interest Requests', value: pendingRequests, subtitle: 'Waiting for your reply', icon: Star },
-    { label: 'Compatibility', value: `${compatibilityScore}%`, subtitle: 'Best fit score', icon: Flame },
+    { label: 'Matches Found', value: newMatchesCount, subtitle: 'Fresh recommendations ready', icon: Heart, to: '/app/matches' },
+    { label: 'Conversations', value: activeConversationsCount, subtitle: 'Active chats in motion', icon: MessageCircle, to: '/app/chat' },
+    { label: 'Interest Requests', value: pendingRequests, subtitle: 'Waiting for your reply', icon: Star, to: '/app/matches?tab=interests' },
+    { label: 'Compatibility', value: `${compatibilityScore}%`, subtitle: 'Best fit score', icon: Flame, to: '/app/profile' },
   ];
 
   return (
@@ -145,7 +145,6 @@ export default function Dashboard() {
                 accent="text-[#B76E79]"
                 iconBg="bg-[#FFF0F4]"
                 delay={index}
-                animateValue={stat.animateValue}
               />
             ))}
           </section>

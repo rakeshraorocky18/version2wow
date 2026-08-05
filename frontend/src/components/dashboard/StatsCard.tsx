@@ -1,11 +1,11 @@
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import type { ReactNode } from 'react';
+import type { LucideIcon } from 'lucide-react';
 import AnimatedNumber from './AnimatedNumber';
 import { fadeSlideUp } from './motion';
 
 interface StatsCardProps {
-  icon: ReactNode;
+  icon: LucideIcon;
   value: number | string;
   label: string;
   subtitle: string;
@@ -23,16 +23,21 @@ export default function StatsCard({
   label,
   subtitle,
   to,
+  accent,
+  iconBg,
   delay = 0,
   animateValue = true,
   compact = false,
 }: StatsCardProps) {
   const numericValue = typeof value === 'number' ? value : null;
+  const Icon = icon;
 
   return (
     <motion.div custom={delay} variants={fadeSlideUp} initial="hidden" whileInView="visible" viewport={{ once: true }}>
       <Link to={to} className={`dp-dash-stat-card ${compact ? '!p-3' : ''}`}>
-        <div className="dp-dash-stat-card__icon">{icon}</div>
+        <div className={`dp-dash-stat-card__icon ${iconBg} ${accent}`}>
+          <Icon size={20} aria-hidden="true" />
+        </div>
         <div>
           <p className={`dp-dash-stat-card__value ${compact ? '!text-xl' : ''}`}>
             {numericValue !== null && animateValue ? (
