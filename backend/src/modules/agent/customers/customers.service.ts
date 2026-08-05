@@ -358,14 +358,36 @@ export class AgentCustomersService implements OnModuleInit {
       );
     }
 
-    if (query.status === AgentCustomerStatus.PENDING) {
-      qb.andWhere('c.profileCompletion < :completion', {
-        completion: 100,
-      });
-    } else if (query.status) {
-      qb.andWhere('c.status = :status', {
-        status: query.status,
-      });
+    if (query.status === AgentCustomerStatus.ACTIVE) {
+      const matchedRows = await this.customerMatchRepo
+        .createQueryBuilder('m')
+        .select('DISTINCT m.customerId', 'customerId')
+        .where('m.agentId = :agentId', { agentId })
+        .andWhere('m.blocked = false')
+        .andWhere('m.ignored = false')
+        .getRawMany();
+
+      const matchedIds = matchedRows.map((m) => m.customerId);
+
+      if (matchedIds.length) {
+        qb.andWhere('c.id IN (:...matchedIds)', { matchedIds });
+      } else {
+        qb.andWhere('1 = 0');
+      }
+    } else if (query.status === AgentCustomerStatus.PENDING) {
+      const matchedRows = await this.customerMatchRepo
+        .createQueryBuilder('m')
+        .select('DISTINCT m.customerId', 'customerId')
+        .where('m.agentId = :agentId', { agentId })
+        .andWhere('m.blocked = false')
+        .andWhere('m.ignored = false')
+        .getRawMany();
+
+      const matchedIds = matchedRows.map((m) => m.customerId);
+
+      if (matchedIds.length) {
+        qb.andWhere('c.id NOT IN (:...matchedIds)', { matchedIds });
+      }
     }
 
     const sortBy = query.sortBy ?? 'date';
@@ -522,11 +544,6 @@ export class AgentCustomersService implements OnModuleInit {
     Object.assign(customer, dto);
     await this.recomputeCompletion(customer);
 
-    if (customer.profileCompletion === 100) {
-      customer.status = AgentCustomerStatus.ACTIVE;
-    } else {
-      customer.status = AgentCustomerStatus.PENDING;
-    }
 
     const saved = await this.customerRepo.save(customer);
 
@@ -554,12 +571,6 @@ export class AgentCustomersService implements OnModuleInit {
     if (!customer) return;
 
     await this.recomputeCompletion(customer);
-
-    if (customer.profileCompletion === 100) {
-      customer.status = AgentCustomerStatus.ACTIVE;
-    } else {
-      customer.status = AgentCustomerStatus.PENDING;
-    }
 
     await this.customerRepo.save(customer);
   }

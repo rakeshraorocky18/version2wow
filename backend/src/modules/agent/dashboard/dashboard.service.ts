@@ -4,6 +4,7 @@ import { In, LessThan, Repository } from 'typeorm';
 import { POSTGRES_CONNECTION } from '../../../config/database.constants';
 import { AgentCustomerEntity } from '../common/entities/agent-customer.entity';
 import { AgentWorksheetEntity } from '../common/entities/agent-worksheet.entity';
+import { AgentCustomerMatchEntity } from '../common/entities/agent-customer-match.entity';
 import {
   AgentCustomerStatus,
   WorksheetTaskStatus,
@@ -16,6 +17,8 @@ export class AgentDashboardService {
   constructor(
     @InjectRepository(AgentCustomerEntity, POSTGRES_CONNECTION)
     private readonly customerRepo: Repository<AgentCustomerEntity>,
+    @InjectRepository(AgentCustomerMatchEntity, POSTGRES_CONNECTION)
+    private readonly matchRepo: Repository<AgentCustomerMatchEntity>,
     @InjectRepository(AgentWorksheetEntity, POSTGRES_CONNECTION)
     private readonly worksheetRepo: Repository<AgentWorksheetEntity>,
     private readonly activityService: AgentActivityService,
@@ -29,19 +32,33 @@ export class AgentDashboardService {
       where: { assignedAgentId: agentId },
     });
 
-    const activeCustomers = await this.customerRepo.count({
+    // Get all customers of this agent
+    const customers = await this.customerRepo.find({
       where: {
         assignedAgentId: agentId,
-        status: AgentCustomerStatus.ACTIVE,
       },
+      select: ['id'],
     });
 
-    const pendingProfiles = await this.customerRepo.count({
-      where: {
-        assignedAgentId: agentId,
-        status: In([AgentCustomerStatus.PENDING, AgentCustomerStatus.DRAFT]),
-      },
-    });
+    // Customer IDs
+    const customerIds = customers.map(customer => customer.id);
+
+    // Customers that have at least one match
+    const matchedRows = customerIds.length
+      ? await this.matchRepo
+          .createQueryBuilder('match')
+          .select('DISTINCT match.customerId', 'customerId')
+          .where('match.customerId IN (:...customerIds)', { customerIds })
+          .andWhere('match.blocked = :blocked', { blocked: false })
+          .andWhere('match.ignored = :ignored', { ignored: false })
+          .getRawMany()
+      : [];
+
+    // Count unique matched customers
+    const activeCustomers = matchedRows.length;
+
+    // Customers without matches
+    const pendingProfiles = totalCustomers - activeCustomers;
 
     const completionAgg = await this.customerRepo
       .createQueryBuilder('c')
