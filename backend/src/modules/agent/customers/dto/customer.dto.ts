@@ -143,11 +143,22 @@ export class CreateAgentCustomerDto {
   @IsObject()
   partnerPreferences?: Record<string, unknown>;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Transform(emptyToUndefined)
+  @IsString()
+  aadhaarNumber?: string;
+
   @ApiPropertyOptional({ enum: AgentCustomerStatus })
   @IsOptional()
   @Transform(toOptionalStatus)
   @IsEnum(AgentCustomerStatus)
   status?: AgentCustomerStatus;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  sessionId?: string;
 }
 
 export class UpdateAgentCustomerDto extends PartialType(CreateAgentCustomerDto) {}

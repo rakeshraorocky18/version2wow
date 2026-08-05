@@ -38,6 +38,7 @@ export interface AgentCustomer {
   customerCode: string;
   firstName: string;
   lastName?: string;
+  aadhaarNumber?: string;
   gender?: string;
   dateOfBirth?: string;
   phone?: string;
@@ -134,6 +135,7 @@ export interface AgentDashboardStats {
 export interface CreateCustomerPayload {
   firstName: string;
   lastName?: string;
+  aadhaarNumber?: string;
   gender?: string;
   dateOfBirth?: string;
   phone?: string;
@@ -150,4 +152,5 @@ export interface CreateCustomerPayload {
   religionDetails?: Record<string, unknown>;
   partnerPreferences?: Record<string, unknown>;
   status?: AgentCustomerStatus;
+  sessionId?: string;
 }

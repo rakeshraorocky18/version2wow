@@ -468,4 +468,18 @@ export const agentService = {
     return data;  
   },
 
+  fixMatch: async (
+    customerId: string,
+    profileId: string,
+  ): Promise<{ success: boolean }> => {
+    const { data } = await agentApi.post(
+      `/agent/customers/${customerId}/fix-match`,
+      {
+        profileId,
+      },
+    );
+
+    return data;
+  },
+
 };

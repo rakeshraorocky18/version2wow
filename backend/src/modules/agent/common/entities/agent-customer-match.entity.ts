@@ -16,6 +16,7 @@ export enum AgentCustomerMatchStatus {
   WITHDRAWN = 'withdrawn',
   BLOCKED = 'blocked',
   IGNORED = 'ignored',
+  MATCH_FIXED = 'match_fixed',
 }
 
 @Entity('agent_customer_matches')
@@ -50,6 +51,12 @@ export class AgentCustomerMatchEntity {
 
   @Column({ type: 'boolean', default: false })
   blocked: boolean;
+
+  @Column({ type: 'timestamp', nullable: true })
+  blockedAt: Date | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  blockedBy: string | null;
 
   @Column({ type: 'boolean', default: false })
   ignored: boolean;

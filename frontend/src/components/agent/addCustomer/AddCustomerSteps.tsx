@@ -1,5 +1,8 @@
-import { Plus, Trash2, Upload } from 'lucide-react';
+import { Plus, Trash2, Upload, Check } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import toast from 'react-hot-toast';
+import api from '../../../lib/api';
+import agentApi from '../../../lib/agentApi';
 import type { AgentDocumentType } from '../../../types/agent';
 import type {
   AddCustomerFormState,
@@ -352,6 +355,118 @@ export function PersonalStep({ form, errors, update, updatePersonal }: StepProps
   const altIso = getIsoFromPhone(alternatePhone);
   const altRequiredLen = getExpectedLength(altIso);
 
+  // Mobile Verification states
+  const [mobileOtpInput, setMobileOtpInput] = useState('');
+  const [showMobileOtpField, setShowMobileOtpField] = useState(false);
+  const [mobileVerifying, setMobileVerifying] = useState(false);
+  const [mobileSubmittingOtp, setMobileSubmittingOtp] = useState(false);
+  const [mobileStatusMessage, setMobileStatusMessage] = useState('');
+  const [mobileStatusType, setMobileStatusType] = useState<'success' | 'error' | ''>('');
+  const [mobileTimer, setMobileTimer] = useState(300);
+  const [mobileTimerActive, setMobileTimerActive] = useState(false);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    if (mobileTimerActive && mobileTimer > 0) {
+      interval = setInterval(() => {
+        setMobileTimer((t) => t - 1);
+      }, 1000);
+    } else if (mobileTimer === 0) {
+      setMobileTimerActive(false);
+      setMobileStatusType('error');
+      setMobileStatusMessage('OTP expired.');
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [mobileTimerActive, mobileTimer]);
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  };
+
+  const handleSendMobileOtp = async () => {
+    const mobileDigits = form.phone.replace(/\D/g, '').slice(-10);
+    if (!/^\d{10}$/.test(mobileDigits)) {
+      setMobileStatusType('error');
+      setMobileStatusMessage('Mobile number must be exactly 10 numeric digits');
+      return;
+    }
+
+    setMobileVerifying(true);
+    setMobileStatusMessage('');
+    setMobileStatusType('');
+    try {
+      // Step 2 - Check duplicate mobile number
+      const checkRes = await agentApi.post('/mobile/check', { mobile: mobileDigits });
+      if (checkRes.data.exists) {
+        setMobileStatusType('error');
+        setMobileStatusMessage(checkRes.data.message || 'Mobile number already exists.');
+        update({ isMobileVerified: false });
+        return;
+      }
+
+      // Step 3 - Send OTP
+      const response = await agentApi.post('/mobile/send-otp', {
+        mobile: mobileDigits,
+        sessionId: form.sessionId,
+      });
+
+      // Browser developer console logging (development only)
+      if (response.data.otp) {
+        const masked = `******${mobileDigits.slice(-4)}`;
+        console.log(
+          `\n========================================\nDEV MOBILE OTP\n\nMobile:\n${masked}\n\nOTP:\n${response.data.otp}\n\nExpires:\n5 minutes\n========================================\n`
+        );
+      }
+
+      setShowMobileOtpField(true);
+      setMobileTimer(300); // 5 minutes countdown
+      setMobileTimerActive(true);
+      setMobileStatusType('success');
+      setMobileStatusMessage('OTP generated and printed in dev console.');
+    } catch (err: any) {
+      setMobileStatusType('error');
+      setMobileStatusMessage(err.response?.data?.message || 'Failed to send OTP.');
+      update({ isMobileVerified: false });
+    } finally {
+      setMobileVerifying(false);
+    }
+  };
+
+  const handleVerifyMobileOtp = async () => {
+    const mobileDigits = form.phone.replace(/\D/g, '').slice(-10);
+    if (!/^\d{6}$/.test(mobileOtpInput)) {
+      setMobileStatusType('error');
+      setMobileStatusMessage('OTP must be exactly 6 numeric digits');
+      return;
+    }
+
+    setMobileSubmittingOtp(true);
+    setMobileStatusMessage('');
+    setMobileStatusType('');
+    try {
+      await agentApi.post('/mobile/verify-otp', {
+        mobile: mobileDigits,
+        otp: mobileOtpInput,
+        sessionId: form.sessionId,
+      });
+      setMobileTimerActive(false);
+      setMobileStatusType('success');
+      setMobileStatusMessage('✓ Mobile Number Verified');
+      update({ isMobileVerified: true });
+      toast.success('Mobile Number Verified Successfully');
+    } catch (err: any) {
+      setMobileStatusType('error');
+      setMobileStatusMessage(err.response?.data?.message || 'Invalid OTP. Please try again.');
+      update({ isMobileVerified: false });
+    } finally {
+      setMobileSubmittingOtp(false);
+    }
+  };
+
   return (
     <WizardSection icon="👤" title="Personal Details">
       <FormGrid>
@@ -417,13 +532,14 @@ export function PersonalStep({ form, errors, update, updatePersonal }: StepProps
         </FormField>
         <FormField label="Mobile Number" required error={errors.phone} className="md:col-span-2">
           <div className="flex gap-2 items-start">
-            <div className="w-[160px] sm:w-[180px] shrink-0">
+            <div className="w-[120px] shrink-0">
               <SearchableSelect
                 value={phoneIso}
                 onChange={(val) => {
                   const code = getCallingCode(val);
-                  update({ phone: `${code} ${phoneParsed.number}`.trim() });
+                  update({ phone: `${code} ${phoneParsed.number}`.trim(), isMobileVerified: false });
                 }}
+                disabled={form.isMobileVerified}
                 options={countryOptions}
                 placeholder="Country"
               />
@@ -431,17 +547,110 @@ export function PersonalStep({ form, errors, update, updatePersonal }: StepProps
             <div className="flex-1 min-w-0">
               <FormInput
                 value={phoneParsed.number}
+                disabled={form.isMobileVerified}
                 onChange={(v) => {
                   let digits = v.replace(/\D/g, '');
                   if (digits.startsWith('0')) digits = digits.slice(1);
                   digits = digits.slice(0, phoneRequiredLen);
                   const formatted = new AsYouType(phoneIso as any).input(digits);
-                  update({ phone: `${phoneParsed.countryCode} ${formatted}`.trim() });
+                  update({ phone: `${phoneParsed.countryCode} ${formatted}`.trim(), isMobileVerified: false });
                 }}
                 placeholder={`${phoneRequiredLen}-digit number`}
               />
             </div>
+            {!form.isMobileVerified && !showMobileOtpField && (
+              <button
+                type="button"
+                onClick={handleSendMobileOtp}
+                disabled={mobileVerifying || !form.phone}
+                className="btn-primary whitespace-nowrap px-6 shrink-0 py-2.5"
+              >
+                {mobileVerifying ? 'Verifying...' : 'Verify'}
+              </button>
+            )}
+            {form.isMobileVerified && (
+              <div className="flex items-center gap-1 text-xs text-[#3D8B5F] bg-[#E8F8EF] px-3 py-2 rounded-xl font-semibold shrink-0 self-center">
+                <Check className="h-4 w-4 shrink-0" />
+                <span>Verified</span>
+              </div>
+            )}
           </div>
+
+          {showMobileOtpField && !form.isMobileVerified && (
+            <div className="mt-3 space-y-3 p-4 bg-wow-bg/30 rounded-2xl border border-gray-100">
+              <div>
+                <label className="text-xs font-semibold text-wow-text block mb-1">
+                  Enter 6-Digit OTP <span className="text-red-500 font-semibold">*</span>
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    pattern="\d*"
+                    maxLength={6}
+                    value={mobileOtpInput}
+                    disabled={mobileTimer === 0}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, '');
+                      setMobileOtpInput(val);
+                    }}
+                    placeholder="Enter OTP"
+                    className="input-field flex-1"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleVerifyMobileOtp}
+                    disabled={mobileSubmittingOtp || mobileOtpInput.length !== 6 || mobileTimer === 0}
+                    className="btn-primary whitespace-nowrap px-6 shrink-0"
+                  >
+                    {mobileSubmittingOtp ? 'Submitting...' : 'Verify OTP'}
+                  </button>
+                </div>
+              </div>
+              <div className="flex justify-between items-center text-xs">
+                <div className="flex items-center gap-2">
+                  {mobileTimer > 0 ? (
+                    <span className="text-wow-muted font-mono">Time remaining: {formatTime(mobileTimer)}</span>
+                  ) : (
+                    <span className="text-red-600 font-medium">OTP expired.</span>
+                  )}
+
+                  {(mobileTimer === 0 || mobileTimer < 270) && (
+                    <button
+                      type="button"
+                      onClick={handleSendMobileOtp}
+                      disabled={mobileVerifying}
+                      className="text-wow-primary hover:underline font-semibold"
+                    >
+                      Resend OTP
+                    </button>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowMobileOtpField(false);
+                    setMobileOtpInput('');
+                    setMobileStatusMessage('');
+                    setMobileStatusType('');
+                    setMobileTimerActive(false);
+                  }}
+                  className="text-wow-primary hover:underline font-medium"
+                >
+                  Change Number
+                </button>
+              </div>
+            </div>
+          )}
+
+          {mobileStatusMessage && !form.isMobileVerified && (
+            <p
+              className={`text-xs font-semibold mt-1.5 ${
+                mobileStatusType === 'success' ? 'text-[#3D8B5F]' : 'text-red-600'
+              }`}
+            >
+              {mobileStatusMessage}
+            </p>
+          )}
         </FormField>
         <FormField label="Alternate Mobile Number" error={errors.alternateMobile} className="md:col-span-2">
           <div className="flex gap-2 items-start">
@@ -1381,6 +1590,231 @@ export function GalleryPhotosStep({ form, update, errors }: StepProps) {
         )}
         {errors?.galleryPhotos && (
           <p className="text-sm text-red-500 font-medium mt-2">{errors.galleryPhotos}</p>
+        )}
+      </div>
+    </WizardSection>
+  );
+}
+
+/* ─── 0. Aadhaar Verification ─── */
+export function VerificationStep({ form, errors, update }: StepProps) {
+  const [aadhaarInput, setAadhaarInput] = useState(form.aadhaarNumber);
+  const [otpInput, setOtpInput] = useState('');
+  const [showOtpField, setShowOtpField] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [submittingOtp, setSubmittingOtp] = useState(false);
+  const [statusMessage, setStatusMessage] = useState('');
+  const [statusType, setStatusType] = useState<'success' | 'error' | ''>('');
+  const [timer, setTimer] = useState(300);
+  const [timerActive, setTimerActive] = useState(false);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    if (timerActive && timer > 0) {
+      interval = setInterval(() => {
+        setTimer((t) => t - 1);
+      }, 1000);
+    } else if (timer === 0) {
+      setTimerActive(false);
+      setStatusType('error');
+      setStatusMessage('OTP Expired');
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [timerActive, timer]);
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  };
+
+  const handleSendOtp = async () => {
+    if (!/^\d{12}$/.test(aadhaarInput)) {
+      setStatusType('error');
+      setStatusMessage('Aadhaar must be exactly 12 numeric digits');
+      return;
+    }
+
+    setVerifying(true);
+    setStatusMessage('');
+    setStatusType('');
+    try {
+      const response = await agentApi.post('/aadhaar/send-otp', {
+        aadhaarNumber: aadhaarInput,
+      });
+
+      // Browser developer console logging
+      if (response.data.otp) {
+        const masked = `XXXX XXXX ${aadhaarInput.slice(-4)}`;
+        console.log(
+          `\n====================================\nDEV AADHAAR OTP\nAadhaar: ${masked}\nOTP: ${response.data.otp}\nExpires: 5 minutes\n====================================\n`
+        );
+      }
+
+      setShowOtpField(true);
+      setTimer(300); // Reset countdown timer
+      setTimerActive(true);
+      setStatusType('success');
+      setStatusMessage('OTP generated and printed in dev console.');
+      update({ aadhaarNumber: aadhaarInput });
+    } catch (err: any) {
+      setStatusType('error');
+      setStatusMessage(err.response?.data?.message || 'Verification failed');
+      update({ isAadhaarVerified: false });
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (!/^\d{6}$/.test(otpInput)) {
+      setStatusType('error');
+      setStatusMessage('OTP must be exactly 6 numeric digits');
+      return;
+    }
+
+    setSubmittingOtp(true);
+    setStatusMessage('');
+    setStatusType('');
+    try {
+      await agentApi.post('/aadhaar/verify-otp', {
+        aadhaarNumber: aadhaarInput,
+        otp: otpInput,
+      });
+      setTimerActive(false);
+      setStatusType('success');
+      setStatusMessage('Aadhaar Verified Successfully');
+      update({ isAadhaarVerified: true, aadhaarNumber: aadhaarInput });
+      toast.success('Aadhaar Verified Successfully');
+    } catch (err: any) {
+      setStatusType('error');
+      setStatusMessage(err.response?.data?.message || 'Invalid OTP. Please try again.');
+      update({ isAadhaarVerified: false });
+    } finally {
+      setSubmittingOtp(false);
+    }
+  };
+
+  return (
+    <WizardSection icon="🔒" title="Aadhaar Verification">
+      <div className="space-y-6">
+        <div>
+          <label className="text-sm font-medium text-wow-text block mb-1">
+            Aadhaar Number <span className="text-red-500 font-semibold">*</span>
+          </label>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              pattern="\d*"
+              maxLength={12}
+              disabled={form.isAadhaarVerified || showOtpField}
+              value={aadhaarInput}
+              onChange={(e) => {
+                const val = e.target.value.replace(/\D/g, '');
+                setAadhaarInput(val);
+              }}
+              placeholder="Enter 12-digit Aadhaar Number"
+              className="input-field flex-1"
+            />
+            {!form.isAadhaarVerified && !showOtpField && (
+              <button
+                type="button"
+                onClick={handleSendOtp}
+                disabled={verifying || !aadhaarInput || aadhaarInput.length !== 12}
+                className="btn-primary whitespace-nowrap px-6 shrink-0"
+              >
+                {verifying ? 'Verifying...' : 'Verify Aadhaar'}
+              </button>
+            )}
+          </div>
+          {errors.aadhaarNumber && (
+            <p className="text-xs text-red-600 mt-1">{errors.aadhaarNumber}</p>
+          )}
+        </div>
+
+        {showOtpField && !form.isAadhaarVerified && (
+          <div className="space-y-3 p-4 bg-wow-bg/30 rounded-2xl border border-gray-100">
+            <div>
+              <label className="text-sm font-medium text-wow-text block mb-1">
+                Enter 6-Digit OTP <span className="text-red-500 font-semibold">*</span>
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  pattern="\d*"
+                  maxLength={6}
+                  value={otpInput}
+                  disabled={timer === 0}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, '');
+                    setOtpInput(val);
+                  }}
+                  placeholder="Enter OTP"
+                  className="input-field flex-1"
+                />
+                <button
+                  type="button"
+                  onClick={handleVerifyOtp}
+                  disabled={submittingOtp || otpInput.length !== 6 || timer === 0}
+                  className="btn-primary whitespace-nowrap px-6 shrink-0"
+                >
+                  {submittingOtp ? 'Submitting...' : 'Verify OTP'}
+                </button>
+              </div>
+            </div>
+            <div className="flex justify-between items-center text-xs">
+              <div className="flex items-center gap-2">
+                {timer > 0 ? (
+                  <span className="text-wow-muted font-mono">Time remaining: {formatTime(timer)}</span>
+                ) : (
+                  <span className="text-red-600 font-medium">OTP Expired</span>
+                )}
+
+                {(timer === 0 || timer < 270) && (
+                  <button
+                    type="button"
+                    onClick={handleSendOtp}
+                    disabled={verifying}
+                    className="text-wow-primary hover:underline font-semibold"
+                  >
+                    Resend OTP
+                  </button>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowOtpField(false);
+                  setOtpInput('');
+                  setStatusMessage('');
+                  setStatusType('');
+                  setTimerActive(false);
+                }}
+                className="text-wow-primary hover:underline font-medium"
+              >
+                Change Aadhaar
+              </button>
+            </div>
+          </div>
+        )}
+
+        {form.isAadhaarVerified && (
+          <div className="flex items-center gap-2 text-sm text-[#3D8B5F] bg-[#E8F8EF] p-4 rounded-xl font-medium">
+            <Check className="h-5 w-5 shrink-0" />
+            <span>✓ Aadhaar Verified</span>
+          </div>
+        )}
+
+        {statusMessage && !form.isAadhaarVerified && (
+          <p
+            className={`text-sm font-medium ${
+              statusType === 'success' ? 'text-[#3D8B5F]' : 'text-red-600'
+            }`}
+          >
+            {statusMessage}
+          </p>
         )}
       </div>
     </WizardSection>

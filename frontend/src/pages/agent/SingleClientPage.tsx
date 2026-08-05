@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import toast from 'react-hot-toast';
 
 import ClientHeader from "../../components/agent/ClientHeader";
 import Matches from "../../components/agent/Matches";
@@ -7,24 +8,32 @@ import History from "../../components/agent/History";
 import NotificationPanel from "../../components/agent/NotificationPanel";
 import SecondaryNavBar from "../../components/agent/SecondaryNavBar";
 import { agentService } from "../../services/agent/agentService";
+import { useAuthStore } from '../../store/authStore';
 
 
 function SingleClientPage(){
 
 const [activeTab,setActiveTab]=useState("matches");
-
-
 const [notificationOpen,setNotificationOpen]=useState(false);
 
+const userId = useAuthStore((s) => s.user?.id);
+
 const loadNotifications = async () => {
-  const userId = "1"; // temporary
-  await agentService.getNotifications(userId);
-  await agentService.getUnreadCount(userId);
+  if (!userId) return;
+  try {
+    await agentService.getNotifications(userId);
+    await agentService.getUnreadCount(userId);
+  } catch (error) {
+    console.error('Failed to pre-fetch notifications:', error);
+    toast.error('Unable to load notifications.');
+  }
 };
 
 useEffect(() => {
-  void loadNotifications();
-}, []);
+  if (userId) {
+    void loadNotifications();
+  }
+}, [userId]);
 
 return(
 

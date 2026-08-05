@@ -33,7 +33,7 @@ export function ReviewStep({ form, onEdit }: ReviewStepProps) {
       subtitle="Review all details before creating the customer profile."
     >
       <div className="space-y-4">
-        <ReviewBlock title="Personal Details" onEdit={() => onEdit(0)}>
+        <ReviewBlock title="Personal Details" onEdit={() => onEdit(1)}>
           <dl>
             <ReviewRow label="Name" value={fullName} />
             <ReviewRow label="Gender" value={form.gender} />
@@ -67,7 +67,7 @@ export function ReviewStep({ form, onEdit }: ReviewStepProps) {
           </dl>
         </ReviewBlock>
 
-        <ReviewBlock title="Horoscope" onEdit={() => onEdit(1)}>
+        <ReviewBlock title="Horoscope" onEdit={() => onEdit(3)}>
           <dl>
             <ReviewRow label="Do you have Horoscope?" value={hasHoroscope} />
             <ReviewRow
@@ -99,7 +99,7 @@ export function ReviewStep({ form, onEdit }: ReviewStepProps) {
           </dl>
         </ReviewBlock>
 
-        <ReviewBlock title="Relationship Status" onEdit={() => onEdit(2)}>
+        <ReviewBlock title="Relationship Status" onEdit={() => onEdit(4)}>
           <dl>
             <ReviewRow
               label="Relationship Status"
@@ -154,13 +154,13 @@ export function ReviewStep({ form, onEdit }: ReviewStepProps) {
           </dl>
         </ReviewBlock>
 
-        <ReviewBlock title="Location" onEdit={() => onEdit(3)}>
+        <ReviewBlock title="Location" onEdit={() => onEdit(1)}>
           <dl>
             <ReviewRow label="Address" value={formatAddress(addr)} />
           </dl>
         </ReviewBlock>
 
-        <ReviewBlock title="Family" onEdit={() => onEdit(4)}>
+        <ReviewBlock title="Family" onEdit={() => onEdit(5)}>
           <dl>
             <ReviewRow label="Native Place" value={formatLocationDisplay(nativePlace)} />
             <ReviewRow label="Settled Place" value={formatLocationDisplay(settledPlace)} />
@@ -186,7 +186,7 @@ export function ReviewStep({ form, onEdit }: ReviewStepProps) {
           </dl>
         </ReviewBlock>
 
-        <ReviewBlock title="Education" onEdit={() => onEdit(5)}>
+        <ReviewBlock title="Education" onEdit={() => onEdit(6)}>
           <dl>
             <ReviewRow label="Highest Qualification" value={form.education} />
             <ReviewRow
@@ -221,7 +221,7 @@ export function ReviewStep({ form, onEdit }: ReviewStepProps) {
           </dl>
         </ReviewBlock>
 
-        <ReviewBlock title="Partner Preference" onEdit={() => onEdit(6)}>
+        <ReviewBlock title="Partner Preference" onEdit={() => onEdit(7)}>
           <dl>
             <ReviewRow
               label="Preferred Age Range"
@@ -262,7 +262,7 @@ export function ReviewStep({ form, onEdit }: ReviewStepProps) {
           </dl>
         </ReviewBlock>
 
-        <ReviewBlock title="Documents" onEdit={() => onEdit(7)}>
+        <ReviewBlock title="Documents" onEdit={() => onEdit(8)}>
           <dl>
             <ReviewRow label="Profile Photo" value={form.profilePhoto?.name || '—'} />
             <ReviewRow

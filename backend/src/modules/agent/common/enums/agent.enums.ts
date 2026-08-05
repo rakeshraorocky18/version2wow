@@ -43,3 +43,8 @@ export enum AgentActivityAction {
   WORKSHEET_COMPLETED = 'worksheet_completed',
   WORKSHEET_DELETED = 'worksheet_deleted',
 }
+
+export enum CustomerMatchStatus {
+  AVAILABLE = 'AVAILABLE',
+  MATCHED = 'MATCHED',
+}

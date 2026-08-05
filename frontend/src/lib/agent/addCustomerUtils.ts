@@ -245,6 +245,7 @@ export function buildCreatePayload(form: AddCustomerFormState): CreateCustomerPa
   const payload: CreateCustomerPayload = {
     firstName: form.firstName.trim(),
     lastName: form.lastName.trim() || undefined,
+    aadhaarNumber: form.aadhaarNumber.trim() || undefined,
     gender: form.gender || undefined,
     dateOfBirth: form.dateOfBirth || undefined,
     phone: form.phone.trim() || undefined,
@@ -289,6 +290,7 @@ export function buildCreatePayload(form: AddCustomerFormState): CreateCustomerPa
       ...form.partnerPreferences,
       notes: (form.partnerPreferences.otherExpectations as string) || undefined,
     }),
+    sessionId: form.sessionId || undefined,
   };
 
   return payload;
@@ -331,6 +333,9 @@ export function formFromAgentCustomer(customer: AgentCustomer): AddCustomerFormS
     ...empty,
     firstName: customer.firstName || '',
     lastName: customer.lastName || '',
+    aadhaarNumber: customer.aadhaarNumber || '',
+    isAadhaarVerified: !!customer.aadhaarNumber,
+    isMobileVerified: !!customer.phone,
     gender: customer.gender || '',
     dateOfBirth: customer.dateOfBirth ? customer.dateOfBirth.slice(0, 10) : '',
     phone: customer.phone || '',
@@ -360,6 +365,16 @@ export function validateStep(
 ): Record<string, string> {
   const errors: Record<string, string> = {};
 
+  if (step === 8) {
+    if (!form.aadhaarNumber.trim()) {
+      errors.aadhaarNumber = 'Aadhaar number is required';
+    } else if (!/^\d{12}$/.test(form.aadhaarNumber.trim())) {
+      errors.aadhaarNumber = 'Aadhaar must be exactly 12 numeric digits';
+    } else if (!form.isAadhaarVerified) {
+      errors.aadhaarNumber = 'Aadhaar verification is not completed';
+    }
+  }
+
   if (step === 0) {
     if (!form.firstName.trim()) errors.firstName = 'First name is required';
     if (!((form.personalDetails.middleName as string) || '').trim()) {
@@ -374,6 +389,8 @@ export function validateStep(
       const iso = getIsoFromPhone(form.phone);
       const len = getExpectedLength(iso);
       errors.phone = `Please enter a valid ${len}-digit mobile number.`;
+    } else if (!form.isMobileVerified) {
+      errors.phone = 'Mobile verification is not completed';
     }
 
     const alternate = ((form.personalDetails.alternateMobile as string) || '').trim();
@@ -467,7 +484,7 @@ export function validateAll(
   existingDocuments?: { type: string }[],
 ): Record<string, string> {
   const errors: Record<string, string> = {};
-  for (let step = 0; step < 8; step += 1) {
+  for (let step = 0; step <= 8; step += 1) {
     Object.assign(errors, validateStep(step as WizardStepId, form, existingDocuments));
   }
   return errors;

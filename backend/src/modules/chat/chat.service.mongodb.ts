@@ -416,6 +416,7 @@
       }
 
       await this.unhideContact(senderId, dto.receiverId);
+      await this.unhideContact(dto.receiverId, senderId);
 
       const resolvedSender = senderId;
       const resolvedReceiver = dto.receiverId;

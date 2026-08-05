@@ -181,6 +181,9 @@ export const PROPERTY_TYPE_CONFIG: PropertyTypeConfig[] = [
 ];
 
 export interface AddCustomerFormState {
+  aadhaarNumber: string;
+  isAadhaarVerified?: boolean;
+  isMobileVerified?: boolean;
   firstName: string;
   lastName: string;
   gender: string;
@@ -208,6 +211,7 @@ export interface AddCustomerFormState {
   profilePhoto: File | null;
   existingProfilePhotoUrl?: string | null;
   pendingDocuments: PendingDocument[];
+  sessionId: string;
 }
 
 export const WIZARD_STEPS = [
@@ -218,7 +222,8 @@ export const WIZARD_STEPS = [
   { id: 4, label: 'Family', icon: '👨‍👩‍👧', title: 'Family Details' },
   { id: 5, label: 'Career', icon: '💼', title: 'Education & Career' },
   { id: 6, label: 'Partner', icon: '❤️', title: 'Partner Preferences' },
-  { id: 7, label: 'Photos', icon: '📷', title: 'Photos & Submit' },
+  { id: 7, label: 'Photos', icon: '📷', title: 'Photos & Gallery' },
+  { id: 8, label: 'Verification', icon: '🔒', title: 'Aadhaar Verification & Submit' },
 ] as const;
 
 export type WizardStepId = (typeof WIZARD_STEPS)[number]['id'];
@@ -284,6 +289,9 @@ export function createEmptyPropertyEntry(): PropertyEntry {
 
 export function createEmptyForm(): AddCustomerFormState {
   return {
+    aadhaarNumber: '',
+    isAadhaarVerified: false,
+    isMobileVerified: false,
     firstName: '',
     lastName: '',
     gender: '',
@@ -396,6 +404,7 @@ export function createEmptyForm(): AddCustomerFormState {
     profilePhoto: null,
     existingProfilePhotoUrl: null,
     pendingDocuments: [],
+    sessionId: '',
   };
 }
 

@@ -507,7 +507,7 @@
       if (!id) return;
       setDeleteDialog({
         messageIds: [id],
-        allowEveryone: normalizeUserId(message.senderId) === normalizedCurrentUserId,
+        allowEveryone: false,
       });
     };
 
