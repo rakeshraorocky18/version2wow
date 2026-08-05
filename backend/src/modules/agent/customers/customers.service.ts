@@ -1821,15 +1821,6 @@ console.log("=================================");
       order: { updatedAt: 'DESC' },
     });
 
-    console.log("========= HISTORY =========");
-    console.log(
-      rows.map(r => ({
-        customerId: r.customerId,
-        profileId: r.profileId,
-        status: r.status,
-      }))
-    );
-    console.log("===========================");
     const profileIds = [...new Set(rows.map((row) => row.profileId))];
     const profiles = profileIds.length
       ? await this.customerRepo.find({ where: { id: In(profileIds) } })

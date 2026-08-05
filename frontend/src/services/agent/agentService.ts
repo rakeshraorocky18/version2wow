@@ -72,7 +72,8 @@ export type AgentCustomerHistoryCard = {
 };
 
 export type AgentCustomerHistory = {
-  friends: AgentCustomerHistoryCard[];
+  interested: AgentCustomerHistoryCard[];
+  matched: AgentCustomerHistoryCard[];
   requestsReceived: AgentCustomerHistoryCard[];
   requestsSent: AgentCustomerHistoryCard[];
   shortlisted: AgentCustomerHistoryCard[];
