@@ -60,6 +60,27 @@ export class CustomerNoteDto extends CustomerProfileActionDto {
   content: string;
 }
 
+export class DeleteCustomerProfileDto {
+  @ApiProperty({
+    enum: [
+      'Marriage Completed',
+      'Profile Created by Mistake',
+      'Duplicate Profile',
+      'Customer Requested Deletion',
+      'Inactive Customer',
+      'Invalid Information',
+      'Other',
+    ],
+  })
+  @IsString()
+  reason: string;
+
+  @ApiPropertyOptional({ description: 'Additional details when reason is Other' })
+  @IsOptional()
+  @IsString()
+  otherReason?: string;
+}
+
 export class CustomerChatQueryDto {
   @ApiPropertyOptional()
   @IsOptional()

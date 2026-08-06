@@ -12,6 +12,10 @@ import {
   Min,
   MinLength,
   ValidateIf,
+  Validate,
+  ValidatorConstraint,
+  ValidatorConstraintInterface,
+  ValidationArguments,
 } from 'class-validator';
 import { AgentCustomerStatus } from '../../common/enums/agent.enums';
 
@@ -45,6 +49,31 @@ function toOptionalSortBy({ value }: { value: unknown }) {
   return value;
 }
 
+function parseDateOfBirth(value: unknown): Date | null {
+  if (value === '' || value === null || value === undefined) return null;
+  const date = new Date(String(value));
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+@ValidatorConstraint({ name: 'isAdultDateOfBirth', async: false })
+class IsAdultDateOfBirthConstraint implements ValidatorConstraintInterface {
+  validate(value: unknown) {
+    const dob = parseDateOfBirth(value);
+    if (!dob) return true;
+    const today = new Date();
+    let age = today.getFullYear() - dob.getFullYear();
+    const monthDiff = today.getMonth() - dob.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
+      age -= 1;
+    }
+    return age >= 18;
+  }
+
+  defaultMessage(_args: ValidationArguments) {
+    return 'Customer must be at least 18 years old.';
+  }
+}
+
 export class CreateAgentCustomerDto {
   @ApiProperty()
   @IsString()
@@ -67,6 +96,7 @@ export class CreateAgentCustomerDto {
   @IsOptional()
   @Transform(emptyToUndefined)
   @IsDateString()
+  @Validate(IsAdultDateOfBirthConstraint)
   dateOfBirth?: string;
 
   @ApiPropertyOptional()

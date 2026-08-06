@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Not, Repository } from 'typeorm';
 import * as crypto from 'crypto';
 import { POSTGRES_CONNECTION } from '../../../config/database.constants';
 import { AadhaarVerificationEntity } from './verification.entity';
@@ -8,10 +8,6 @@ import { AgentCustomerEntity } from '../common/entities/agent-customer.entity';
 
 @Injectable()
 export class AadhaarVerificationService {
-  // Temporary storage for OTPs in development mode
-  // Key: SHA256 of full Aadhaar (to protect the Aadhaar number)
-  private devOtps = new Map<string, { otp: string; expiresAt: Date }>();
-
   constructor(
     @InjectRepository(AadhaarVerificationEntity, POSTGRES_CONNECTION)
     private readonly verificationRepo: Repository<AadhaarVerificationEntity>,
@@ -28,9 +24,17 @@ export class AadhaarVerificationService {
     return `XXXX XXXX ${digits.slice(-4)}`;
   }
 
-  async sendOtp(aadhaarNumber: string): Promise<{ success: boolean; message: string; otp?: string }> {
+  async sendOtp(
+    aadhaarNumber: string,
+    sessionId: string,
+    agentId?: string,
+  ): Promise<{ success: boolean; message: string; otp?: string }> {
     if (!/^\d{12}$/.test(aadhaarNumber)) {
       throw new BadRequestException('Aadhaar must be exactly 12 numeric digits');
+    }
+
+    if (!sessionId) {
+      throw new BadRequestException('SessionId is required for Aadhaar verification');
     }
 
     const mode = process.env.AADHAAR_MODE || 'development';
@@ -42,25 +46,34 @@ export class AadhaarVerificationService {
 
     // --- Development Mode ---
 
-    // Check if customer with this Aadhaar is already registered
     const exists = await this.customerRepo.findOne({
-      where: { aadhaarNumber },
+      where: { aadhaarNumber, status: Not('Deleted' as any) },
     });
     if (exists) {
       throw new BadRequestException('Customer already exists. This Aadhaar is already registered.');
     }
 
-    // Generate random 6-digit OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
 
     const aadhaarHash = this.getHash(aadhaarNumber);
     const maskedAadhaar = this.maskAadhaar(aadhaarNumber);
 
-    // Store temporarily in memory (automatically invalidates any previous OTP for this Aadhaar by key overwrite)
-    this.devOtps.set(aadhaarHash, { otp, expiresAt });
+    await this.verificationRepo.delete({ aadhaarHash });
+    await this.verificationRepo.delete({ sessionId });
 
-    // Print to backend console (with masked Aadhaar)
+    const tempVerification = this.verificationRepo.create({
+      aadhaarHash,
+      maskedAadhaar,
+      otp,
+      sessionId,
+      agentId,
+      isVerified: false,
+      expiresAt,
+    });
+
+    await this.verificationRepo.save(tempVerification);
+
     console.log('\n====================================');
     console.log('DEV AADHAAR OTP');
     console.log(`Aadhaar: ${maskedAadhaar}`);
@@ -71,13 +84,21 @@ export class AadhaarVerificationService {
     return {
       success: true,
       message: 'Development OTP generated.',
-      otp, // return OTP in dev mode response so frontend can console.log it
+      otp,
     };
   }
 
-  async verifyOtp(aadhaarNumber: string, otp: string): Promise<{ verified: boolean; message: string }> {
+  async verifyOtp(
+    aadhaarNumber: string,
+    otp: string,
+    sessionId: string,
+  ): Promise<{ verified: boolean; message: string }> {
     if (!/^\d{12}$/.test(aadhaarNumber)) {
       throw new BadRequestException('Aadhaar must be exactly 12 numeric digits');
+    }
+
+    if (!sessionId) {
+      throw new BadRequestException('SessionId is required for Aadhaar verification');
     }
 
     const mode = process.env.AADHAAR_MODE || 'development';
@@ -86,50 +107,41 @@ export class AadhaarVerificationService {
       throw new BadRequestException('Production Aadhaar verification integration is not implemented.');
     }
 
-    // --- Development Mode ---
-
     const aadhaarHash = this.getHash(aadhaarNumber);
-    const stored = this.devOtps.get(aadhaarHash);
+    const record = await this.verificationRepo.findOne({
+      where: { aadhaarHash, sessionId },
+    });
 
-    if (!stored) {
-      throw new BadRequestException('Invalid OTP'); // No OTP generated for this Aadhaar
-    }
-
-    if (new Date() > stored.expiresAt) {
-      this.devOtps.delete(aadhaarHash);
-      throw new BadRequestException('OTP Expired');
-    }
-
-    if (stored.otp !== otp) {
+    if (!record || !record.otp) {
       throw new BadRequestException('Invalid OTP');
     }
 
-    // Successful Verification
-    this.devOtps.delete(aadhaarHash); // Clean up transient OTP
-
-    const maskedAadhaar = this.maskAadhaar(aadhaarNumber);
-
-    // Save/update verification status in database
-    let verification = await this.verificationRepo.findOne({
-      where: { maskedAadhaar },
-    });
-
-    if (!verification) {
-      verification = this.verificationRepo.create({
-        maskedAadhaar,
-        isVerified: true,
-        verifiedAt: new Date(),
-      });
-    } else {
-      verification.isVerified = true;
-      verification.verifiedAt = new Date();
+    const now = new Date();
+    if (!record.expiresAt || record.expiresAt < now) {
+      await this.verificationRepo.delete({ aadhaarHash, sessionId });
+      throw new BadRequestException('OTP Expired');
     }
 
-    await this.verificationRepo.save(verification);
+    if (record.otp !== otp) {
+      throw new BadRequestException('Invalid OTP');
+    }
+
+    record.isVerified = true;
+    record.verifiedAt = new Date();
+    record.expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+
+    await this.verificationRepo.save(record);
 
     return {
       verified: true,
       message: 'Aadhaar verified successfully.',
     };
+  }
+
+  async cleanupSession(sessionId: string): Promise<{ success: boolean }> {
+    if (sessionId) {
+      await this.verificationRepo.delete({ sessionId });
+    }
+    return { success: true };
   }
 }

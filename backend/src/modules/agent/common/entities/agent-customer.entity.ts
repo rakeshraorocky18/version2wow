@@ -93,6 +93,9 @@ export class AgentCustomerEntity {
   })
   matchedAt?: Date;
 
+  @Column({ type: 'varchar', nullable: true })
+  matchedBy?: string;
+
   @Column({ type: 'int', default: 0 })
   profileCompletion!: number;
 
@@ -102,6 +105,18 @@ export class AgentCustomerEntity {
 
   @Column()
   createdByAgentId!: string;
+
+  @Column({ type: 'boolean', default: true })
+  isActive!: boolean;
+
+  @Column({ type: 'timestamp', nullable: true })
+  deletedAt?: Date;
+
+  @Column({ type: 'varchar', nullable: true })
+  deletedBy?: string;
+
+  @Column({ type: 'text', nullable: true })
+  deleteReason?: string;
 
   @CreateDateColumn()
   createdAt!: Date;

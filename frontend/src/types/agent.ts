@@ -1,4 +1,4 @@
-export type AgentCustomerStatus = 'draft' | 'pending' | 'active' | 'inactive';
+export type AgentCustomerStatus = 'draft' | 'pending' | 'active' | 'inactive' | 'Deleted';
 
 export type WorksheetTaskStatus =
   | 'pending'
@@ -58,6 +58,10 @@ export interface AgentCustomer {
   profileCompletion: number;
   matchCompletionThreshold?: number;
   matchmakingUnlocked?: boolean;
+  matchStatus?: string;
+  matchedWith?: string | null;
+  matchedAt?: string | null;
+  matchedBy?: string | null;
   assignedAgentId: string;
   createdByAgentId: string;
   createdAt: string;

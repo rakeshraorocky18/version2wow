@@ -1,3 +1,5 @@
+import { isAtLeastAge } from './dateUtils';
+
 export type ProfileForm = Record<string, any>;
 
 export const EDIT_SECTIONS = [
@@ -61,6 +63,7 @@ export const FIELD_LABELS: Record<string, string> = {
   prefAgeMax: 'Preferred Max Age',
 };
 
+
 function hasText(value: unknown): boolean {
   return String(value ?? '').trim().length > 0;
 }
@@ -77,6 +80,9 @@ export function validateSectionFields(sectionIndex: number, form: ProfileForm): 
       ['firstName', 'lastName', 'gender', 'dateOfBirth', 'height', 'phone', 'email'].forEach((k) => {
         if (!hasText(form[k])) next[k] = 'Required';
       });
+      if (hasText(form.dateOfBirth) && !isAtLeastAge(String(form.dateOfBirth))) {
+        next.dateOfBirth = 'You must be at least 18 years old';
+      }
       const phoneDigits = String(form.phone ?? '').replace(/\D/g, '');
       if (form.phone && phoneDigits.length !== 10) {
         next.phone = 'Enter a valid 10-digit mobile number';

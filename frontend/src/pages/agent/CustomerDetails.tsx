@@ -32,6 +32,7 @@ import {
   useUpdateWorksheet,
   useDeleteWorksheet,
 } from '../../hooks/agent/useAgent';
+import { getMaxDateOfBirth } from '../../lib/dateUtils';
 import { agentService } from '../../services/agent/agentService';
 import { useQueryClient } from '@tanstack/react-query';
 import type { AgentDocumentType, AgentNote, WorksheetTask, WorksheetPriority } from '../../types/agent';
@@ -71,12 +72,14 @@ function Field({
   onChange,
   editing,
   type = 'text',
+  max,
 }: {
   label: string;
   value?: string;
   onChange?: (v: string) => void;
   editing: boolean;
   type?: string;
+  max?: string;
 }) {
   return (
     <div>
@@ -93,6 +96,7 @@ function Field({
             type={type}
             className="input-field mt-1"
             value={value || ''}
+            max={max}
             onChange={(e) => onChange?.(e.target.value)}
           />
         )
@@ -614,7 +618,14 @@ export default function CustomerDetails() {
                     <Field label="Phone" value={draft.phone as string} editing={editing} onChange={(v) => setDraft({ ...draft, phone: v })} />
                     <Field label="Email" value={draft.email as string} editing={editing} onChange={(v) => setDraft({ ...draft, email: v })} />
                     <Field label="Gender" value={draft.gender as string} editing={editing} onChange={(v) => setDraft({ ...draft, gender: v })} />
-                    <Field label="Date of Birth" value={draft.dateOfBirth as string} editing={editing} type="date" onChange={(v) => setDraft({ ...draft, dateOfBirth: v })} />
+                    <Field
+                      label="Date of Birth"
+                      value={draft.dateOfBirth as string}
+                      editing={editing}
+                      type="date"
+                      onChange={(v) => setDraft({ ...draft, dateOfBirth: v })}
+                      max={getMaxDateOfBirth(18)}
+                    />
                     <div className="sm:col-span-2">
                       <Field label="Address" value={draft.address as string} editing={editing} type="textarea" onChange={(v) => setDraft({ ...draft, address: v })} />
                     </div>

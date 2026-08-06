@@ -8,6 +8,7 @@ import AddCustomer from '../pages/agent/AddCustomer';
 import CustomerProfile from '../pages/agent/CustomerProfile';
 import CustomerDetails from '../pages/agent/CustomerDetails';
 import CustomerDetailsWorkspace from '../pages/agent/CustomerDetailsWorkspace';
+import CustomerStatus from '../pages/agent/CustomerStatus';
 import MatchFullProfile from '../pages/agent/MatchFullProfile';
 import AgentWorksheet from '../pages/agent/Worksheet';
 import AgentActivity from '../pages/agent/Activity';
@@ -26,6 +27,7 @@ export default function AgentRoutes() {
         <Route path="customers/new" element={<AddCustomer />} />
         <Route path="add-customer" element={<AddCustomer />} />
         <Route path="customers/:customerId/manage" element={<CustomerDetails />} />
+        <Route path="customers/:customerId/status" element={<CustomerStatus />} />
         <Route path="customers/:customerId/edit" element={<AddCustomer />} />
         <Route
           path="customers/:customerId/profile/:matchedProfileId"

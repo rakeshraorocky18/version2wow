@@ -31,6 +31,7 @@ import {
   CustomerNoteDto,
   CustomerNotificationQueryDto,
   CustomerProfileActionDto,
+  DeleteCustomerProfileDto,
   MarkNotificationDto,
 } from './dto/customer-workspace.dto';
 import { SendMessageDto } from '../../chat/dto/chat.dto';
@@ -357,4 +358,18 @@ export class AgentCustomersController {
     );
   }
 
+  @Post(':customerId/delete')
+  @ApiOperation({ summary: 'Soft delete a customer profile' })
+  deleteCustomerProfile(
+    @Req() req: { user: { id: string } },
+    @Param('customerId') customerId: string,
+    @Body() dto: DeleteCustomerProfileDto,
+  ) {
+    return this.customersService.deleteCustomerProfile(
+      req.user.id,
+      customerId,
+      dto,
+    );
+  }
 }
+

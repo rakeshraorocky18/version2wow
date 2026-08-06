@@ -28,6 +28,7 @@ export const neo4jDriverProvider: Provider = {
 
     const driver = neo4j.driver(uri, neo4j.auth.basic(username, password), {
       disableLosslessIntegers: true,
+      connectionTimeout: 3000,
     });
 
     try {

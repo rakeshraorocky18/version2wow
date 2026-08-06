@@ -5,6 +5,7 @@ import {
   createEmptyEducation,
   createEmptyProfile,
 } from '../types/profile';
+import { isAtLeastAge } from './dateUtils';
 
 const DRAFT_KEY = 'wow_profile_wizard_draft';
 
@@ -89,6 +90,7 @@ export function profileFromApi(data: Record<string, unknown>): WizardProfile {
   };
 }
 
+
 export function calculateCompletion(profile: WizardProfile): number {
   let filled = 0;
   let total = 0;
@@ -137,7 +139,11 @@ export function validateStep(step: number, profile: WizardProfile): StepErrors {
     if (!pd.firstName.trim()) errors.firstName = 'First name is required';
     if (!pd.lastName.trim()) errors.lastName = 'Last name is required';
     if (!pd.gender) errors.gender = 'Gender is required';
-    if (!pd.dateOfBirth) errors.dateOfBirth = 'Date of birth is required';
+    if (!pd.dateOfBirth) {
+      errors.dateOfBirth = 'Date of birth is required';
+    } else if (!isAtLeastAge(pd.dateOfBirth)) {
+      errors.dateOfBirth = 'You must be at least 18 years old';
+    }
     if (!pd.phone.trim()) errors.phone = 'Phone number is required';
     if (!pd.email.trim()) errors.email = 'Email is required';
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(pd.email)) errors.email = 'Enter a valid email';

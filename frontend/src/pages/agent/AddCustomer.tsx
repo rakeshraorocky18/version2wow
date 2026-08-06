@@ -67,6 +67,7 @@ export default function AddCustomer() {
     return () => {
       if (sessionId) {
         agentApi.post('/mobile/cleanup', { sessionId }).catch(() => {});
+        agentApi.post('/aadhaar/cleanup', { sessionId }).catch(() => {});
       }
     };
   }, [sessionId]);
@@ -75,12 +76,19 @@ export default function AddCustomer() {
   useEffect(() => {
     const handleBeforeUnload = () => {
       if (sessionId) {
-        const url = `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/mobile/cleanup`;
+        const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000';
         const headers = { 'Content-Type': 'application/json' };
         if (navigator.sendBeacon) {
-          navigator.sendBeacon(url, JSON.stringify({ sessionId }));
+          navigator.sendBeacon(`${apiBase}/api/mobile/cleanup`, JSON.stringify({ sessionId }));
+          navigator.sendBeacon(`${apiBase}/api/aadhaar/cleanup`, JSON.stringify({ sessionId }));
         } else {
-          fetch(url, {
+          fetch(`${apiBase}/api/mobile/cleanup`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ sessionId }),
+            keepalive: true,
+          }).catch(() => {});
+          fetch(`${apiBase}/api/aadhaar/cleanup`, {
             method: 'POST',
             headers,
             body: JSON.stringify({ sessionId }),

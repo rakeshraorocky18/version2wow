@@ -103,6 +103,21 @@ export function useUpdateCustomer(id: string) {
   });
 }
 
+export function useDeleteCustomerProfile(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: { reason: string; otherReason?: string }) =>
+      agentService.deleteCustomerProfile(id, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['agent', 'customers'] });
+      qc.invalidateQueries({ queryKey: agentKeys.dashboard });
+      qc.invalidateQueries({ queryKey: agentKeys.customer(id) });
+      qc.invalidateQueries({ queryKey: agentKeys.customerWorkspace(id) });
+      qc.invalidateQueries({ queryKey: agentKeys.customerHistory(id) });
+    },
+  });
+}
+
 export function useAgentNotes(customerId: string) {
   return useQuery({
     queryKey: agentKeys.notes(customerId),
@@ -364,6 +379,8 @@ export function useFixMatch(customerId: string) {
       qc.invalidateQueries({
         queryKey: ['agent', 'customerWorkspaceMatches', customerId],
       });
+      qc.invalidateQueries({ queryKey: agentKeys.customer(customerId) });
+      qc.invalidateQueries({ queryKey: agentKeys.customerWorkspace(customerId) });
     },
   });
 }

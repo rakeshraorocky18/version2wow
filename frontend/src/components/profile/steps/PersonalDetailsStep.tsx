@@ -3,6 +3,7 @@ import { useRef } from 'react';
 import { PersonalDetails } from '../../../types/profile';
 import { StepErrors } from '../../../types/profile';
 import { getPhotoUrl } from '../../../lib/profileUtils';
+import { getMaxDateOfBirth } from '../../../lib/dateUtils';
 
 const ACCEPTED_TYPES = 'image/jpeg,image/jpg,image/png,image/webp';
 
@@ -120,7 +121,7 @@ export default function PersonalDetailsStep({
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth *</label>
-          <input type="date" value={data.dateOfBirth} onChange={(e) => onChange({ dateOfBirth: e.target.value })} className={`input-field ${errors.dateOfBirth ? 'border-red-400' : ''}`} />
+          <input type="date" max={getMaxDateOfBirth(18)} value={data.dateOfBirth} onChange={(e) => onChange({ dateOfBirth: e.target.value })} className={`input-field ${errors.dateOfBirth ? 'border-red-400' : ''}`} />
           <FieldError message={errors.dateOfBirth} />
         </div>
         <div>

@@ -189,6 +189,11 @@ export default function CustomerProfile({
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="font-display text-3xl text-wow-text">{fullName}</h1>
                 <StatusBadge status={customer.status} />
+                {(customer as any).matchStatus === 'MATCHED' && (
+                  <span className="inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700">
+                    ✓ Match Fixed
+                  </span>
+                )}
               </div>
               <p className="text-wow-muted font-mono text-sm mt-1">{customer.customerCode}</p>
             </div>

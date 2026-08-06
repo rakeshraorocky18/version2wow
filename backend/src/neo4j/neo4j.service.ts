@@ -212,4 +212,8 @@ export class Neo4jService {
       [],
     );
   }
+
+  async deleteUserNode(userId: string): Promise<void> {
+    await this.safe('deleteUserNode', () => this.repository.deleteUserNode(userId), false);
+  }
 }

@@ -33,7 +33,14 @@ export default function CustomerCard({ customer }: { customer: AgentCustomer }) 
               <p className="text-xs text-gray-500">{customer.customerCode}</p>
             </div>
           </div>
-          <StatusBadge status={customer.status} />
+          <div className="flex items-center gap-2">
+            <StatusBadge status={customer.status} />
+            {customer.matchStatus === 'MATCHED' && (
+              <span className="inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700">
+                ✓ Match Fixed
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="p-5 space-y-4">
@@ -65,7 +72,7 @@ export default function CustomerCard({ customer }: { customer: AgentCustomer }) 
         </div>
       </Link>
 
-      <div className="border-t p-4 flex justify-center gap-5">
+      <div className="border-t p-4 flex flex-wrap items-center justify-center gap-3">
         <Link
           to={workspaceUrl}
           className="w-10 h-10 rounded-full bg-pink-50 text-wow-primary hover:bg-pink-500 hover:text-white flex items-center justify-center transition"
@@ -86,6 +93,13 @@ export default function CustomerCard({ customer }: { customer: AgentCustomer }) 
           title="Edit customer"
         >
           <Pencil size={18} />
+        </Link>
+        <Link
+          to={`${workspaceUrl}/status`}
+          className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-wow-text hover:border-wow-primary hover:text-wow-primary transition"
+          title="Status"
+        >
+          Status
         </Link>
       </div>
     </div>

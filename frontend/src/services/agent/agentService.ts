@@ -72,7 +72,8 @@ export type AgentCustomerHistoryCard = {
 };
 
 export type AgentCustomerHistory = {
-  friends: AgentCustomerHistoryCard[];
+  interested: AgentCustomerHistoryCard[];
+  matched: AgentCustomerHistoryCard[];
   requestsReceived: AgentCustomerHistoryCard[];
   requestsSent: AgentCustomerHistoryCard[];
   shortlisted: AgentCustomerHistoryCard[];
@@ -187,6 +188,17 @@ export const agentService = {
     payload: Partial<CreateCustomerPayload>,
   ): Promise<AgentCustomer> => {
     const { data } = await agentApi.patch(`/agent/customers/${id}`, payload);
+    return data;
+  },
+
+  deleteCustomerProfile: async (
+    id: string,
+    payload: { reason: string; otherReason?: string },
+  ): Promise<{ success: boolean }> => {
+    const { data } = await agentApi.post(
+      `/agent/customers/${id}/delete`,
+      payload,
+    );
     return data;
   },
 

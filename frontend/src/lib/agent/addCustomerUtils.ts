@@ -12,6 +12,7 @@ import { OTHER_VALUE } from '../../lib/agent/formOptions';
 import { createEmptyForm } from '../../types/addCustomer';
 import { getCustomerProfileImageUrl } from './customerAvatar';
 import { Country } from 'country-state-city';
+import { isAtLeastAge } from '../dateUtils';
 import { parsePhoneNumberFromString, getCountryCallingCode, getExampleNumber } from 'libphonenumber-js/max';
 import mobileExamples from 'libphonenumber-js/mobile/examples';
 
@@ -381,7 +382,11 @@ export function validateStep(
       errors.middleName = 'Surname is required';
     }
     if (!form.gender) errors.gender = 'Gender is required';
-    if (!form.dateOfBirth) errors.dateOfBirth = 'Date of birth is required';
+    if (!form.dateOfBirth) {
+      errors.dateOfBirth = 'Date of birth is required';
+    } else if (!isAtLeastAge(form.dateOfBirth)) {
+      errors.dateOfBirth = 'Customer must be at least 18 years old';
+    }
 
     if (!form.phone.trim()) {
       errors.phone = 'Mobile number is required';

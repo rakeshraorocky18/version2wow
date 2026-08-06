@@ -3,6 +3,7 @@ export enum AgentCustomerStatus {
   PENDING = 'pending',
   ACTIVE = 'active',
   INACTIVE = 'inactive',
+  DELETED = 'Deleted',
 }
 
 export enum WorksheetTaskStatus {
@@ -42,6 +43,8 @@ export enum AgentActivityAction {
   WORKSHEET_UPDATED = 'worksheet_updated',
   WORKSHEET_COMPLETED = 'worksheet_completed',
   WORKSHEET_DELETED = 'worksheet_deleted',
+  CUSTOMER_DELETED = 'customer_deleted',
+  MATCH_FIXED = 'match_fixed',
 }
 
 export enum CustomerMatchStatus {

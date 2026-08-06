@@ -125,6 +125,7 @@ export function FormInput({
   placeholder,
   disabled,
   className = '',
+  max,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -132,6 +133,7 @@ export function FormInput({
   placeholder?: string;
   disabled?: boolean;
   className?: string;
+  max?: string;
 }) {
   return (
     <input
@@ -140,6 +142,7 @@ export function FormInput({
       value={value}
       placeholder={placeholder}
       disabled={disabled}
+      max={max}
       onChange={(e) => onChange(e.target.value)}
     />
   );

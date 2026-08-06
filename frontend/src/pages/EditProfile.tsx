@@ -51,6 +51,7 @@ import {
   validateSectionFields,
   type ProfileForm,
 } from '../lib/profileEditValidation';
+import { getMaxDateOfBirth } from '../lib/dateUtils';
 
 const SECTION_META: Record<(typeof SECTIONS)[number], { icon: typeof User; desc: string }> = {
   'Personal Details': { icon: User, desc: 'Your name, photo, and basic information' },
@@ -860,7 +861,7 @@ export default function EditProfile({ managedMode = false }: { managedMode?: boo
                   </FormField>
 
                   <FormField label="Date of Birth" htmlFor="dateOfBirth" required error={errors.dateOfBirth}>
-                    <input id="dateOfBirth" type="date" className={inputClass(errors.dateOfBirth)} value={form.dateOfBirth || ''} onChange={(e) => update('dateOfBirth', e.target.value)} />
+                    <input id="dateOfBirth" type="date" max={getMaxDateOfBirth(18)} className={inputClass(errors.dateOfBirth)} value={form.dateOfBirth || ''} onChange={(e) => update('dateOfBirth', e.target.value)} />
                   </FormField>
                   <FormField label="Age" htmlFor="age">
                     <input id="age" className={inputClass()} value={form.age || ''} readOnly placeholder="Auto-calculated" />

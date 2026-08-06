@@ -6,7 +6,8 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, In, Repository } from 'typeorm';
+import { EntityManager, In, Repository, Not } from 'typeorm';
+import * as crypto from 'crypto';
 import {
   POSTGRES_CONNECTION,
   SQLITE_CONNECTION,
@@ -201,6 +202,22 @@ export class AgentCustomersService implements OnModuleInit {
     if (!dto.religion?.trim()) {
       errors.push('Religion is required');
     }
+    if (dto.dateOfBirth) {
+      const dob = new Date(dto.dateOfBirth);
+      if (Number.isNaN(dob.getTime())) {
+        errors.push('Date of birth must be a valid date');
+      } else {
+        const today = new Date();
+        let age = today.getFullYear() - dob.getFullYear();
+        const monthDiff = today.getMonth() - dob.getMonth();
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
+          age -= 1;
+        }
+        if (age < 18) {
+          errors.push('Customer must be at least 18 years old');
+        }
+      }
+    }
     if (!personal.hasHoroscope?.trim()) {
       errors.push('Horoscope availability is required');
     }
@@ -244,28 +261,34 @@ export class AgentCustomersService implements OnModuleInit {
     return this.customerRepo.manager.transaction(async (manager) => {
       if (dto.aadhaarNumber) {
         const duplicate = await manager.findOne(AgentCustomerEntity, {
-          where: { aadhaarNumber: dto.aadhaarNumber },
+          where: { aadhaarNumber: dto.aadhaarNumber, status: Not('Deleted' as any) },
         });
         if (duplicate) {
           throw new BadRequestException('Customer already exists. This Aadhaar is already registered.');
         }
 
-        const masked = `XXXX XXXX ${dto.aadhaarNumber.replace(/\s/g, '').slice(-4)}`;
+        const aadhaarHash = crypto.createHash('sha256').update(dto.aadhaarNumber).digest('hex');
         const verified = await manager.findOne(AadhaarVerificationEntity, {
-          where: { maskedAadhaar: masked, isVerified: true },
+          where: {
+            aadhaarHash,
+            sessionId: dto.sessionId || '',
+            isVerified: true,
+          },
         });
-        if (!verified) {
+        if (!verified || !verified.expiresAt || verified.expiresAt < new Date()) {
           throw new BadRequestException('Aadhaar verification is not completed');
         }
+
+        await manager.remove(verified);
       } else {
         throw new BadRequestException('Aadhaar number is required');
       }
 
       if (dto.phone) {
         const cleanPhone = dto.phone.replace(/\D/g, '').slice(-10);
-        const duplicate = await manager
-          .createQueryBuilder(AgentCustomerEntity, 'c')
+        const duplicate = await manager.createQueryBuilder(AgentCustomerEntity, 'c')
           .where("regexp_replace(c.phone, '\\D', '', 'g') LIKE :phone", { phone: `%${cleanPhone}` })
+          .andWhere("c.status != :deletedStatus", { deletedStatus: 'Deleted' })
           .getOne();
         if (duplicate) {
           throw new BadRequestException('Customer already exists. This mobile number is already registered.');
@@ -349,7 +372,8 @@ export class AgentCustomersService implements OnModuleInit {
 
     const qb = this.customerRepo
       .createQueryBuilder('c')
-      .where('c.assignedAgentId = :agentId', { agentId });
+      .where('c.assignedAgentId = :agentId', { agentId })
+      .andWhere('c.status != :deletedStatus', { deletedStatus: 'Deleted' });
 
     if (query.search?.trim()) {
       qb.andWhere(
@@ -409,7 +433,7 @@ export class AgentCustomersService implements OnModuleInit {
     const customer = await this.customerRepo.findOne({
       where: { id: customerId },
     });
-    if (!customer) {
+    if (!customer || customer.status === 'Deleted' || customer.isActive === false) {
       throw new NotFoundException('Customer not found');
     }
     if (customer.assignedAgentId !== agentId) {
@@ -455,45 +479,50 @@ export class AgentCustomersService implements OnModuleInit {
 
     if (dto.aadhaarNumber && dto.aadhaarNumber !== customer.aadhaarNumber) {
       const duplicate = await this.customerRepo.findOne({
-        where: { aadhaarNumber: dto.aadhaarNumber },
+        where: { aadhaarNumber: dto.aadhaarNumber, status: Not('Deleted' as any) },
       });
       if (duplicate && duplicate.id !== customer.id) {
         throw new BadRequestException('Customer already exists. This Aadhaar is already registered.');
       }
 
-      const masked = `XXXX XXXX ${dto.aadhaarNumber.replace(/\s/g, '').slice(-4)}`;
-      const verified = await this.customerRepo.manager.findOne(AadhaarVerificationEntity, {
-        where: { maskedAadhaar: masked, isVerified: true },
+      const aadhaarHash = crypto.createHash('sha256').update(dto.aadhaarNumber).digest('hex');
+      const aadhaarVerified = await this.customerRepo.manager.findOne(AadhaarVerificationEntity, {
+        where: {
+          aadhaarHash,
+          sessionId: dto.sessionId || '',
+          isVerified: true,
+        },
       });
-      if (!verified) {
+      if (!aadhaarVerified || !aadhaarVerified.expiresAt || aadhaarVerified.expiresAt < new Date()) {
         throw new BadRequestException('Aadhaar verification is not completed');
       }
+
+      await this.customerRepo.manager.remove(aadhaarVerified);
     }
 
     if (dto.phone && dto.phone !== customer.phone) {
       const cleanPhone = dto.phone.replace(/\D/g, '').slice(-10);
-      const duplicate = await this.customerRepo
-        .createQueryBuilder('c')
+      const duplicatePhone = await this.customerRepo.createQueryBuilder('c')
         .where("regexp_replace(c.phone, '\\D', '', 'g') LIKE :phone", { phone: `%${cleanPhone}` })
+        .andWhere('c.status != :deletedStatus', { deletedStatus: 'Deleted' })
         .getOne();
-      if (duplicate && duplicate.id !== customer.id) {
+      if (duplicatePhone && duplicatePhone.id !== customer.id) {
         throw new BadRequestException('Customer already exists. This mobile number is already registered.');
       }
 
       const now = new Date();
-      const verified = await this.customerRepo.manager.findOne(MobileVerificationEntity, {
+      const mobileVerified = await this.customerRepo.manager.findOne(MobileVerificationEntity, {
         where: {
           mobile: cleanPhone,
           sessionId: dto.sessionId || '',
           isVerified: true,
         },
       });
-      if (!verified || verified.expiresAt < now) {
+      if (!mobileVerified || mobileVerified.expiresAt < now) {
         throw new BadRequestException('Mobile verification is not completed');
       }
 
-      // delete temporary verification
-      await this.customerRepo.manager.remove(verified);
+      await this.customerRepo.manager.remove(mobileVerified);
     }
 
     const merged = {
@@ -562,6 +591,70 @@ export class AgentCustomersService implements OnModuleInit {
     }
 
     await this.customerRepo.save(customer);
+  }
+
+  async deleteCustomerProfile(
+    agentId: string,
+    customerId: string,
+    dto: { reason: string; otherReason?: string },
+  ) {
+    const customer = await this.findAssignedOrFail(agentId, customerId);
+    const deleteReason = dto.reason === 'Other' ? dto.otherReason?.trim() || 'Other' : dto.reason;
+
+    return this.customerRepo.manager.transaction(async (manager) => {
+      customer.status = AgentCustomerStatus.DELETED;
+      customer.isActive = false;
+      customer.deletedAt = new Date();
+      customer.deletedBy = agentId;
+      customer.deleteReason = deleteReason;
+      await manager.save(customer);
+
+      const relationships = await manager.find(AgentCustomerMatchEntity, {
+        where: [
+          { customerId },
+          { profileId: customerId },
+        ],
+      });
+
+      const partnerIds = new Set<string>();
+      for (const relationship of relationships) {
+        if (relationship.customerId === customerId && relationship.profileId) {
+          partnerIds.add(relationship.profileId);
+        }
+        if (relationship.profileId === customerId && relationship.customerId) {
+          partnerIds.add(relationship.customerId);
+        }
+        relationship.status = AgentCustomerMatchStatus.DECLINED;
+        relationship.shortlisted = false;
+        relationship.blocked = false;
+        relationship.ignored = false;
+        relationship.lastActionAt = new Date();
+        await manager.save(relationship);
+      }
+
+      if (partnerIds.size) {
+        const partners = await manager.find(AgentCustomerEntity, {
+          where: { id: In([...partnerIds]) },
+        });
+        for (const partner of partners) {
+          if (partner.matchedWith === customerId) {
+            partner.matchStatus = CustomerMatchStatus.AVAILABLE;
+            partner.matchedWith = undefined;
+            partner.matchedAt = undefined;
+            await manager.save(partner);
+          }
+        }
+      }
+
+      await this.activityService.log({
+        agentId,
+        customerId: customer.id,
+        action: AgentActivityAction.CUSTOMER_DELETED,
+        description: `Customer ${customer.customerCode} soft deleted (${deleteReason}).`,
+      });
+
+      return { success: true };
+    });
   }
 
   /**
@@ -1170,7 +1263,9 @@ export class AgentCustomersService implements OnModuleInit {
 
   private async findCandidateOrFail(profileId: string) {
     const candidate = await this.customerRepo.findOne({ where: { id: profileId } });
-    if (!candidate) throw new NotFoundException('Match profile not found');
+    if (!candidate || candidate.status === 'Deleted' || candidate.isActive === false) {
+      throw new NotFoundException('Match profile not found');
+    }
     return candidate;
   }
 
@@ -1548,10 +1643,12 @@ console.log("=================================");
       customer.matchStatus = CustomerMatchStatus.MATCHED;
       customer.matchedWith = partner.id;
       customer.matchedAt = new Date();
+      customer.matchedBy = agentId;
 
       partner.matchStatus = CustomerMatchStatus.MATCHED;
       partner.matchedWith = customer.id;
       partner.matchedAt = new Date();
+      partner.matchedBy = agentId;
 
       await manager.save(customer);
       await manager.save(partner);
@@ -1579,6 +1676,12 @@ console.log("=================================");
       reverse.status = AgentCustomerMatchStatus.MATCH_FIXED;
       await manager.save(reverse);
 
+      await this.activityService.log({
+        agentId,
+        customerId: customer.id,
+        action: AgentActivityAction.MATCH_FIXED,
+        description: `Match fixed between ${customer.customerCode} and ${partner.customerCode} by agent ${agentId}`,
+      });
       await this.ensureSqliteMatch(
       customerId,
       profileId,
@@ -1809,16 +1912,6 @@ console.log("=================================");
       where: { customerId },
       order: { updatedAt: 'DESC' },
     });
-
-    console.log("========= HISTORY =========");
-    console.log(
-      rows.map(r => ({
-        customerId: r.customerId,
-        profileId: r.profileId,
-        status: r.status,
-      }))
-    );
-    console.log("===========================");
     const profileIds = [...new Set(rows.map((row) => row.profileId))];
     const profiles = profileIds.length
       ? await this.customerRepo.find({ where: { id: In(profileIds) } })

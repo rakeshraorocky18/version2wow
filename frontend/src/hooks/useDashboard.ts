@@ -669,12 +669,12 @@ export function useDashboard() {
   const { data: plannerPlans = [] } = usePlannerPlans();
 
   // Fallback values for commented hooks
-  const myProfile: Partial<MatchProfile> | null = null;
+  const myProfile = null as Partial<MatchProfile> | null;
   const receivedInterests: MatchInterest[] = [];
   const sentInterests: MatchInterest[] = [];
   const acceptedInterests: MatchInterest[] = [];
-  const suggestionsData: { profiles?: MatchProfile[] } | null = null;
-  const shortlistData: { profiles?: MatchProfile[] } | null = null;
+  const suggestionsData = null as { profiles?: MatchProfile[] } | null;
+  const shortlistData = null as { profiles?: MatchProfile[] } | null;
 
   const activePlan = plannerPlans[0] ?? null;
   const activePlanId = activePlan?.id ?? '';

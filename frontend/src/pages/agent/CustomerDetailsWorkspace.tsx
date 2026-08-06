@@ -5,7 +5,6 @@ import toast from 'react-hot-toast';
 import api from '../../lib/api';
 import { getPhotoUrl } from '../../lib/profileUtils';
 import { useChatSocket } from '../../hooks/useChatSocket';
-import { useFixMatch } from '../../hooks/agent/useAgent';
 import {
   ArrowLeft,
   Ban,
@@ -90,11 +89,6 @@ const HISTORY_CATEGORIES: Array<{ id: HistoryCategory; label: string; descriptio
     id: 'interested',
     label: 'Interested',
     description: 'Accepted Matches',
-  },
-  {
-    id: 'matched',
-    label: 'Matched',
-    description: 'Match Fixed',
   },
   { id: 'requestsReceived', label: 'Requests', description: 'Received requests' },
   { id: 'requestsSent', label: 'Pending', description: 'Sent requests' },
@@ -420,7 +414,6 @@ export default function CustomerDetailsWorkspace() {
     activeTab === 'chat' && !!activeChatProfileId,
   );
   const action = useAgentCustomerAction(customerId);
-  const fixMatch = useFixMatch(customerId);
   const sendMessage = useSendAgentCustomerChatMessage(customerId);
 
   const activeId = activeChatProfileId;
@@ -921,52 +914,6 @@ export default function CustomerDetailsWorkspace() {
                   empty="No profiles in this category."
                   actions={(item) => {
                     if (historyCategory === 'interested') {
-                      return (
-                        <>
-                          <button
-                            onClick={() =>
-                              navigate(`/agent/customers/${customerId}/profile/${item.profile.id}`)
-                            }
-                            className="btn-secondary !px-3 !py-2 text-sm"
-                          >
-                            View Profile
-                          </button>
-
-                          <button
-                            onClick={() => {
-                              setActiveChatProfileId(item.profile.id);
-                              localStorage.setItem(
-                                `activeChatProfileId_${customerId}`,
-                                item.profile.id,
-                              );
-                              setActiveTab('chat');
-                            }}
-                            className="btn-primary !px-3 !py-2 text-sm"
-                          >
-                            Open Chat
-                          </button>
-
-                          <button
-                            onClick={() =>
-                              fixMatch.mutate(item.profile.id, {
-                                onSuccess: () => {
-                                  toast.success('Match fixed successfully');
-                                  history.refetch();
-                                },
-                                onError: (error) => {
-                                  toast.error(getErrorMessage(error, 'Unable to fix match'));
-                                },
-                              })
-                            }
-                            disabled={fixMatch.isPending}
-                            className="btn-secondary !px-3 !py-2 text-sm"
-                          >
-                            {fixMatch.isPending ? 'Fixing...' : 'Fix Match'}
-                          </button>
-                        </>
-                      );
-                    }
-                    if (historyCategory === 'matched') {
                       return (
                         <>
                           <button

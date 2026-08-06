@@ -16,6 +16,7 @@ import {
   emptyAddress,
   emptyLocation,
 } from '../../../types/addCustomer';
+import { getMaxDateOfBirth } from '../../../lib/dateUtils';
 import {
   calculateAge,
   WORLD_COUNTRY_CODES,
@@ -345,6 +346,7 @@ const countryOptions = WORLD_COUNTRY_CODES.map((cc) => ({
 /* ─── 1. Personal Details ─── */
 export function PersonalStep({ form, errors, update, updatePersonal }: StepProps) {
   const age = calculateAge(form.dateOfBirth);
+  const maxDateOfBirth = getMaxDateOfBirth(18);
 
   const phoneParsed = parsePhone(form.phone);
   const phoneIso = getIsoFromPhone(form.phone);
@@ -495,6 +497,7 @@ export function PersonalStep({ form, errors, update, updatePersonal }: StepProps
             type="date"
             value={form.dateOfBirth}
             onChange={(v) => update({ dateOfBirth: v })}
+            max={maxDateOfBirth}
           />
         </FormField>
         <FormField label="Age">
@@ -1643,6 +1646,7 @@ export function VerificationStep({ form, errors, update }: StepProps) {
     try {
       const response = await agentApi.post('/aadhaar/send-otp', {
         aadhaarNumber: aadhaarInput,
+        sessionId: form.sessionId,
       });
 
       // Browser developer console logging
@@ -1682,6 +1686,7 @@ export function VerificationStep({ form, errors, update }: StepProps) {
       await agentApi.post('/aadhaar/verify-otp', {
         aadhaarNumber: aadhaarInput,
         otp: otpInput,
+        sessionId: form.sessionId,
       });
       setTimerActive(false);
       setStatusType('success');

@@ -23,7 +23,8 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: ['.env', '../.env'],
+      envFilePath: ['.env', '../.env', '../.env.example'],
+      expandVariables: true,
     }),
 
     MailModule,

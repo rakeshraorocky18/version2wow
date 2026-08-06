@@ -751,4 +751,17 @@ export class Neo4jRepository implements OnModuleDestroy {
   get relationTypes() {
     return Neo4jRelationType;
   }
+
+  async deleteUserNode(userId: string): Promise<boolean> {
+    const rows = await this.run<{ deleted: number }>(
+      `
+      MATCH (u:User {id: $userId})
+      DETACH DELETE u
+      RETURN count(*) AS deleted
+      `,
+      { userId },
+      false,
+    );
+    return (rows[0]?.deleted ?? 0) > 0;
+  }
 }
