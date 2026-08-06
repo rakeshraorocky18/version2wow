@@ -368,7 +368,7 @@ export function PersonalStep({ form, errors, update, updatePersonal }: StepProps
   const [mobileTimerActive, setMobileTimerActive] = useState(false);
 
   useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
+    let interval: ReturnType<typeof setInterval> | null = null;
     if (mobileTimerActive && mobileTimer > 0) {
       interval = setInterval(() => {
         setMobileTimer((t) => t - 1);
@@ -1612,7 +1612,7 @@ export function VerificationStep({ form, errors, update }: StepProps) {
   const [timerActive, setTimerActive] = useState(false);
 
   useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
+    let interval: ReturnType<typeof setInterval> | null = null;
     if (timerActive && timer > 0) {
       interval = setInterval(() => {
         setTimer((t) => t - 1);

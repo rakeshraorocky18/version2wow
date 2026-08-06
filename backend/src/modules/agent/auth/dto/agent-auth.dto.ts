@@ -50,6 +50,11 @@ export class AgentRegisterDto {
 export class UpdateAgentProfileDto {
   @ApiPropertyOptional()
   @IsOptional()
+  @IsEmail()
+  email?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsString()
   firstName?: string;
 
@@ -66,7 +71,7 @@ export class UpdateAgentProfileDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  profileImageUrl?: string;
+  profileImageUrl?: string | null;
 }
 
 export class ChangeAgentPasswordDto {

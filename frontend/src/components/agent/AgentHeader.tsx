@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   Bell,
-  ChevronDown,
   ClipboardList,
   History,
   LayoutDashboard,
+  LogOut,
   Menu,
   Settings,
   UserPlus,
@@ -20,10 +20,9 @@ interface AgentHeaderProps {
   onToggleMobileNav?: () => void;
   mobileOpen?: boolean;
   notificationOpen: boolean;
-  setNotificationOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  setNotificationOpen: (open: boolean) => void;
   unreadCount: number;
 }
-
 
 const navItems = [
   { title: 'Dashboard', path: '/agent/dashboard', icon: LayoutDashboard },
@@ -46,6 +45,17 @@ export default function AgentHeader({
   const user = useAgentAuthStore((s) => s.user);
   const logout = useAgentAuthStore((s) => s.logout);
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const isActive = (path: string) => {
     if (path === '/agent/dashboard') {
@@ -58,106 +68,116 @@ export default function AgentHeader({
   };
 
   const handleLogout = () => {
+    setMenuOpen(false);
     logout();
     navigate('/agent/login');
   };
 
+  const initials = (user?.firstName?.[0] || user?.email?.[0] || 'A').toUpperCase();
+
   return (
     <header className="sticky top-0 z-20 border-b border-gray-100 bg-white/95 px-4 py-3 shadow-sm backdrop-blur md:px-6">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
-      <div className="flex min-w-0 items-center gap-4">
-        <button
-          className="md:hidden p-2 rounded-lg hover:bg-gray-50"
-          onClick={onToggleMobileNav}
-          aria-label="Toggle menu"
-        >
-          {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-        </button>
-        <div className="shrink-0">
-          <WowLogo variant="compact" to="/agent/dashboard" />
+        <div className="flex min-w-0 items-center gap-4">
+          <button
+            type="button"
+            className="rounded-xl p-2 text-gray-600 transition hover:bg-gray-50 lg:hidden"
+            onClick={onToggleMobileNav}
+            aria-label={mobileOpen ? 'Close navigation' : 'Open navigation'}
+            aria-expanded={mobileOpen}
+          >
+            {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
+          <div className="shrink-0">
+            <WowLogo variant="compact" to="/agent/dashboard" />
+          </div>
+
+          <nav className="hidden items-center gap-1 lg:flex">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const active = isActive(item.path);
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  className={`inline-flex items-center gap-2 rounded-2xl px-3.5 py-2 text-sm font-medium transition ${
+                    active
+                      ? 'bg-[#FFF0F4] text-[#E91E63]'
+                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                  }`}
+                  aria-current={active ? 'page' : undefined}
+                >
+                  <Icon className="h-4 w-4" />
+                  {item.title}
+                </Link>
+              );
+            })}
+          </nav>
         </div>
 
-        <nav className="hidden items-center gap-1 lg:flex">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const active = isActive(item.path);
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={`inline-flex items-center gap-2 rounded-2xl px-3 py-2 text-sm font-medium transition ${
-                  active
-                    ? 'bg-[#FFF0F4] text-[#E91E63]'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                }`}
-              >
-                <Icon className="h-4 w-4" />
-                {item.title}
-              </Link>
-            );
-          })}
-        </nav>
-      </div>
-
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          onClick={() => setNotificationOpen(!notificationOpen)}
-          className="relative p-2 rounded-full hover:bg-gray-50 text-gray-500"
-          aria-label="Notifications"
-        >
-          <Bell className="w-6 h-6" />
-          {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#E91E63] px-1 text-[10px] font-semibold leading-none text-white">
-              {unreadCount}
-            </span>
-          )}
-        </button>
-
-        <div className="relative">
+        <div className="flex items-center gap-3">
+          {/* Notifications button */}
           <button
-            onClick={() => setMenuOpen((v) => !v)}
-            className="flex items-center gap-2 rounded-full pl-1 pr-3 py-1 hover:bg-gray-50 transition"
+            type="button"
+            onClick={() => setNotificationOpen(!notificationOpen)}
+            className="relative p-2 rounded-full hover:bg-pink-50/60 text-gray-500 hover:text-[#E91E63] transition-colors"
+            aria-label="Notifications"
+            aria-expanded={notificationOpen}
           >
-            {user?.profileImageUrl ? (
-              <img
-                src={resolveCustomerImageUrl(user.profileImageUrl)}
-                alt="Profile"
-                className="w-9 h-9 rounded-full object-cover"
-              />
-            ) : (
-              <div className="w-9 h-9 rounded-full bg-[#E91E63] text-white flex items-center justify-center text-sm font-semibold">
-                {(user?.firstName?.[0] || user?.email?.[0] || 'A').toUpperCase()}
-              </div>
+            <Bell className="w-5 h-5" />
+            {unreadCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#E91E63] px-1 text-[10px] font-bold leading-none text-white shadow-xs animate-pulse">
+                {unreadCount}
+              </span>
             )}
-            <div className="hidden sm:block text-left">
-              <p className="text-sm font-medium text-gray-900 leading-tight">
-                {user?.name || 'Agent'}
-              </p>
-              <p className="text-xs text-gray-500">Agent</p>
-            </div>
-            <ChevronDown className="w-4 h-4 text-gray-400" />
           </button>
 
-          {menuOpen && (
-            <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-2 z-30">
-              <Link
-                to="/agent/settings"
-                className="block px-4 py-2 text-sm hover:bg-gray-50"
-                onClick={() => setMenuOpen(false)}
+          {/* Round Logo / Avatar button */}
+          <div className="relative" ref={menuRef}>
+            <button
+              onClick={() => setMenuOpen((v) => !v)}
+              className="relative flex items-center justify-center w-10 h-10 rounded-full border-2 border-white shadow-sm ring-2 ring-pink-200/80 hover:ring-[#E91E63] hover:shadow-md transition-all active:scale-95 overflow-hidden"
+              aria-label="Account options"
+              aria-expanded={menuOpen}
+              title="Account options"
+            >
+              {user?.profileImageUrl ? (
+                <img
+                  src={resolveCustomerImageUrl(user.profileImageUrl)}
+                  alt="Avatar"
+                  className="w-full h-full object-cover rounded-full"
+                />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-[#E91E63] via-[#E91E63] to-[#C2185B] text-white flex items-center justify-center text-sm font-extrabold">
+                  {initials}
+                </div>
+              )}
+            </button>
+
+            {/* Dropdown Menu featuring Logout */}
+            {menuOpen && (
+              <div
+                className="absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-xl border border-pink-100/80 p-2 z-30 overflow-hidden"
+                style={{ animation: 'menuFade 0.15s ease-out' }}
               >
-                Profile & Settings
-              </Link>
-              <button
-                onClick={handleLogout}
-                className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-              >
-                Logout
-              </button>
-            </div>
-          )}
+                <style>{`@keyframes menuFade{from{opacity:0;transform:scale(0.95) translateY(-4px)}to{opacity:1;transform:scale(1) translateY(0)}}`}</style>
+                
+                <div className="px-3 py-2 border-b border-gray-100 mb-1">
+                  <p className="text-xs font-bold text-gray-800 truncate">{user?.name || user?.firstName || 'Agent'}</p>
+                  <p className="text-[11px] font-medium text-gray-400 truncate">{user?.email || 'Agent Account'}</p>
+                </div>
+
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center gap-2.5 w-full px-3 py-2.5 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+                >
+                  <LogOut className="w-4 h-4 text-rose-500 shrink-0" />
+                  <span>Logout</span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
       </div>
     </header>
   );

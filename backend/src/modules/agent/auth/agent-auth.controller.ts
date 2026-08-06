@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Patch, Post, Req, UseGuards, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
+import { Body, Controller, Get, Patch, Post, Delete, Req, UseGuards, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -72,6 +72,16 @@ export class AgentAuthController {
     const url = toPublicUrl(`agent-profiles/${file.filename}`);
     const profile = await this.agentAuthService.updateProfilePhoto(req.user.id, url);
     return { url, profile };
+  }
+
+  @Delete('me/photo')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.AGENT)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Remove agent profile photo' })
+  async removeProfilePhoto(@Req() req: { user: { id: string } }) {
+    const profile = await this.agentAuthService.removeProfilePhoto(req.user.id);
+    return { profile };
   }
 
   @Post('change-password')

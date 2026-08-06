@@ -5321,7 +5321,7 @@ header.sticky {
 .compact-view .p-4 {
   padding: 0.5rem !important;
 }
-.compact-view .py-3.5, .compact-view .py-4 {
+.compact-view .py-3\.5, .compact-view .py-4 {
   padding-top: 0.35rem !important;
   padding-bottom: 0.35rem !important;
 }
@@ -5339,5 +5339,4 @@ header.sticky {
   padding-top: 0.25rem !important;
   padding-bottom: 0.25rem !important;
 }
-
 

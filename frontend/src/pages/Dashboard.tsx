@@ -96,10 +96,10 @@ export default function Dashboard() {
   };
 
   const matchmakingStats = [
-    { label: 'Matches Found', value: newMatchesCount, subtitle: 'Fresh recommendations ready', icon: <Heart className="w-5 h-5" />, to: '/app/matches', animateValue: true },
-    { label: 'Conversations', value: activeConversationsCount, subtitle: 'Active chats in motion', icon: <MessageCircle className="w-5 h-5" />, to: '/app/chat', animateValue: true },
-    { label: 'Interest Requests', value: pendingRequests, subtitle: 'Waiting for your reply', icon: <Star className="w-5 h-5" />, to: '/app/matches', animateValue: true },
-    { label: 'Compatibility', value: `${compatibilityScore}%`, subtitle: 'Best fit score', icon: <Flame className="w-5 h-5" />, to: '/app/profile', animateValue: false },
+    { label: 'Matches Found', value: newMatchesCount, subtitle: 'Fresh recommendations ready', icon: Heart, to: '/app/matches', animateValue: true },
+    { label: 'Conversations', value: activeConversationsCount, subtitle: 'Active chats in motion', icon: MessageCircle, to: '/app/chat', animateValue: true },
+    { label: 'Interest Requests', value: pendingRequests, subtitle: 'Waiting for your reply', icon: Star, to: '/app/matches?tab=interests', animateValue: true },
+    { label: 'Compatibility', value: `${compatibilityScore}%`, subtitle: 'Best fit score', icon: Flame, to: '/app/profile', animateValue: false },
   ];
 
   return (
@@ -145,7 +145,6 @@ export default function Dashboard() {
                 accent="text-[#B76E79]"
                 iconBg="bg-[#FFF0F4]"
                 delay={index}
-                animateValue={stat.animateValue}
               />
             ))}
           </section>

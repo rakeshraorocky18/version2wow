@@ -20,7 +20,7 @@ import type { VendorItem } from '../components/dashboard/VendorCarousel';
 import type { ActivityItem } from '../components/dashboard/RecentActivity';
 import type { WeddingMilestone } from '../components/dashboard/ProgressCard';
 import type { PlannerTimeline as PlannerTimelineData } from '../types/planner';
-import { EMPTY_FILTERS, type MatchInterest, type MatchProfile } from '../types/matchmaking';
+import type { MatchInterest, MatchProfile } from '../types/matchmaking';
 
 interface BudgetSummary {
   totalBudget: number;
@@ -668,13 +668,12 @@ export function useDashboard() {
   // const { data: shortlistData } = useShortlist();
   const { data: plannerPlans = [] } = usePlannerPlans();
 
-  // Fallback values for commented hooks
-  const myProfile = null as Partial<MatchProfile> | null;
+  const myProfile = useMemo<Partial<MatchProfile> | null>(() => null, []);
   const receivedInterests: MatchInterest[] = [];
   const sentInterests: MatchInterest[] = [];
   const acceptedInterests: MatchInterest[] = [];
-  const suggestionsData = null as { profiles?: MatchProfile[] } | null;
-  const shortlistData = null as { profiles?: MatchProfile[] } | null;
+  const suggestionsData = useMemo<{ profiles?: MatchProfile[] } | null>(() => null, []);
+  const shortlistData = useMemo<{ profiles?: MatchProfile[] } | null>(() => null, []);
 
   const activePlan = plannerPlans[0] ?? null;
   const activePlanId = activePlan?.id ?? '';

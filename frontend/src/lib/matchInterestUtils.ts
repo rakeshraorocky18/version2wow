@@ -43,15 +43,15 @@ function matchesProfile(profile: ProfileRef, match: MatchInterest, currentUserId
   if (match.receiverId && keys.has(match.receiverId)) return true;
   if (match.senderId && keys.has(match.senderId)) return true;
   if (currentUserId && match.senderId === currentUserId && match.receiverProfile) {
-    return (
-      (!!match.receiverProfile.id && keys.has(match.receiverProfile.id)) ||
-      (!!match.receiverProfile.userId && keys.has(match.receiverProfile.userId))
+    return Boolean(
+      (match.receiverProfile.id && keys.has(match.receiverProfile.id)) ||
+        (match.receiverProfile.userId && keys.has(match.receiverProfile.userId)),
     );
   }
   if (currentUserId && match.receiverId === currentUserId && match.senderProfile) {
-    return (
-      (!!match.senderProfile.id && keys.has(match.senderProfile.id)) ||
-      (!!match.senderProfile.userId && keys.has(match.senderProfile.userId))
+    return Boolean(
+      (match.senderProfile.id && keys.has(match.senderProfile.id)) ||
+        (match.senderProfile.userId && keys.has(match.senderProfile.userId)),
     );
   }
   return false;

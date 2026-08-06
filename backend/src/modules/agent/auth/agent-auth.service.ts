@@ -159,6 +159,15 @@ export class AgentAuthService {
     if (!user || user.role !== UserRole.AGENT) {
       throw new UnauthorizedException('Not an agent account');
     }
+    if (dto.email && dto.email.trim().toLowerCase() !== user.email.toLowerCase()) {
+      const newEmail = dto.email.trim().toLowerCase();
+      const existing = await this.userRepo.findOne({ where: { email: newEmail } });
+      if (existing && existing.id !== userId) {
+        throw new ConflictException('Email address is already in use by another account');
+      }
+      user.email = newEmail;
+      await this.userRepo.save(user);
+    }
     let profile = await this.agentProfileRepo.findOne({ where: { userId } });
     if (!profile) {
       profile = this.agentProfileRepo.create({ userId, firstName: dto.firstName ?? '' });
@@ -182,6 +191,19 @@ export class AgentAuthService {
     }
     profile.profileImageUrl = fileUrl;
     await this.agentProfileRepo.save(profile);
+    return this.mapUser(user, profile);
+  }
+
+  async removeProfilePhoto(userId: string) {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user || user.role !== UserRole.AGENT) {
+      throw new UnauthorizedException('Not an agent account');
+    }
+    let profile = await this.agentProfileRepo.findOne({ where: { userId } });
+    if (profile) {
+      profile.profileImageUrl = null;
+      await this.agentProfileRepo.save(profile);
+    }
     return this.mapUser(user, profile);
   }
 
