@@ -28,7 +28,7 @@ export class AgentProfileEntity {
   @Column({ nullable: true })
   employeeCode: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   profileImageUrl: string | null;
 
   @Column({ default: true })
